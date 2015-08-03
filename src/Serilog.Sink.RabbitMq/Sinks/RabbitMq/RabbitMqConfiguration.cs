@@ -1,11 +1,11 @@
 ﻿using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMq.Sinks.RabbitMq
+namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
 {
     /// <summary>
     /// Configuration class for RabbitMqClient
     /// </summary>
-    public class RabbitMqConfiguration
+    public class RabbitMQConfiguration
     {
         public string Hostname = "";
         public string Username = "";

@@ -1,8 +1,8 @@
 ﻿using System;
 using Serilog.Configuration;
 using Serilog.Formatting;
-using Serilog.Sinks.RabbitMq;
-using Serilog.Sinks.RabbitMq.Sinks.RabbitMq;
+using Serilog.Sinks.RabbitMQ;
+using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog
 {
@@ -20,14 +20,14 @@ namespace Serilog
         /// <returns></returns>
         public static LoggerConfiguration RabbitMq(
             this LoggerSinkConfiguration loggerConfiguration,
-            RabbitMqConfiguration rabbitMqConfiguration,
+            RabbitMQConfiguration rabbitMqConfiguration,
             ITextFormatter formatter,
             IFormatProvider formatProvider = null)
         {
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             return
                 loggerConfiguration
-                    .Sink(new RabbitMqSink(rabbitMqConfiguration, formatter, formatProvider));
+                    .Sink(new RabbitMQSink(rabbitMqConfiguration, formatter, formatProvider));
         }
     }
 }

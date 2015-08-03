@@ -51,11 +51,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="LoggerConfigurationRabbitMqExtension.cs" />
+    <Compile Include="LoggerConfigurationRabbitMQExtension.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Sinks\RabbitMq\RabbitMqClient.cs" />
-    <Compile Include="Sinks\RabbitMq\RabbitMqConfiguration.cs" />
-    <Compile Include="Sinks\RabbitMq\RabbitMqSink.cs" />
+    <Compile Include="Sinks\RabbitMQ\RabbitMQClient.cs" />
+    <Compile Include="Sinks\RabbitMQ\RabbitMQConfiguration.cs" />
+    <Compile Include="Sinks\RabbitMQ\RabbitMQSink.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

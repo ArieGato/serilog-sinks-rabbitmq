@@ -1,13 +1,13 @@
 ﻿using System;
 using RabbitMQ.Client;
-using Serilog.Sinks.RabbitMq.Sinks.RabbitMq;
+using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
-namespace Serilog.Sinks.RabbitMq
+namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq
     /// </summary>
-    public class RabbitMqClient
+    public class RabbitMQClient
     {
         //configuration members
         public string Hostname;
@@ -31,7 +31,7 @@ namespace Serilog.Sinks.RabbitMq
         /// Constructor for RabbitMqClient
         /// </summary>
         /// <param name="configuration">mandatory</param>
-        public RabbitMqClient(RabbitMqConfiguration configuration)
+        public RabbitMQClient(RabbitMQConfiguration configuration)
         {
             //map members from configuration
             Hostname = configuration.Hostname;

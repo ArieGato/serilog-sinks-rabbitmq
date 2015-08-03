@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Serilog.Sinks.RabbitMq", "src\Serilog.Sink.RabbitMq\Serilog.Sinks.RabbitMq.csproj", "{42572718-942B-4CA3-858A-5C9DF155E3AF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Serilog.Sinks.RabbitMQ", "src\Serilog.Sink.RabbitMq\Serilog.Sinks.RabbitMQ.csproj", "{42572718-942B-4CA3-858A-5C9DF155E3AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
