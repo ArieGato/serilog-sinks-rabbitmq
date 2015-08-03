@@ -35,7 +35,7 @@ namespace Serilog.Sinks.RabbitMq
         /// <param name="logEvent"></param>
         public void Emit(LogEvent logEvent)
         {
-            TextWriter writer = new StringWriter();
+            var writer = new StringWriter();
             _formatter.Format(logEvent, writer);
             _client.Publish(writer.ToString());
         }

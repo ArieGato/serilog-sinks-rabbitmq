@@ -55,7 +55,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Sinks\RabbitMq\RabbitMqClient.cs" />
     <Compile Include="Sinks\RabbitMq\RabbitMqConfiguration.cs" />
-    <Compile Include="Sinks\RabbitMq\RabbitMqMessage.cs" />
     <Compile Include="Sinks\RabbitMq\RabbitMqSink.cs" />
   </ItemGroup>
   <ItemGroup>
