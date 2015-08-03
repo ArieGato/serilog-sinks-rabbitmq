@@ -92,21 +92,7 @@ namespace Serilog.Sinks.RabbitMQ
         public void Publish(string message)
         {
             //push message to queue
-            Model.BasicPublish(Address, Properties, GetBytes(message));
+            Model.BasicPublish(Address, Properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
-
-        #region Helpers
-        /// <summary>
-        /// Helper that converts a string to a byte array
-        /// </summary>
-        /// <param name="s"></param>
-        /// <returns></returns>
-        private static byte[] GetBytes(string s)
-        {
-            var b = new byte[s.Length * sizeof(char)];
-            Buffer.BlockCopy(s.ToCharArray(), 0, b, 0, b.Length);
-            return b;
-        }
-        #endregion
     }
 }
