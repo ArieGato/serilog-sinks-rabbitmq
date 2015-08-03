@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Serilog.Sinks.RabbitMq", "Serilog.Sinks.RabbitMq.csproj", "{186AACC8-1A3C-47FA-BD77-1D35DFA8BC97}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Serilog.Sinks.RabbitMq", "src\Serilog.Sink.RabbitMq\Serilog.Sinks.RabbitMq.csproj", "{42572718-942B-4CA3-858A-5C9DF155E3AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -9,10 +9,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{186AACC8-1A3C-47FA-BD77-1D35DFA8BC97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{186AACC8-1A3C-47FA-BD77-1D35DFA8BC97}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{186AACC8-1A3C-47FA-BD77-1D35DFA8BC97}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{186AACC8-1A3C-47FA-BD77-1D35DFA8BC97}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42572718-942B-4CA3-858A-5C9DF155E3AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42572718-942B-4CA3-858A-5C9DF155E3AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42572718-942B-4CA3-858A-5C9DF155E3AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42572718-942B-4CA3-858A-5C9DF155E3AF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
