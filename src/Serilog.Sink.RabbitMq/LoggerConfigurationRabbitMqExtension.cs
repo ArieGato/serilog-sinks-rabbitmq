@@ -25,6 +25,8 @@ namespace Serilog
             IFormatProvider formatProvider = null)
         {
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
+            if (rabbitMqConfiguration == null) throw new ArgumentNullException("rabbitMqConfiguration");
+            if (formatter == null) throw new ArgumentNullException("formatter");
             return
                 loggerConfiguration
                     .Sink(new RabbitMQSink(rabbitMqConfiguration, formatter, formatProvider));
