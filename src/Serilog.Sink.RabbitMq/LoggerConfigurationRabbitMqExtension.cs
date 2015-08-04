@@ -16,6 +16,7 @@ namespace Serilog
         /// </summary>
         /// <param name="loggerConfiguration"></param>
         /// <param name="rabbitMqConfiguration">Mandatory RabbitMq configuration</param>
+        /// <param name="rabbitMqConfiguration">Mandatory formatter</param>
         /// <param name="formatProvider">Optional formatProvider. If not specified, then default is 'null'</param>
         /// <returns></returns>
         public static LoggerConfiguration RabbitMQ(
