@@ -1,8 +1,11 @@
 ﻿using System;
 using System.IO;
+using RabbitMQ.Client;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
+using Serilog.Formatting.Json;
+using Serilog.Formatting.Raw;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
@@ -16,17 +19,17 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly RabbitMQClient _client;
         private readonly ITextFormatter _formatter;
 
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="configuration">Mandatory RabbitMqConfiguration</param>
-        /// <param name="formatter">ITextFormatter - for instance JsonFormatter</param>
-        /// <param name="formatProvider">Optional formatProvider (null is allowed)</param>
-        public RabbitMQSink(RabbitMQConfiguration configuration, ITextFormatter formatter, IFormatProvider formatProvider)
+        public RabbitMQSink(
+            RabbitMQConfiguration configuration,
+            ITextFormatter formatter,
+            IFormatProvider formatProvider
+       )
         {
+
+            //prepare client
             _client = new RabbitMQClient(configuration);
             _formatProvider = formatProvider;
-            _formatter = formatter;
+            _formatter = formatter ?? new RawFormatter();
         }
 
         /// <summary>

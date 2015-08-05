@@ -1,4 +1,5 @@
 ﻿using System;
+using RabbitMQ.Client;
 using Serilog.Configuration;
 using Serilog.Formatting;
 using Serilog.Sinks.RabbitMQ;
@@ -14,11 +15,6 @@ namespace Serilog
         /// <summary>
         /// Adds a sink that lets you push log messages to RabbitMq
         /// </summary>
-        /// <param name="loggerConfiguration"></param>
-        /// <param name="rabbitMqConfiguration">Mandatory RabbitMq configuration</param>
-        /// <param name="formatter">Mandatory formatter</param>
-        /// <param name="formatProvider">Optional formatProvider. If not specified, then default is 'null'</param>
-        /// <returns></returns>
         public static LoggerConfiguration RabbitMQ(
             this LoggerSinkConfiguration loggerConfiguration,
             RabbitMQConfiguration rabbitMqConfiguration,
@@ -27,10 +23,65 @@ namespace Serilog
         {
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (rabbitMqConfiguration == null) throw new ArgumentNullException("rabbitMqConfiguration");
-            if (formatter == null) throw new ArgumentNullException("formatter");
+
+            //calls overloaded extension method
+            return loggerConfiguration.RabbitMQ(
+                rabbitMqConfiguration.Hostname,
+                rabbitMqConfiguration.Username,
+                rabbitMqConfiguration.Password,
+                rabbitMqConfiguration.Exchange,
+                rabbitMqConfiguration.Queue,
+                rabbitMqConfiguration.RouteKey,
+                rabbitMqConfiguration.Port,
+                rabbitMqConfiguration.VHost,
+                rabbitMqConfiguration.Protocol,
+                formatter,
+                formatProvider);
+        }
+        
+        /// <summary>
+        /// Configures Serilog logger configuration with RabbitMQ
+        /// </summary>
+        public static LoggerConfiguration RabbitMQ(
+            this LoggerSinkConfiguration loggerConfiguration,
+            string hostname,
+            string username,
+            string password,
+            string exchange,
+            string queue,
+            string routeKey,
+            int port,
+            string vHost,
+            IProtocol protocol,
+            ITextFormatter formatter,
+            IFormatProvider formatProvider = null)
+        {
+            //guards
+            if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
+            if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
+            if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
+            if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
+            if (string.IsNullOrEmpty(exchange)) throw new ArgumentException("exchange cannot be 'null'. Specify a valid exchange.");
+            if (string.IsNullOrEmpty(queue)) throw new ArgumentException("queue cannot be 'null'. Specify a valid queue.");
+            if (port <= 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
+
+            //setup configuration
+            var config = new RabbitMQConfiguration
+            {
+                Hostname = hostname,
+                Username = username,
+                Password = password,
+                Exchange = exchange,
+                Queue = queue,
+                RouteKey = routeKey ?? "",
+                Port = port,
+                VHost = vHost ?? "",
+                Protocol = protocol ?? Protocols.DefaultProtocol
+            };
+            
             return
                 loggerConfiguration
-                    .Sink(new RabbitMQSink(rabbitMqConfiguration, formatter, formatProvider));
+                    .Sink(new RabbitMQSink(config, formatter, formatProvider));
         }
     }
 }
