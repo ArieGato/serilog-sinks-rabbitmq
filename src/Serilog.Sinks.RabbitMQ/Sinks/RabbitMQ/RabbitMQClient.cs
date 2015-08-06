@@ -22,23 +22,15 @@ namespace Serilog.Sinks.RabbitMQ
     /// </summary>
     public class RabbitMQClient
     {
-        // configuration members
-        public string Hostname;
-        public string Username;
-        public string Password;
-        public string Exchange;
-        public string Queue;
-        public string RouteKey;
-        public int Port;
-        public string VHost;
-        public IProtocol Protocol;
+        // configuration member
+        private readonly RabbitMQConfiguration _config;
+        private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        public IConnectionFactory ConnectionFactory;
-        public IConnection Connection;
-        public IModel Model;
-        public IBasicProperties Properties;
-        public PublicationAddress Address;
+        private IConnectionFactory _connectionFactory;
+        private IConnection _connection;
+        private IModel _model;
+        private IBasicProperties _properties;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -46,19 +38,9 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="configuration">mandatory</param>
         public RabbitMQClient(RabbitMQConfiguration configuration)
         {
-            //map members from configuration
-            Hostname = configuration.Hostname;
-            Username = configuration.Username;
-            Password = configuration.Password;
-            Exchange = configuration.Exchange;
-            Queue = configuration.Queue;
-            RouteKey = configuration.RouteKey;
-            Port = configuration.Port;
-            VHost = configuration.VHost;
-            Protocol = configuration.Protocol;
-
-            // prepare publication address
-            Address = new PublicationAddress(ExchangeType.Topic, Exchange, RouteKey);
+            // load configuration
+            _config = configuration;
+            _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
             // initialize 
             InitializeEndpoint();
@@ -71,10 +53,11 @@ namespace Serilog.Sinks.RabbitMQ
         private void InitializeEndpoint()
         {
             // prepare endpoint
-            ConnectionFactory = GetConnectionFactory();
-            Connection = ConnectionFactory.CreateConnection();
-            Model = Connection.CreateModel();
-            Properties = Model.CreateBasicProperties();
+            _connectionFactory = GetConnectionFactory();
+            _connection = _connectionFactory.CreateConnection();
+            _model = _connection.CreateModel();
+            _properties = _model.CreateBasicProperties();
+            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
         }
 
         /// <summary>
@@ -85,14 +68,14 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // prepare connection factory
             var connectionFactory = new ConnectionFactory();
-            connectionFactory.HostName = Hostname;
-            connectionFactory.UserName = Username;
-            connectionFactory.Password = Password;
+            connectionFactory.HostName = _config.Hostname;
+            connectionFactory.UserName = _config.Username;
+            connectionFactory.Password = _config.Password;
 
             // only set, if has value, otherwise leave default
-            if (Port > 0) connectionFactory.Port = Port;
-            if (!string.IsNullOrEmpty(VHost)) connectionFactory.VirtualHost = VHost;
-            if (Protocol != null) connectionFactory.Protocol = Protocol;
+            if (_config.Port > 0) connectionFactory.Port = _config.Port;
+            if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
+            if (_config.Protocol != null) connectionFactory.Protocol = _config.Protocol;
 
             // return factory
             return connectionFactory;
@@ -105,7 +88,7 @@ namespace Serilog.Sinks.RabbitMQ
         public void Publish(string message)
         {
             // push message to queue
-            Model.BasicPublish(Address, Properties, System.Text.Encoding.UTF8.GetBytes(message));
+            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
     }
 }

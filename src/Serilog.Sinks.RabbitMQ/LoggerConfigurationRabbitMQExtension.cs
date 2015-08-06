@@ -44,7 +44,9 @@ namespace Serilog
                 rabbitMqConfiguration.Username,
                 rabbitMqConfiguration.Password,
                 rabbitMqConfiguration.Exchange,
+                rabbitMqConfiguration.ExchangeType,
                 rabbitMqConfiguration.Queue,
+                rabbitMqConfiguration.DeliveryMode,
                 rabbitMqConfiguration.RouteKey,
                 rabbitMqConfiguration.Port,
                 rabbitMqConfiguration.VHost,
@@ -62,7 +64,9 @@ namespace Serilog
             string username,
             string password,
             string exchange,
+            string echangeType,
             string queue,
+            RabbitMQDeliveryMode deliveryMode,
             string routeKey,
             int port,
             string vHost,
@@ -75,7 +79,6 @@ namespace Serilog
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
             if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (string.IsNullOrEmpty(exchange)) throw new ArgumentException("exchange cannot be 'null'. Specify a valid exchange.");
             if (string.IsNullOrEmpty(queue)) throw new ArgumentException("queue cannot be 'null'. Specify a valid queue.");
             if (port <= 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
@@ -85,11 +88,13 @@ namespace Serilog
                 Hostname = hostname,
                 Username = username,
                 Password = password,
-                Exchange = exchange,
+                Exchange = exchange ?? string.Empty,
+                ExchangeType = echangeType ?? string.Empty,
                 Queue = queue,
-                RouteKey = routeKey ?? "",
+                DeliveryMode = deliveryMode,
+                RouteKey = routeKey ?? string.Empty,
                 Port = port,
-                VHost = vHost ?? "",
+                VHost = vHost ?? string.Empty,
                 Protocol = protocol ?? Protocols.DefaultProtocol
             };
             

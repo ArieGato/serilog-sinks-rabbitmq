@@ -11,6 +11,7 @@
     <iconUrl>http://serilog.net/images/serilog-sink-nuget.png</iconUrl>
     <tags>serilog logging</tags>
     <dependencies>
+      <dependency id="RabbitMQ.Client" version="[3.5.4,4)" />
       <dependency id="Serilog" version="[1.5.9,2)" />
     </dependencies>
   </metadata>
