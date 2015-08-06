@@ -26,7 +26,7 @@ namespace Serilog.Sinks.RabbitMQ
        )
         {
 
-            //prepare client
+            // prepare client
             _client = new RabbitMQClient(configuration);
             _formatProvider = formatProvider;
             _formatter = formatter ?? new RawFormatter();

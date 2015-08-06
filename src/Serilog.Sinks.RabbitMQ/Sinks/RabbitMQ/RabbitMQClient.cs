@@ -9,7 +9,7 @@ namespace Serilog.Sinks.RabbitMQ
     /// </summary>
     public class RabbitMQClient
     {
-        //configuration members
+        // configuration members
         public string Hostname;
         public string Username;
         public string Password;
@@ -20,7 +20,7 @@ namespace Serilog.Sinks.RabbitMQ
         public string VHost;
         public IProtocol Protocol;
 
-        //endpoint members
+        // endpoint members
         public IConnectionFactory ConnectionFactory;
         public IConnection Connection;
         public IModel Model;
@@ -44,10 +44,10 @@ namespace Serilog.Sinks.RabbitMQ
             VHost = configuration.VHost;
             Protocol = configuration.Protocol;
 
-            //prepare publication address
+            // prepare publication address
             Address = new PublicationAddress(ExchangeType.Topic, Exchange, RouteKey);
 
-            //initialize 
+            // initialize 
             InitializeEndpoint();
         }
 
@@ -57,7 +57,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// </summary>
         private void InitializeEndpoint()
         {
-            //prepare endpoint
+            // prepare endpoint
             ConnectionFactory = GetConnectionFactory();
             Connection = ConnectionFactory.CreateConnection();
             Model = Connection.CreateModel();
@@ -70,18 +70,18 @@ namespace Serilog.Sinks.RabbitMQ
         /// <returns></returns>
         private IConnectionFactory GetConnectionFactory()
         {
-            //prepare connection factory
+            // prepare connection factory
             var connectionFactory = new ConnectionFactory();
             connectionFactory.HostName = Hostname;
             connectionFactory.UserName = Username;
             connectionFactory.Password = Password;
 
-            //only set, if has value, otherwise leave default
+            // only set, if has value, otherwise leave default
             if (Port > 0) connectionFactory.Port = Port;
             if (!string.IsNullOrEmpty(VHost)) connectionFactory.VirtualHost = VHost;
             if (Protocol != null) connectionFactory.Protocol = Protocol;
 
-            //return factory
+            // return factory
             return connectionFactory;
         }
 
@@ -91,7 +91,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public void Publish(string message)
         {
-            //push message to queue
+            // push message to queue
             Model.BasicPublish(Address, Properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
     }

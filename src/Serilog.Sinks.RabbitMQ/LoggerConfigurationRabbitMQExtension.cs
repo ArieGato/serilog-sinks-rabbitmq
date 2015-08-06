@@ -24,7 +24,7 @@ namespace Serilog
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (rabbitMqConfiguration == null) throw new ArgumentNullException("rabbitMqConfiguration");
 
-            //calls overloaded extension method
+            // calls overloaded extension method
             return loggerConfiguration.RabbitMQ(
                 rabbitMqConfiguration.Hostname,
                 rabbitMqConfiguration.Username,
@@ -56,7 +56,7 @@ namespace Serilog
             ITextFormatter formatter,
             IFormatProvider formatProvider = null)
         {
-            //guards
+            // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
             if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
@@ -65,7 +65,7 @@ namespace Serilog
             if (string.IsNullOrEmpty(queue)) throw new ArgumentException("queue cannot be 'null'. Specify a valid queue.");
             if (port <= 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
-            //setup configuration
+            // setup configuration
             var config = new RabbitMQConfiguration
             {
                 Hostname = hostname,

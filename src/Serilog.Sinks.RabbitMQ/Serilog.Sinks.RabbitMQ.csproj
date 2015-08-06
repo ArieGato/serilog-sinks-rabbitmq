@@ -58,6 +58,7 @@
     <Compile Include="Sinks\RabbitMQ\RabbitMQSink.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Build.ps1" />
     <None Include="packages.config" />
     <None Include="Serilog.Sinks.RabbitMQ.nuspec" />
   </ItemGroup>
