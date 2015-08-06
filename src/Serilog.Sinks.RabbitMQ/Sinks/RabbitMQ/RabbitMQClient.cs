@@ -56,6 +56,7 @@ namespace Serilog.Sinks.RabbitMQ
             _connectionFactory = GetConnectionFactory();
             _connection = _connectionFactory.CreateConnection();
             _model = _connection.CreateModel();
+
             _properties = _model.CreateBasicProperties();
             _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
         }
@@ -71,6 +72,10 @@ namespace Serilog.Sinks.RabbitMQ
             connectionFactory.HostName = _config.Hostname;
             connectionFactory.UserName = _config.Username;
             connectionFactory.Password = _config.Password;
+
+            // setup heartbeat if needed
+            if (_config.Heartbeat > 0)
+                connectionFactory.RequestedHeartbeat = _config.Heartbeat;
 
             // only set, if has value, otherwise leave default
             if (_config.Port > 0) connectionFactory.Port = _config.Port;

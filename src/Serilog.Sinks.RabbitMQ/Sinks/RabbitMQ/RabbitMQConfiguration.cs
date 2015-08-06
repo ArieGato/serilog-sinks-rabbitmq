@@ -32,5 +32,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public int Port;
         public string VHost = string.Empty;
         public IProtocol Protocol;
+        public ushort Heartbeat;
     }
 }

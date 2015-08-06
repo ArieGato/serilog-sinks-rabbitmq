@@ -50,6 +50,7 @@ namespace Serilog
                 rabbitMqConfiguration.RouteKey,
                 rabbitMqConfiguration.Port,
                 rabbitMqConfiguration.VHost,
+                rabbitMqConfiguration.Heartbeat,
                 rabbitMqConfiguration.Protocol,
                 formatter,
                 formatProvider);
@@ -64,12 +65,13 @@ namespace Serilog
             string username,
             string password,
             string exchange,
-            string echangeType,
+            string exchangeType,
             string queue,
             RabbitMQDeliveryMode deliveryMode,
             string routeKey,
             int port,
             string vHost,
+            ushort heartbeat,
             IProtocol protocol,
             ITextFormatter formatter,
             IFormatProvider formatProvider = null)
@@ -89,13 +91,14 @@ namespace Serilog
                 Username = username,
                 Password = password,
                 Exchange = exchange ?? string.Empty,
-                ExchangeType = echangeType ?? string.Empty,
+                ExchangeType = exchangeType ?? string.Empty,
                 Queue = queue,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
                 Port = port,
                 VHost = vHost ?? string.Empty,
-                Protocol = protocol ?? Protocols.DefaultProtocol
+                Protocol = protocol ?? Protocols.DefaultProtocol,
+                Heartbeat = heartbeat
             };
             
             return
