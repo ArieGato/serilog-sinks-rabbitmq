@@ -16,8 +16,8 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="bin\Release\Serilog.Sinks.RabbitMQ.dll" target="lib\net45" />
-    <file src="bin\Release\Serilog.Sinks.RabbitMQ.xml" target="lib\net45" />
-    <file src="bin\Release\Serilog.Sinks.RabbitMQ.pdb" target="lib\net45" />
+    <file src="..\..\bin\Release\Serilog.Sinks.RabbitMQ.dll" target="lib\net45" />
+    <file src="..\..\bin\Release\Serilog.Sinks.RabbitMQ.xml" target="lib\net45" />
+    <file src="..\..\bin\Release\Serilog.Sinks.RabbitMQ.pdb" target="lib\net45" />
   </files>
 </package>
