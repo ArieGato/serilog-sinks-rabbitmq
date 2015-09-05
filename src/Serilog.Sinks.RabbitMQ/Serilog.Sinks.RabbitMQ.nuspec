@@ -15,5 +15,7 @@
       <dependency id="RabbitMQ.Client" version="[3.5.4,4)" />
     </dependencies>
   </metadata>
-  <file src="src\Serilog.Sinks.RabbitMQ\bin\Release\Serilog.Sinks.RabbitMQ.dll" target="lib\net45" />
+  <files>
+    <file src="bin\Release\Serilog.Sinks.RabbitMQ.dll" target="lib\net45" />  
+  </files>
 </package>
