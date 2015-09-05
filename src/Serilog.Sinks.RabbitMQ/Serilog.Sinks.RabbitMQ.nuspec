@@ -11,13 +11,8 @@
     <iconUrl>http://serilog.net/images/serilog-sink-nuget.png</iconUrl>
     <tags>serilog logging rabbitmq error</tags>
     <dependencies>
-      <dependency id="RabbitMQ.Client" version="[3.5.4,4)" />
       <dependency id="Serilog" version="[1.5.9,2)" />
+      <dependency id="RabbitMQ.Client" version="[3.5.4,4)" />
     </dependencies>
   </metadata>
-  <files>
-     <file src="bin\Release\Serilog.Sinks.RabbitMQ.dll" target="lib\net45" />
-     <file src="bin\Release\Serilog.Sinks.RabbitMQ.xml" target="lib\net45" />
-     <file src="bin\Release\Serilog.Sinks.RabbitMQ.pdb" target="lib\net45" />
-  </files>
 </package>
