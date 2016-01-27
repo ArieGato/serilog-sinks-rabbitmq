@@ -29,9 +29,7 @@ namespace Serilog.Sinks.RabbitMQ
 
         // endpoint members
         private IConnectionFactory _connectionFactory;
-        private IConnection _connection;
-        private IModel _model;
-        private IBasicProperties _properties;
+        private Lazy<ModelWithProperties> _modelWithProperties;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -55,11 +53,16 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // prepare endpoint
             _connectionFactory = GetConnectionFactory();
-            _connection = _connectionFactory.CreateConnection();
-            _model = _connection.CreateModel();
+            _modelWithProperties = new Lazy<ModelWithProperties>(() =>
+            {
+                var model = _connectionFactory
+                    .CreateConnection()
+                    .CreateModel();
 
-            _properties = _model.CreateBasicProperties();
-            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
+                var basicProperties = model.CreateBasicProperties();
+                basicProperties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
+                return new ModelWithProperties(model, basicProperties);
+            });
         }
 
         /// <summary>
@@ -98,7 +101,23 @@ namespace Serilog.Sinks.RabbitMQ
         public void Publish(string message)
         {
             // push message to queue
-            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
+            _modelWithProperties.Value.Model.BasicPublish(_publicationAddress,
+                _modelWithProperties.Value.Properties, System.Text.Encoding.UTF8.GetBytes(message));
+        }
+
+        internal class ModelWithProperties
+        {
+            public IModel Model { get { return _model; } }
+            public IBasicProperties Properties { get { return _properties; } }
+
+            private readonly IModel _model;
+            private readonly IBasicProperties _properties;
+
+            public ModelWithProperties(IModel model, IBasicProperties properties)
+            {
+                _model = model;
+                _properties = properties;
+            }
         }
     }
 }
