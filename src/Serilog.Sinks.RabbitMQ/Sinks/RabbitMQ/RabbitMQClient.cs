@@ -14,6 +14,8 @@
 
 using System;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
+using Serilog.Debugging;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
@@ -28,8 +30,8 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        private IConnectionFactory _connectionFactory;
-        private Lazy<ModelWithProperties> _modelWithProperties;
+        private Func<ModelWithProperties> _modelWithPropertiesFactory;
+        private ModelWithProperties _modelWithProperties;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -41,28 +43,17 @@ namespace Serilog.Sinks.RabbitMQ
             _config = configuration;
             _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
-            // initialize 
-            InitializeEndpoint();
-        }
-
-        /// <summary>
-        /// Private method, that must be run for the client to work.
-        /// <remarks>See constructor</remarks>
-        /// </summary>
-        private void InitializeEndpoint()
-        {
-            // prepare endpoint
-            _connectionFactory = GetConnectionFactory();
-            _modelWithProperties = new Lazy<ModelWithProperties>(() =>
+            // Lazy 
+            _modelWithPropertiesFactory = () =>
             {
-                var model = _connectionFactory
+                var model = GetConnectionFactory()
                     .CreateConnection()
                     .CreateModel();
 
                 var basicProperties = model.CreateBasicProperties();
                 basicProperties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
                 return new ModelWithProperties(model, basicProperties);
-            });
+            };
         }
 
         /// <summary>
@@ -100,9 +91,30 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public void Publish(string message)
         {
-            // push message to queue
-            _modelWithProperties.Value.Model.BasicPublish(_publicationAddress,
-                _modelWithProperties.Value.Properties, System.Text.Encoding.UTF8.GetBytes(message));
+            var modelAndProperties = LazilyInitializeModel();
+            if (modelAndProperties == null)
+            {
+                SelfLog.WriteLine("Could not connect to RabbitMQ broker");
+                return;
+            }
+            modelAndProperties.Model.BasicPublish(_publicationAddress,
+                modelAndProperties.Properties, System.Text.Encoding.UTF8.GetBytes(message));
+        }
+
+        private ModelWithProperties LazilyInitializeModel()
+        {
+            if (_modelWithProperties == null)
+            {
+                try
+                {
+                    _modelWithProperties = _modelWithPropertiesFactory();
+                }
+                catch (BrokerUnreachableException e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+            }
+            return _modelWithProperties;
         }
 
         internal class ModelWithProperties
