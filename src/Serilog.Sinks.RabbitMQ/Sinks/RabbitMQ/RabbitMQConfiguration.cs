@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
@@ -33,5 +34,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public string VHost = string.Empty;
         public IProtocol Protocol;
         public ushort Heartbeat;
+        public int BatchPostingLimit;
+        public TimeSpan Period;
     }
 }

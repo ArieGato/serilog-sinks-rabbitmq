@@ -19,40 +19,37 @@ using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Raw;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
+using Serilog.Sinks.PeriodicBatching;
+using System.Collections.Generic;
 
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
     /// </summary>
-    public class RabbitMQSink : ILogEventSink
+    public class RabbitMQSink : PeriodicBatchingSink
     {
-        readonly IFormatProvider _formatProvider;
-        private readonly RabbitMQClient _client;
         private readonly ITextFormatter _formatter;
+        private readonly IFormatProvider _formatProvider;
+        private readonly RabbitMQClient _client;
 
-        public RabbitMQSink(
-            RabbitMQConfiguration configuration,
+        public RabbitMQSink(RabbitMQConfiguration configuration,
             ITextFormatter formatter,
-            IFormatProvider formatProvider
-       )
+            IFormatProvider formatProvider) : base(configuration.BatchPostingLimit, configuration.Period)
         {
-
-            // prepare client
-            _client = new RabbitMQClient(configuration);
-            _formatProvider = formatProvider;
             _formatter = formatter ?? new RawFormatter();
+            _formatProvider = formatProvider;
+            _client = new RabbitMQClient(configuration);
         }
 
-        /// <summary>
-        /// Emit method, used by Serilog to send log events to RabbitMq, using this sink
-        /// </summary>
-        /// <param name="logEvent"></param>
-        public void Emit(LogEvent logEvent)
+        protected override void EmitBatch(IEnumerable<LogEvent> events)
         {
-            var writer = new StringWriter();
-            _formatter.Format(logEvent, writer);
-            _client.Publish(writer.ToString());
+            foreach (var logEvent in events)
+            {
+                var sw = new StringWriter();
+                _formatter.Format(logEvent, sw);
+                _client.Publish(sw.ToString());
+            }
         }
     }
 }
