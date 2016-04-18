@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Exceptions;
-using Serilog.Debugging;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
@@ -30,8 +27,10 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        private Func<ModelWithProperties> _modelWithPropertiesFactory;
-        private ModelWithProperties _modelWithProperties;
+        private IConnectionFactory _connectionFactory;
+        private IConnection _connection;
+        private IModel _model;
+        private IBasicProperties _properties;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -43,17 +42,23 @@ namespace Serilog.Sinks.RabbitMQ
             _config = configuration;
             _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
-            // Lazy 
-            _modelWithPropertiesFactory = () =>
-            {
-                var model = GetConnectionFactory()
-                    .CreateConnection()
-                    .CreateModel();
+            // initialize 
+            InitializeEndpoint();
+        }
 
-                var basicProperties = model.CreateBasicProperties();
-                basicProperties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
-                return new ModelWithProperties(model, basicProperties);
-            };
+        /// <summary>
+        /// Private method, that must be run for the client to work.
+        /// <remarks>See constructor</remarks>
+        /// </summary>
+        private void InitializeEndpoint()
+        {
+            // prepare endpoint
+            _connectionFactory = GetConnectionFactory();
+            _connection = _connectionFactory.CreateConnection();
+            _model = _connection.CreateModel();
+
+            _properties = _model.CreateBasicProperties();
+            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
         }
 
         /// <summary>
@@ -63,14 +68,10 @@ namespace Serilog.Sinks.RabbitMQ
         private IConnectionFactory GetConnectionFactory()
         {
             // prepare connection factory
-            var connectionFactory = new ConnectionFactory
-            {
-                HostName = _config.Hostname,
-                UserName = _config.Username,
-                Password = _config.Password,
-                AutomaticRecoveryEnabled = true,
-                NetworkRecoveryInterval = TimeSpan.FromSeconds(2)
-            };
+            var connectionFactory = new ConnectionFactory();
+            connectionFactory.HostName = _config.Hostname;
+            connectionFactory.UserName = _config.Username;
+            connectionFactory.Password = _config.Password;
 
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
@@ -91,45 +92,8 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public void Publish(string message)
         {
-            var modelAndProperties = LazilyInitializeModel();
-            if (modelAndProperties == null)
-            {
-                SelfLog.WriteLine("Could not connect to RabbitMQ broker");
-                return;
-            }
-            modelAndProperties.Model.BasicPublish(_publicationAddress,
-                modelAndProperties.Properties, System.Text.Encoding.UTF8.GetBytes(message));
-        }
-
-        private ModelWithProperties LazilyInitializeModel()
-        {
-            if (_modelWithProperties == null)
-            {
-                try
-                {
-                    _modelWithProperties = _modelWithPropertiesFactory();
-                }
-                catch (BrokerUnreachableException e)
-                {
-                    Console.WriteLine(e.Message);
-                }
-            }
-            return _modelWithProperties;
-        }
-
-        internal class ModelWithProperties
-        {
-            public IModel Model { get { return _model; } }
-            public IBasicProperties Properties { get { return _properties; } }
-
-            private readonly IModel _model;
-            private readonly IBasicProperties _properties;
-
-            public ModelWithProperties(IModel model, IBasicProperties properties)
-            {
-                _model = model;
-                _properties = properties;
-            }
+            // push message to queue
+            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
     }
 }
