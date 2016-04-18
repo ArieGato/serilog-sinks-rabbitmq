@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using RabbitMQ.Client;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
@@ -68,10 +69,14 @@ namespace Serilog.Sinks.RabbitMQ
         private IConnectionFactory GetConnectionFactory()
         {
             // prepare connection factory
-            var connectionFactory = new ConnectionFactory();
-            connectionFactory.HostName = _config.Hostname;
-            connectionFactory.UserName = _config.Username;
-            connectionFactory.Password = _config.Password;
+            var connectionFactory = new ConnectionFactory
+            {
+                HostName = _config.Hostname,
+                UserName = _config.Username,
+                Password = _config.Password,
+                AutomaticRecoveryEnabled = true,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(2)
+            };
 
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
