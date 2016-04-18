@@ -52,6 +52,8 @@ namespace Serilog
                 rabbitMqConfiguration.VHost,
                 rabbitMqConfiguration.Heartbeat,
                 rabbitMqConfiguration.Protocol,
+                rabbitMqConfiguration.BatchPostingLimit,
+                rabbitMqConfiguration.Period,
                 formatter,
                 formatProvider);
         }
@@ -73,6 +75,8 @@ namespace Serilog
             string vHost,
             ushort heartbeat,
             IProtocol protocol,
+            int batchPostingLimit,
+            TimeSpan period,
             ITextFormatter formatter,
             IFormatProvider formatProvider = null)
         {
@@ -98,12 +102,17 @@ namespace Serilog
                 Port = port,
                 VHost = vHost ?? string.Empty,
                 Protocol = protocol ?? Protocols.DefaultProtocol,
-                Heartbeat = heartbeat
+                Heartbeat = heartbeat,
+                BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
+                Period = period == default(TimeSpan) ? DefaultPeriod : period
             };
             
             return
                 loggerConfiguration
                     .Sink(new RabbitMQSink(config, formatter, formatProvider));
         }
+
+        private const int DefaultBatchPostingLimit = 50;
+        private static readonly TimeSpan DefaultPeriod = TimeSpan.FromSeconds(2);
     }
 }
