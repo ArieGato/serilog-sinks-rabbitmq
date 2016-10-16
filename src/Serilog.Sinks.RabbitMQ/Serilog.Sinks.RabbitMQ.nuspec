@@ -11,7 +11,8 @@
     <iconUrl>http://serilog.net/images/serilog-sink-nuget.png</iconUrl>
     <tags>serilog logging rabbitmq error</tags>
     <dependencies>
-      <dependency id="Serilog" version="[1.5.14,2)" />
+      <dependency id="Serilog" version="[2.0.0,2)" />
+      <dependency id="Serilog.Sinks.PeriodicBatching" version="[2.0.0,2)" />
       <dependency id="RabbitMQ.Client" version="[3.5.4,4)" />
     </dependencies>
   </metadata>
