@@ -27,7 +27,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public string Password = string.Empty;
         public string Exchange = string.Empty;
         public string ExchangeType = string.Empty;
-        public string Queue = string.Empty;
         public RabbitMQDeliveryMode DeliveryMode = RabbitMQDeliveryMode.NonDurable;
         public string RouteKey = string.Empty;
         public int Port;
