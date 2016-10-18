@@ -97,7 +97,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public void Publish(string message)
         {
-            // push message to queue
+            // push message to exchange
             _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
     }

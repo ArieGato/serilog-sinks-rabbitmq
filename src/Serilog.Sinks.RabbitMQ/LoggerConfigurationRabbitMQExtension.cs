@@ -45,7 +45,6 @@ namespace Serilog
                 rabbitMqConfiguration.Password,
                 rabbitMqConfiguration.Exchange,
                 rabbitMqConfiguration.ExchangeType,
-                rabbitMqConfiguration.Queue,
                 rabbitMqConfiguration.DeliveryMode,
                 rabbitMqConfiguration.RouteKey,
                 rabbitMqConfiguration.Port,
@@ -68,7 +67,6 @@ namespace Serilog
             string password,
             string exchange,
             string exchangeType,
-            string queue,
             RabbitMQDeliveryMode deliveryMode,
             string routeKey,
             int port,
@@ -85,7 +83,6 @@ namespace Serilog
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
             if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (string.IsNullOrEmpty(queue)) throw new ArgumentException("queue cannot be 'null'. Specify a valid queue.");
             if (port <= 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
             // setup configuration
@@ -96,7 +93,6 @@ namespace Serilog
                 Password = password,
                 Exchange = exchange ?? string.Empty,
                 ExchangeType = exchangeType ?? string.Empty,
-                Queue = queue,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
                 Port = port,
