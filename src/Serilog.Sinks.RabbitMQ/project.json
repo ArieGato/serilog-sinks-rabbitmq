@@ -1,5 +1,20 @@
 {
   "version": "1.0.0-*",
+  "packOptions": {
+    "owners": [
+      "Serilog Contributors"
+    ],
+    "description":"A RabbitMQ sink for Serilog.",
+    "licenseUrl": "http://www.apache.org/licenses/LICENSE-2.0",
+    "projectUrl": "http://serilog.net",
+    "iconUrl": "http://serilog.net/images/serilog-sink-nuget.png",
+    "tags": [
+      "serilog", 
+      "logging", 
+      "rabbitmq", 
+      "error"
+    ]
+  },
   "buildOptions": {
     "debugType": "portable"
   },
