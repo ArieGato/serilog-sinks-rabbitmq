@@ -16,14 +16,14 @@ deploy:
 - provider: NuGet
   server: https://www.myget.org/F/temp-forks/api/v2/package
   api_key:
-    secure: 6CeYcZ4Ze+57gxfeuHzqP6ldbUkPtF6pfpVM1Gw/K2jExFrAz763gNAQ++tiacq3
+    secure: VcEqx1411TqpedhBjftqTYyIKcd+tZKvXlxQEnEFC4ashyitwS7Zy/s4HU5DxASU
   skip_symbols: true
   on:
     branch: master
-# - provider: NuGet
-#   name: production
-#   api_key:
-#     secure: 
-#   on:
-#     branch: master
-#     appveyor_repo_tag: true
+- provider: NuGet
+  name: production
+  api_key:
+    secure: JXj9vT5r0m1y63TxurMG5n2OUWmOyEzOJILIVyeKF2bmgshuMvosVv5pqpTaciHi
+  on:
+    branch: master
+    appveyor_repo_tag: true
