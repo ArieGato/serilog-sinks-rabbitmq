@@ -17,7 +17,7 @@ Install-Package Serilog.Sinks.RabbitMQ
 ## Usage
 
 To use with `ILoggerFactory` via dependency injection, 
-add the following to your `Startup` class. 
+add the following to `ConfigureServices` in your `Startup` class. 
 See the [logging documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
 for specific help on using the `ILoggerFactory` and `ILogger<T>`.
 
@@ -29,6 +29,8 @@ using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 public class Startup 
 {
+   private readonly IConfiguration _config;
+   // ... 
    public IServiceProvider ConfigureServices(IServiceCollection services)
    {
       var config = new RabbitMQConfiguration
@@ -55,6 +57,7 @@ public class Startup
 
       services.AddSingleton<ILoggerFactory>(loggerFactory);
    }
+   // ...
 }
 ```
 
