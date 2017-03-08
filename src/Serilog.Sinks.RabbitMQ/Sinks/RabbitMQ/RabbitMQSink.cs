@@ -51,5 +51,11 @@ namespace Serilog.Sinks.RabbitMQ
                 _client.Publish(sw.ToString());
             }
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            _client.Dispose();
+        }
     }
 }
