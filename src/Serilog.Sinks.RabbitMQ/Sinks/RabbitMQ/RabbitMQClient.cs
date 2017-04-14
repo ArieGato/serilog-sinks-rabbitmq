@@ -21,7 +21,7 @@ namespace Serilog.Sinks.RabbitMQ
     /// <summary>
     /// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq
     /// </summary>
-    public class RabbitMQClient
+    public class RabbitMQClient : IDisposable
     {
         // configuration member
         private readonly RabbitMQConfiguration _config;
@@ -99,6 +99,12 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // push message to exchange
             _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
+        }
+
+        public void Dispose()
+        {
+            _model.Dispose();
+            _connection.Dispose();
         }
     }
 }
