@@ -10,7 +10,7 @@ build_script:
 - ps: .\Build.ps1
 test: off  
 artifacts:  
-- path: artifacts/Serilog.*.nupkg
+- path: **\artifacts\**\Serilog.*.nupkg
   name: NuGet
 deploy:  
 - provider: NuGet
