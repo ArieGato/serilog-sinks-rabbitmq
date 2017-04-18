@@ -81,7 +81,7 @@ namespace Serilog
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
-            if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
+            if (username == null) throw new ArgumentException("username cannot be 'null'. Specify an empty string if username is empty.");
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
             if (port <= 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
