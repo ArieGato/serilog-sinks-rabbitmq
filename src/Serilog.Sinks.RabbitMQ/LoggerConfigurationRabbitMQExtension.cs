@@ -53,6 +53,7 @@ namespace Serilog
                 rabbitMqConfiguration.Protocol,
                 rabbitMqConfiguration.BatchPostingLimit,
                 rabbitMqConfiguration.Period,
+                rabbitMqConfiguration.EncodingMode,
                 formatter,
                 formatProvider);
         }
@@ -75,6 +76,7 @@ namespace Serilog
             IProtocol protocol,
             int batchPostingLimit,
             TimeSpan period,
+            EncodingMode encodingMode,
             ITextFormatter formatter,
             IFormatProvider formatProvider = null)
         {
@@ -100,7 +102,8 @@ namespace Serilog
                 Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
                 BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default(TimeSpan) ? DefaultPeriod : period
+                Period = period == default(TimeSpan) ? DefaultPeriod : period,
+                EncodingMode = encodingMode
             };
             
             return

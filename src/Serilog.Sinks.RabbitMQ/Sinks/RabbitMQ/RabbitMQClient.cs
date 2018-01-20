@@ -94,11 +94,11 @@ namespace Serilog.Sinks.RabbitMQ
         /// <summary>
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
-        /// <param name="message"></param>
-        public void Publish(string message)
+        /// <param name="messageBytes"></param>
+        public void Publish(byte[] messageBytes)
         {
             // push message to exchange
-            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
+            _model.BasicPublish(_publicationAddress, _properties, messageBytes);
         }
 
         public void Dispose()

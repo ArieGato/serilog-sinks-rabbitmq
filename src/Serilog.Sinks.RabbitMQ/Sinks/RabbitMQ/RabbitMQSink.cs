@@ -32,6 +32,7 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly ITextFormatter _formatter;
         private readonly IFormatProvider _formatProvider;
         private readonly RabbitMQClient _client;
+        private readonly RabbitMQConfiguration _configuration;
 
         public RabbitMQSink(RabbitMQConfiguration configuration,
             ITextFormatter formatter,
@@ -39,6 +40,7 @@ namespace Serilog.Sinks.RabbitMQ
         {
             _formatter = formatter ?? new RawFormatter();
             _formatProvider = formatProvider;
+            _configuration = configuration;
             _client = new RabbitMQClient(configuration);
         }
 
@@ -46,9 +48,13 @@ namespace Serilog.Sinks.RabbitMQ
         {
             foreach (var logEvent in events)
             {
-                var sw = new StringWriter();
-                _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                using (var sw = new StringWriter())
+                {
+                    _formatter.Format(logEvent, sw);
+                    string messageText = sw.ToString();
+                    byte[] messageBytes = MessageEncoder.Encode(messageText, _configuration.EncodingMode);
+                    _client.Publish(messageBytes);
+                }                
             }
         }
 

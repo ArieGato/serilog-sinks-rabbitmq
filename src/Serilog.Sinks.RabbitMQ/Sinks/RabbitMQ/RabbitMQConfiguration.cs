@@ -35,5 +35,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public ushort Heartbeat;
         public int BatchPostingLimit;
         public TimeSpan Period;
+        public EncodingMode EncodingMode;
     }
 }
