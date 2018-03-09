@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
@@ -23,6 +24,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
     public class RabbitMQConfiguration
     {
         public string Hostname = string.Empty;
+        public IList<string> Hostnames = null;
         public string Username = string.Empty;
         public string Password = string.Empty;
         public string Exchange = string.Empty;
