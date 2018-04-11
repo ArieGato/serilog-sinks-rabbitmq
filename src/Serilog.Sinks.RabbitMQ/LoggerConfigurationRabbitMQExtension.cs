@@ -1,11 +1,11 @@
 ﻿// Copyright 2015 Serilog Contributors
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -54,9 +54,10 @@ namespace Serilog
                 rabbitMqConfiguration.BatchPostingLimit,
                 rabbitMqConfiguration.Period,
                 formatter,
-                formatProvider);
+                formatProvider,
+                rabbitMqConfiguration.UseBackgroundThreadsForIO);
         }
-        
+
         /// <summary>
         /// Configures Serilog logger configuration with RabbitMQ
         /// </summary>
@@ -76,7 +77,8 @@ namespace Serilog
             int batchPostingLimit,
             TimeSpan period,
             ITextFormatter formatter,
-            IFormatProvider formatProvider = null)
+            IFormatProvider formatProvider = null,
+            bool useBackgroundThreadsForIO = false)
         {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
@@ -100,9 +102,10 @@ namespace Serilog
                 Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
                 BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default(TimeSpan) ? DefaultPeriod : period
+                Period = period == default(TimeSpan) ? DefaultPeriod : period,
+                UseBackgroundThreadsForIO = useBackgroundThreadsForIO
             };
-            
+
             return
                 loggerConfiguration
                     .Sink(new RabbitMQSink(config, formatter, formatProvider));
