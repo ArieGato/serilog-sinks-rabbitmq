@@ -1,10 +1,9 @@
 # serilog-sinks-rabbitmq
-<img src="https://ci.appveyor.com/api/projects/status/row7ob6fhgmvtqwb?svg=true" /> 
+![Build Status](https://ci.appveyor.com/api/projects/status/row7ob6fhgmvtqwb?svg=true)
 <a href="https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/">
   <img src="https://img.shields.io/nuget/v/Serilog.Sinks.RabbitMQ.svg" />
 </a>
-
-Serilog Sink for RabbitMq
+[![Gitter](https://badges.gitter.im/serilog-sinks-rabbitmq/serilog-sinks-rabbitmq.svg)](https://gitter.im/serilog-sinks-rabbitmq/Lobby)
 
 ## Installation
 
