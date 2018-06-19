@@ -35,11 +35,12 @@ namespace Serilog.Sinks.RabbitMQ
 
         public RabbitMQSink(RabbitMQConfiguration configuration,
             ITextFormatter formatter,
-            IFormatProvider formatProvider) : base(configuration.BatchPostingLimit, configuration.Period)
+            IFormatProvider formatProvider,
+            bool autoCreateExchange) : base(configuration.BatchPostingLimit, configuration.Period)
         {
             _formatter = formatter ?? new RawFormatter();
             _formatProvider = formatProvider;
-            _client = new RabbitMQClient(configuration);
+            _client = new RabbitMQClient(configuration, autoCreateExchange);
         }
 
         protected override void EmitBatch(IEnumerable<LogEvent> events)
