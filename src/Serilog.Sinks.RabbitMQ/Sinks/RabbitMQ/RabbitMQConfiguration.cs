@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Security.Authentication;
 using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
@@ -35,5 +36,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public ushort Heartbeat;
         public int BatchPostingLimit;
         public TimeSpan Period;
+        public SslProtocols? SslProtocols;
+        public bool? SslEnabled;
     }
 }

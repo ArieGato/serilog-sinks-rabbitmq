@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Security.Authentication;
 using RabbitMQ.Client;
 using Serilog.Configuration;
 using Serilog.Formatting;
@@ -54,7 +55,9 @@ namespace Serilog
                 rabbitMqConfiguration.BatchPostingLimit,
                 rabbitMqConfiguration.Period,
                 formatter,
-                formatProvider);
+                formatProvider,
+                rabbitMqConfiguration.SslProtocols,
+                rabbitMqConfiguration.SslEnabled);
         }
         
         /// <summary>
@@ -76,7 +79,10 @@ namespace Serilog
             int batchPostingLimit = 0,
             TimeSpan period = default(TimeSpan),
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null)
+            IFormatProvider formatProvider = null,
+            SslProtocols? sslProtocols = null,
+            bool? sslEnabled = false
+            )
         {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
@@ -100,7 +106,9 @@ namespace Serilog
                 Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
                 BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default(TimeSpan) ? DefaultPeriod : period
+                Period = period == default(TimeSpan) ? DefaultPeriod : period,
+                SslProtocols = sslProtocols,
+                SslEnabled = sslEnabled
             };
             
             return

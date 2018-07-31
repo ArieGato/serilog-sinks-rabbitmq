@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Security.Authentication;
 using RabbitMQ.Client;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
@@ -86,6 +87,19 @@ namespace Serilog.Sinks.RabbitMQ
             if (_config.Port > 0) connectionFactory.Port = _config.Port;
             if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
             if (_config.Protocol != null) connectionFactory.Protocol = _config.Protocol;
+
+            // SSL Support
+            if (_config.SslEnabled.HasValue && _config.SslEnabled.Value)
+            {
+                connectionFactory.Ssl.Enabled = _config.SslEnabled.Value;
+                if (_config.Hostname != null)
+                {
+                    connectionFactory.Ssl.ServerName = _config.Hostname;
+                }
+                connectionFactory.Ssl.AcceptablePolicyErrors = System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors;
+                connectionFactory.Ssl.Version = _config.SslProtocols ?? SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12;
+                connectionFactory.AmqpUriSslProtocols = _config.SslProtocols ?? SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12;
+            }
 
             // return factory
             return connectionFactory;

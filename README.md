@@ -59,7 +59,48 @@ public class Startup
    // ...
 }
 ```
+## SSL Support 
+To use Ssl Support with `ILoggerFactory` via dependency injection, 
+add the following to `ConfigureServices` in your `Startup` class. 
+See the [logging documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
+for specific help on using the `ILoggerFactory` and `ILogger<T>`.
 
+
+public class Startup 
+{
+   private readonly IConfiguration _config;
+   // ... 
+   public IServiceProvider ConfigureServices(IServiceCollection services)
+   {
+      var config = new RabbitMQConfiguration
+      {
+          Hostname = _config["RABBITMQ_HOST"],
+          Username = _config["RABBITMQ_USER"],
+          Password = _config["RABBITMQ_PASSWORD"],
+          Exchange = _config["RABBITMQ_EXCHANGE"],
+          ExchangeType = _config["RABBITMQ_EXCHANGE_TYPE"],
+          DeliveryMode = RabbitMQDeliveryMode.Durable,
+          RouteKey = "Logs",
+          Port = 5671,
+		   VHost = "/",
+           SslEnabled = true,
+           SslProtocols = System.Security.Authentication.SslProtocols.Tls12
+      };
+
+      Log.Logger = new LoggerConfiguration()
+        .Enrich.FromLogContext()
+        .WriteTo.RabbitMQ(config, new JsonFormatter())
+        .CreateLogger();
+
+      var loggerFactory = new LoggerFactory();
+      loggerFactory
+        .AddSerilog()
+        .AddConsole(LogLevel.Information);
+
+      services.AddSingleton<ILoggerFactory>(loggerFactory);
+   }
+   // ...
+}
 
 ## References
 

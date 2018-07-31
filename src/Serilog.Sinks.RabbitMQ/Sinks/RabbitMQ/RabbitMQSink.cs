@@ -13,14 +13,13 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
-using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Formatting.Raw;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
+using Serilog.Formatting.Compact;
 using Serilog.Sinks.PeriodicBatching;
-using System.Collections.Generic;
+using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
 {
@@ -37,7 +36,7 @@ namespace Serilog.Sinks.RabbitMQ
             ITextFormatter formatter,
             IFormatProvider formatProvider) : base(configuration.BatchPostingLimit, configuration.Period)
         {
-            _formatter = formatter ?? new RawFormatter();
+            _formatter = formatter ?? new CompactJsonFormatter();
             _formatProvider = formatProvider;
             _client = new RabbitMQClient(configuration);
         }
@@ -46,9 +45,11 @@ namespace Serilog.Sinks.RabbitMQ
         {
             foreach (var logEvent in events)
             {
-                var sw = new StringWriter();
-                _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                using (var sw = new StringWriter())
+                {
+                    _formatter.Format(logEvent, sw);
+                    _client.Publish(sw.ToString());
+                }
             }
         }
 
