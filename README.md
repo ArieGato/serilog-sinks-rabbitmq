@@ -83,9 +83,9 @@ public class Startup
           DeliveryMode = RabbitMQDeliveryMode.Durable,
           RouteKey = "Logs",
           Port = 5671,
-		   VHost = "/",
-           SslEnabled = true,
-           SslProtocols = System.Security.Authentication.SslProtocols.Tls12
+          VHost = "/",
+          SslEnabled = true,
+          SslProtocols = System.Security.Authentication.SslProtocols.Tls12
       };
 
       Log.Logger = new LoggerConfiguration()

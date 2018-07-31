@@ -14,5 +14,6 @@ Add Serilog.Sinks.RabbitMQ SSL support.
     * Serilog.Sinks.PeriodicBatching to 2.1.1.
 * Change the default formatter to be CompactJsonFormatter.
 * New fields to support SSL.
+* Minimum NetStandard version changed to 1.6.1 (csproj)
 
 
