@@ -59,13 +59,14 @@ public class Startup
    // ...
 }
 ```
+
 ## SSL Support 
 To use Ssl Support with `ILoggerFactory` via dependency injection, 
 add the following to `ConfigureServices` in your `Startup` class. 
 See the [logging documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
 for specific help on using the `ILoggerFactory` and `ILogger<T>`.
 
-
+```
 public class Startup 
 {
    private readonly IConfiguration _config;
@@ -101,7 +102,7 @@ public class Startup
    }
    // ...
 }
-
+```
 ## References
 
 - [Serilog](https://serilog.net/)
