@@ -33,7 +33,8 @@ namespace Serilog
             this LoggerSinkConfiguration loggerConfiguration,
             RabbitMQConfiguration rabbitMqConfiguration,
             ITextFormatter formatter,
-            IFormatProvider formatProvider = null)
+            IFormatProvider formatProvider = null,
+            bool autoCreateExchange = false)
         {
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (rabbitMqConfiguration == null) throw new ArgumentNullException("rabbitMqConfiguration");
@@ -76,8 +77,9 @@ namespace Serilog
             int batchPostingLimit = 0,
             TimeSpan period = default(TimeSpan),
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null) 
-            {
+            IFormatProvider formatProvider = null,
+            bool autoCreateExchange = false)
+        {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
@@ -105,7 +107,7 @@ namespace Serilog
             
             return
                 loggerConfiguration
-                    .Sink(new RabbitMQSink(config, formatter, formatProvider));
+                    .Sink(new RabbitMQSink(config, formatter, formatProvider, autoCreateExchange));
         }
 
         /// <summary>

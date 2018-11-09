@@ -37,7 +37,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// Constructor for RabbitMqClient
         /// </summary>
         /// <param name="configuration">mandatory</param>
-        public RabbitMQClient(RabbitMQConfiguration configuration)
+        public RabbitMQClient(RabbitMQConfiguration configuration, bool autoCreateExchange)
         {
             // load configuration
             _config = configuration;
@@ -45,6 +45,10 @@ namespace Serilog.Sinks.RabbitMQ
 
             // initialize 
             InitializeEndpoint();
+            if (autoCreateExchange)
+            {
+                _model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+            }
         }
 
         /// <summary>
