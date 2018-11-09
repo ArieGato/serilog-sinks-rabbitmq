@@ -69,20 +69,21 @@ namespace Serilog.Sinks.RabbitMQ
         private IConnectionFactory GetConnectionFactory()
         {
             // prepare connection factory
-            var connectionFactory = new ConnectionFactory
-            {
-                HostName = _config.Hostname,
-                UserName = _config.Username,
-                Password = _config.Password,
-                AutomaticRecoveryEnabled = true,
-                NetworkRecoveryInterval = TimeSpan.FromSeconds(2)
-            };
+            ConnectionFactory connectionFactory = new ConnectionFactory();
+            if (_config.AmqpUri != null) connectionFactory.Uri = _config.AmqpUri;
+
+            // setup auto recovery
+            connectionFactory.AutomaticRecoveryEnabled = true;
+            connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
 
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
                 connectionFactory.RequestedHeartbeat = _config.Heartbeat;
 
             // only set, if has value, otherwise leave default
+            if (!string.IsNullOrEmpty(_config.Hostname)) connectionFactory.HostName = _config.Hostname;
+            if (!string.IsNullOrEmpty(_config.Username)) connectionFactory.UserName = _config.Username;
+            if (!string.IsNullOrEmpty(_config.Password)) connectionFactory.Password = _config.Password;
             if (_config.Port > 0) connectionFactory.Port = _config.Port;
             if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
             if (_config.Protocol != null) connectionFactory.Protocol = _config.Protocol;

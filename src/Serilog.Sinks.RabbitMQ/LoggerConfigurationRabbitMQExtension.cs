@@ -76,8 +76,8 @@ namespace Serilog
             int batchPostingLimit = 0,
             TimeSpan period = default(TimeSpan),
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null)
-        {
+            IFormatProvider formatProvider = null) 
+            {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
@@ -100,9 +100,52 @@ namespace Serilog
                 Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
                 BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default(TimeSpan) ? DefaultPeriod : period
+                Period = period == default(TimeSpan) ? DefaultPeriod : period 
             };
             
+            return
+                loggerConfiguration
+                    .Sink(new RabbitMQSink(config, formatter, formatProvider));
+        }
+
+        /// <summary>
+        /// Configures Serilog logger configuration with RabbitMQ using AMQP URIs
+        /// </summary>
+        public static LoggerConfiguration RabbitMQ(
+            this LoggerSinkConfiguration loggerConfiguration,
+            string amqpUri,
+            string exchange = null,
+            string exchangeType = null,
+            RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
+            string routeKey = null,
+            ushort heartbeat = 0,
+            IProtocol protocol = null,
+            int batchPostingLimit = 0,
+            TimeSpan period = default(TimeSpan),
+            ITextFormatter formatter = null,
+            IFormatProvider formatProvider = null) 
+            {
+            // guards
+            if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
+            if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
+
+#if NET_FX 
+            amqpUri = ApplySystemConfiguration.GetUri(amqpUri);
+#endif
+
+            // setup configuration
+            var config = new RabbitMQConfiguration {
+                AmqpUri = amqpUri,
+                Exchange = exchange ?? string.Empty,
+                ExchangeType = exchangeType ?? string.Empty,
+                DeliveryMode = deliveryMode,
+                RouteKey = routeKey ?? string.Empty,
+                Protocol = protocol ?? Protocols.DefaultProtocol,
+                Heartbeat = heartbeat,
+                BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
+                Period = period == default(TimeSpan) ? DefaultPeriod : period,
+            };
+
             return
                 loggerConfiguration
                     .Sink(new RabbitMQSink(config, formatter, formatProvider));
@@ -144,6 +187,45 @@ namespace Serilog
                 RouteKey = routeKey ?? string.Empty,
                 Port = port,
                 VHost = vHost ?? string.Empty,
+                Protocol = protocol ?? Protocols.DefaultProtocol,
+                Heartbeat = heartbeat,
+            };
+
+            return
+                loggerAuditSinkConfiguration
+                    .Sink(new RabbitMQAuditSink(config, formatter, formatProvider));
+        }
+
+        /// <summary>
+        /// Configures Serilog audit logger configuration with RabbitMQ using AMQP URIs
+        /// </summary>
+        public static LoggerConfiguration RabbitMQ(
+            this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
+            string amqpUri,
+            string exchange = null,
+            string exchangeType = null,
+            RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
+            string routeKey = null,
+            ushort heartbeat = 0,
+            IProtocol protocol = null,
+            ITextFormatter formatter = null,
+            IFormatProvider formatProvider = null
+            ) {
+            // guards
+            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
+            if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
+
+#if NET_FX
+            amqpUri = ApplySystemConfiguration.GetUri(amqpUri);
+#endif
+
+            // setup configuration
+            var config = new RabbitMQConfiguration {
+                AmqpUri = amqpUri,
+                Exchange = exchange ?? string.Empty,
+                ExchangeType = exchangeType ?? string.Empty,
+                DeliveryMode = deliveryMode,
+                RouteKey = routeKey ?? string.Empty,
                 Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
             };
