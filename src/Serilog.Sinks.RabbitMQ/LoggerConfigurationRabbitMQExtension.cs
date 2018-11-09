@@ -94,7 +94,7 @@ namespace Serilog
                 Username = username,
                 Password = password,
                 Exchange = exchange ?? string.Empty,
-                ExchangeType = exchangeType ?? string.Empty,
+                ExchangeType = exchangeType ?? ExchangeType.Fanout,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
                 Port = port,
@@ -125,8 +125,9 @@ namespace Serilog
             int batchPostingLimit = 0,
             TimeSpan period = default(TimeSpan),
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null) 
-            {
+            IFormatProvider formatProvider = null,
+            bool autoCreateExchange = false)
+        {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
@@ -139,7 +140,7 @@ namespace Serilog
             var config = new RabbitMQConfiguration {
                 AmqpUri = amqpUri,
                 Exchange = exchange ?? string.Empty,
-                ExchangeType = exchangeType ?? string.Empty,
+                ExchangeType = exchangeType ?? ExchangeType.Fanout,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
                 Protocol = protocol ?? Protocols.DefaultProtocol,
@@ -150,7 +151,7 @@ namespace Serilog
 
             return
                 loggerConfiguration
-                    .Sink(new RabbitMQSink(config, formatter, formatProvider));
+                    .Sink(new RabbitMQSink(config, formatter, formatProvider, autoCreateExchange));
         }
 
         /// <summary>
@@ -170,7 +171,9 @@ namespace Serilog
             ushort heartbeat = 0,
             IProtocol protocol = null,
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null) {
+            IFormatProvider formatProvider = null,
+            bool autoCreateExchange = false)
+        {
             // guards
             if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
@@ -184,7 +187,7 @@ namespace Serilog
                 Username = username,
                 Password = password,
                 Exchange = exchange ?? string.Empty,
-                ExchangeType = exchangeType ?? string.Empty,
+                ExchangeType = exchangeType ?? ExchangeType.Fanout,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
                 Port = port,
@@ -195,7 +198,7 @@ namespace Serilog
 
             return
                 loggerAuditSinkConfiguration
-                    .Sink(new RabbitMQAuditSink(config, formatter, formatProvider));
+                    .Sink(new RabbitMQAuditSink(config, formatter, formatProvider, autoCreateExchange));
         }
 
         /// <summary>
@@ -211,8 +214,9 @@ namespace Serilog
             ushort heartbeat = 0,
             IProtocol protocol = null,
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null
-            ) {
+            IFormatProvider formatProvider = null,
+            bool autoCreateExchange = false)
+        {
             // guards
             if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
@@ -225,7 +229,7 @@ namespace Serilog
             var config = new RabbitMQConfiguration {
                 AmqpUri = amqpUri,
                 Exchange = exchange ?? string.Empty,
-                ExchangeType = exchangeType ?? string.Empty,
+                ExchangeType = exchangeType ?? ExchangeType.Fanout,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
                 Protocol = protocol ?? Protocols.DefaultProtocol,
@@ -234,7 +238,7 @@ namespace Serilog
 
             return
                 loggerAuditSinkConfiguration
-                    .Sink(new RabbitMQAuditSink(config, formatter, formatProvider));
+                    .Sink(new RabbitMQAuditSink(config, formatter, formatProvider, autoCreateExchange));
         }
 
         private const int DefaultBatchPostingLimit = 50;

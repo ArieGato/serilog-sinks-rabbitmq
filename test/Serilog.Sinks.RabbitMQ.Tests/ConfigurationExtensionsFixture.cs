@@ -65,6 +65,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
             Log.Logger = loggerConfiguration.WriteTo.RabbitMQ(
                 amqpUri: RabbitMQFixture.AmqpUri,
                 exchange: RabbitMQFixture.ExchangeName,
+                exchangeType: RabbitMQFixture.ExchangeType, 
                 autoCreateExchange: true)
                 .CreateLogger();
 

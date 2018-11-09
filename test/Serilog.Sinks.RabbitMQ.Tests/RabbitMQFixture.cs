@@ -83,7 +83,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
             using (var connection = factory.CreateConnection()) 
             using (var model = connection.CreateModel()) {
                 try {
-                    model.ExchangeDeclare(ExchangeName, ExchangeType, arguments: new Dictionary<string, object>() { { "a", "b" } });
+                    // Try create exxhange with same name and differnet type
+                    model.ExchangeDeclare(ExchangeName, "topic", arguments: new Dictionary<string, object>() { { "a", "b" } });
                     return false;
                 }
                 catch {
