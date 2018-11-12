@@ -25,6 +25,16 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
 
         [TestCategory("WriteTo")]
         [TestMethod]
+        public void WriteAppSettingsWithReference() {
+            var loggerConfiguration = new LoggerConfiguration();
+            Log.Logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "R")
+                .CreateLogger();
+
+            // should not throw
+        }
+
+        [TestCategory("WriteTo")]
+        [TestMethod]
         public void WriteAppSettings() {
             var loggerConfiguration = new LoggerConfiguration();
             Log.Logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "W" )
@@ -68,19 +78,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
         }
 
 #endif
-        [TestCategory("WriteTo")]
-        [TestMethod]
-        public void WriteForMethodCompatibility() {
-            var loggerConfiguration = new LoggerConfiguration();
-            Log.Logger = loggerConfiguration.WriteTo.RabbitMQ(
-                new Sinks.RabbitMQ.RabbitMQConfiguration() {
-                    Hostname = RabbitMQFixture.HostName,
-                    Username = RabbitMQFixture.UserName,
-                    Password = RabbitMQFixture.Password,
-                }, null).CreateLogger();
-
-            // should not throw
-        }
 
         [TestCategory("WriteTo")]
         [TestMethod]
