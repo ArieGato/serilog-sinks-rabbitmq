@@ -13,53 +13,140 @@ Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
 Install-Package Serilog.Sinks.RabbitMQ
 ```
 
-## Usage
+#### Topics
 
-To use with `ILoggerFactory` via dependency injection, 
-add the following to `ConfigureServices` in your `Startup` class. 
-See the [logging documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
-for specific help on using the `ILoggerFactory` and `ILogger<T>`.
+* [Sink Configuration Options](#sink-configuration-options)
+* [Audit Sink Configuration](#audit-sink-configuration)
+* [Multihost configuration](#multihost-configuration)
 
+## Sink Configuration Options
+
+The sink can be configured completely through code, by using configuration files (or other types of configuration providers), 
+a combination of both, or by using the various Serilog configuration packages. 
+The sink is configured with a typical Serilog `WriteTo` configuration method (or `AuditTo`, or similar variations).
+
+All sink configuration methods accept the follwing arguments, though not necessarily in this order. 
+Use of named arguments is strongly recommended.
+
+* `amqpUri`
+* `hostanme`
+* `username`
+* `password`
+* `port`
+* `vHost`
+* `exchange`
+* `exchangeType`
+* `deliveryMode`
+* `routeKey`
+* `batchPostingLimit`
+* `period`
+* `formatter`
+
+### Arguments
+
+At minimum, `amqpUri`.  Refer to [RabbitMQ URI Specification](https://www.rabbitmq.com/uri-spec.html) for details about the _amqpUri_ arguments.
+If you are using an external configuration source such as an XML file, you can use a named reference to connection string instead of providing the full "raw" uri. 
+This is necessary in cases where in ASP.NET applications need to encrypt the connection settings for RabbitMQ.
+
+Parameters `exchange`, `exchangeType`, `deliveryMode`, `routeKey` provide additional configuration when connecting to RabbitMQ.
+
+If `autoCreateExchange` is `true`, the sink will create the exchange if a exchange by that name doesn't exist.
+
+This is a "periodic batching sink." The sink will queue a certain number of log events before they're actually written to RabbitMQ. 
+There is also a timeout period so that the batch is always written even if it has not been filled. By default, the batch size is 50 rows and the timeout is 2 seconds. 
+You can change these through by setting the `batchPostingLimit` and `period` arguments.
+
+Refer to the [Formatter](https://github.com/serilog/serilog/wiki/Formatting-Output#formatting-json) for details about the _formatter_ arguments.
+
+For backward compatibility can use parameters `hostname`, `username`, `password`, `port` and `vHost`. 
+
+### Code-Only (any .NET target)
+
+All sink features are configurable from code. Here is a typical example that works the same way for any .NET target.
+
+```C#
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.RabbitMQ(
+        amqpUri: "amqp://user:pwd@host:5672/vhost",
+        exchange = "LogExchange",
+        formatter: new JsonFormatter()
+    ).CreateLogger();
 ```
-using Serilog;
-using Serilog.Formatting.Json;
-using Serilog.Sinks.RabbitMQ;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
-public class Startup 
+## External configuration using Serilog.Settings.AppSettings
+
+Refer to the [Serilog.Settings.AppSettings](https://github.com/serilog/serilog-settings-appsettings/blob/dev/README.md) package documentation for complete details about sink configuration. 
+This is an example of setting some of the configuration parameters for this sink.
+
+```xml
+<add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
+<add key="serilog:write-to:RabbitMQ.amqpUri" value="amqp://user:pwd@localhost"/>
+<add key="serilog:write-to:RabbitMQ.exchange" value="LogExchange"/>
+<add key="serilog:write-to:RabbitMQ.batchPostingLimit" value="1000"/>
+<add key="serilog:write-to:RabbitMQ.period" value="00:00:30"/>
+```
+
+## External configuration using Serilog.Settings.Configuration
+
+Refer to the [Serilog.Settings.Configuration](https://github.com/serilog/serilog-settings-configuration/blob/dev/README.md) package documentation for complete details about sink configuration. 
+
+Keys and values are not case-sensitive. This is an example of configuring the sink arguments.
+
+```json
 {
-   private readonly IConfiguration _config;
-   // ... 
-   public IServiceProvider ConfigureServices(IServiceCollection services)
-   {
-      var config = new RabbitMQConfiguration
-      {
-          Hostname = _config["RABBITMQ_HOST"],
-          Username = _config["RABBITMQ_USER"],
-          Password = _config["RABBITMQ_PASSWORD"],
-          Exchange = _config["RABBITMQ_EXCHANGE"],
-          ExchangeType = _config["RABBITMQ_EXCHANGE_TYPE"],
-          DeliveryMode = RabbitMQDeliveryMode.Durable,
-          RouteKey = "Logs",
-          Port = 5672
-      };
-
-      Log.Logger = new LoggerConfiguration()
-        .Enrich.FromLogContext()
-        .WriteTo.RabbitMQ(config, new JsonFormatter())
-        .CreateLogger();
-
-      var loggerFactory = new LoggerFactory();
-      loggerFactory
-        .AddSerilog()
-        .AddConsole(LogLevel.Information);
-
-      services.AddSingleton<ILoggerFactory>(loggerFactory);
-   }
-   // ...
+  "Serilog": {
+    "Using":  ["Serilog.Sinks.RabbitMQ"],
+    "MinimumLevel": "Debug",
+    "WriteTo": [
+      { "Name": "RabbitMQ", 
+        "Args": { 
+            "amqpUri": "amqp://user:pwd@localhost",
+            "exchange": "LogExchange",
+            "autoCreateExchange": true,
+            "batchPostingLimit": 1000,
+            "period": 30,
+        } 
+      }
+    ]
+  }
 }
 ```
 
+## Audit Sink Configuration
+
+A Serilog audit sink writes log events which are of such importance that they must succeed, and that verification of a successful write is more important than write performance. 
+Unlike the regular sink, an audit sink _does not_ fail silently it can throw exceptions. 
+You should wrap audit logging output in a `try/catch` block. The usual example is bank account withdrawal events a bank would certainly not want to allow a failure to record those transactions to fail silently.
+
+The constructor accepts most of the same arguments, and like other Serilog audit sinks, you configure one by using `AuditTo` instead of `WriteTo`.
+
+* `amqpUri`
+* `hostanme`
+* `username`
+* `password`
+* `port`
+* `vHost`
+* `exchange`
+* `exchangeType`
+* `deliveryMode`
+* `routeKey`
+* `formatter`
+
+The _batchPostingLimit_ and _period_ parameters are not available because the audit sink writes log events immediately.
+
+## Multihost Configuration
+
+The sink can be configured taking multiple hostnames.  
+To keep the _Serilog.Setting.ApSettings_ external configuration, additional hosts are added to the `hostname` argument separated by commas.
+This is an example of configuring the multihost using _Serilog.Settings.AppSettings_.
+
+```xml
+<add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
+<add key="serilog:write-to:RabbitMQ.hostname" value="host1,host2"/>
+<add key="serilog:write-to:RabbitMQ.username" value="user"/>
+<add key="serilog:write-to:RabbitMQ.pasword" value="pwd"/>
+```
 
 ## References
 
