@@ -59,7 +59,11 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // prepare endpoint
             _connectionFactory = GetConnectionFactory();
-            _connection = _connectionFactory.CreateConnection();
+            if (_config.Hostnames != null && _config.Hostnames.Count > 0) 
+                _connection = _connectionFactory.CreateConnection(_config.Hostnames);
+            else 
+                _connection = _connectionFactory.CreateConnection();
+
             _model = _connection.CreateModel();
 
             _properties = _model.CreateBasicProperties();
@@ -85,7 +89,7 @@ namespace Serilog.Sinks.RabbitMQ
                 connectionFactory.RequestedHeartbeat = _config.Heartbeat;
 
             // only set, if has value, otherwise leave default
-            if (!string.IsNullOrEmpty(_config.Hostname)) connectionFactory.HostName = _config.Hostname;
+            //if (!string.IsNullOrEmpty(_config.Hostname)) connectionFactory.HostName = _config.Hostname;
             if (!string.IsNullOrEmpty(_config.Username)) connectionFactory.UserName = _config.Username;
             if (!string.IsNullOrEmpty(_config.Password)) connectionFactory.Password = _config.Password;
             if (_config.Port > 0) connectionFactory.Port = _config.Port;

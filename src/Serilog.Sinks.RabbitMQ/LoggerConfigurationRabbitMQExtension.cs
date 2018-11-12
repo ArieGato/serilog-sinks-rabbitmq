@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using RabbitMQ.Client;
 using Serilog.Configuration;
 using Serilog.Formatting;
@@ -87,10 +88,12 @@ namespace Serilog
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
             if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
 
+            var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
+
             // setup configuration
             var config = new RabbitMQConfiguration
             {
-                Hostname = hostname,
+                Hostnames = hostnames,
                 Username = username,
                 Password = password,
                 Exchange = exchange ?? string.Empty,
@@ -110,7 +113,7 @@ namespace Serilog
                     .Sink(new RabbitMQSink(config, formatter, formatProvider, autoCreateExchange));
         }
 
-        /// <summary>
+         /// <summary>
         /// Configures Serilog logger configuration with RabbitMQ using AMQP URIs
         /// </summary>
         public static LoggerConfiguration RabbitMQ(
@@ -181,9 +184,11 @@ namespace Serilog
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
             if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
 
+            var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
+
             // setup configuration
             var config = new RabbitMQConfiguration {
-                Hostname = hostname,
+                Hostnames = hostnames,
                 Username = username,
                 Password = password,
                 Exchange = exchange ?? string.Empty,

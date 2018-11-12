@@ -4,6 +4,8 @@ using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RabbitMQ.Client;
 
+[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.MethodLevel)]
+
 namespace Serilog.Sinks.RabbitMQ.Tests {
     [DoNotParallelize]
     [TestClass]
@@ -16,28 +18,16 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
         public static string AmqpUri => "amqp://" + HostName;
 
         [TestMethod]
-        public void Write() {
+        public void WriteAndAudit() {
             var loggerConfiguration = new LoggerConfiguration();
             Log.Logger = loggerConfiguration.WriteTo.RabbitMQ(
                 hostname: RabbitMQFixture.HostName,
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
                 exchange: RabbitMQFixture.ExchangeName,
-                batchPostingLimit : 1,
-                period : TimeSpan.FromMilliseconds(10))
-                .CreateLogger();
-
-            Log.Information("Some text");
-
-            Thread.Sleep(100);
-
-            Log.CloseAndFlush();
-        }
-
-        [TestMethod]
-        public void Audit() {
-            var loggerConfiguration = new LoggerConfiguration();
-            Log.Logger = loggerConfiguration.AuditTo.RabbitMQ(
+                batchPostingLimit: 1,
+                period: TimeSpan.FromMilliseconds(10))
+                .AuditTo.RabbitMQ(
                 hostname: RabbitMQFixture.HostName,
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
@@ -46,11 +36,13 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
 
             Log.Information("Some text");
 
-            Log.CloseAndFlush();
+            Thread.Sleep(100); // wait batch execution
         }
 
         [TestCleanup]
         public void Cleanup() {
+            Log.CloseAndFlush();
+
             RabbitMQFixture.DropRabbitMQExchange();
         }
 

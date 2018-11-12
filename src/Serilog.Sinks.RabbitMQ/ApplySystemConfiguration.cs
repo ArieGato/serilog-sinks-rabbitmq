@@ -1,4 +1,7 @@
 ﻿namespace Serilog.Sinks.RabbitMQ {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
 #if NET_FX
     using System.Configuration;
 #endif
@@ -8,6 +11,12 @@
     using Serilog.Debugging;
 
     internal static class ApplySystemConfiguration {
+        internal static List<string> ParseHostName(string hostname) {
+            if (hostname == null) throw new ArgumentNullException(nameof(hostname));
+
+            return hostname.Split(',').Select(m => m.Trim()).ToList();
+        }
+
         /// <summary>
         /// Examine if supplied uri is a reference to an item in the "ConnectionStrings" section of web.config
         /// If it is, return the uri item, if not, return string as supplied.
