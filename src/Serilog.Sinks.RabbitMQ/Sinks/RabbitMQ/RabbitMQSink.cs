@@ -14,7 +14,6 @@
 
 using System;
 using System.IO;
-using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Raw;
@@ -48,7 +47,7 @@ namespace Serilog.Sinks.RabbitMQ
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                _client.Publish(logEvent.Level, sw.ToString());
             }
         }
 

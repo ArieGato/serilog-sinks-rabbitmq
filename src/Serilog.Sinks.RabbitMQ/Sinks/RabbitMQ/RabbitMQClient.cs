@@ -25,7 +25,6 @@ namespace Serilog.Sinks.RabbitMQ
     {
         // configuration member
         private readonly RabbitMQConfiguration _config;
-        private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
         private IConnectionFactory _connectionFactory;
@@ -41,7 +40,6 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // load configuration
             _config = configuration;
-            _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
             // initialize 
             InitializeEndpoint();
@@ -94,11 +92,16 @@ namespace Serilog.Sinks.RabbitMQ
         /// <summary>
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
+        /// <param name="level"></param>
         /// <param name="message"></param>
-        public void Publish(string message)
+        public void Publish(Events.LogEventLevel level, string message)
         {
+            //Configure routing key with the log level
+            var routeKey = _config.RouteKey.Replace("{level}", level.ToString());
+            var publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, routeKey);
+            
             // push message to exchange
-            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
+            _model.BasicPublish(publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
 
         public void Dispose()
