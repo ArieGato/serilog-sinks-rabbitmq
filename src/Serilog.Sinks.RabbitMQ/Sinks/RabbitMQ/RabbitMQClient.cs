@@ -12,6 +12,8 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using RabbitMQ.Client;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
@@ -22,15 +24,21 @@ namespace Serilog.Sinks.RabbitMQ
     /// </summary>
     public class RabbitMQClient : IDisposable
     {
+        // synchronization locks
+        private const int MaxChannelCount = 64;
+        private readonly object _connectionLock = new object();
+        private readonly object[] _modelLocks = new object[MaxChannelCount];
+        private int _currentModelIndex = -1;
+
         // configuration member
         private readonly RabbitMQConfiguration _config;
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        private IConnectionFactory _connectionFactory;
-        private IConnection _connection;
-        private IModel _model;
-        private IBasicProperties _properties;
+        private readonly IConnectionFactory _connectionFactory;
+        private readonly IModel[] _models = new IModel[MaxChannelCount];
+        private readonly IBasicProperties[] _properties = new IBasicProperties[MaxChannelCount];
+        private volatile IConnection _connection;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -38,32 +46,20 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="configuration">mandatory</param>
         public RabbitMQClient(RabbitMQConfiguration configuration)
         {
+            // RabbitMQ channels are not thread-safe.
+            // https://www.rabbitmq.com/dotnet-api-guide.html#model-sharing
+            // Create a pool of channels and give each call to Publish one channel.
+            for (var i = 0; i < MaxChannelCount; i++)
+            {
+                _modelLocks[i] = new object();
+            }
+
             // load configuration
             _config = configuration;
             _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
             // initialize
-            InitializeEndpoint();
-        }
-
-        /// <summary>
-        /// Private method, that must be run for the client to work.
-        /// <remarks>See constructor</remarks>
-        /// </summary>
-        private void InitializeEndpoint()
-        {
-            // prepare endpoint
             _connectionFactory = GetConnectionFactory();
-
-            if (_config.Hostnames.Count == 0)
-                _connection = _connectionFactory.CreateConnection();
-            else
-                _connection = _connectionFactory.CreateConnection(_config.Hostnames);
-
-            _model = _connection.CreateModel();
-
-            _properties = _model.CreateBasicProperties();
-            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistence
         }
 
         /// <summary>
@@ -110,14 +106,93 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public void Publish(string message)
         {
-            // push message to exchange
-            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
+            var currentModelIndex = Interlocked.Increment(ref _currentModelIndex);
+
+            // Interlocked.Increment can overflow and return a negative currentModelIndex.
+            // Ensure that currentModelIndex is always in the range of [0, MaxChannelCount) by using this formula.
+            // https://stackoverflow.com/a/14997413/263003
+            currentModelIndex = (currentModelIndex % MaxChannelCount + MaxChannelCount) % MaxChannelCount;
+            lock (_modelLocks[currentModelIndex])
+            {
+                var model = _models[currentModelIndex];
+                var properties = _properties[currentModelIndex];
+                if (model == null)
+                {
+                    var connection = GetConnection();
+                    model = connection.CreateModel();
+                    _models[currentModelIndex] = model;
+
+                    properties = model.CreateBasicProperties();
+                    properties.DeliveryMode = (byte)_config.DeliveryMode; // persistence
+                    _properties[currentModelIndex] = properties;
+                }
+
+                // push message to exchange
+                model.BasicPublish(_publicationAddress, properties, System.Text.Encoding.UTF8.GetBytes(message));
+            }
+        }
+
+        public void Close()
+        {
+            // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
+            // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
+            IList<Exception> exceptions = new List<Exception>();
+            foreach (var model in _models)
+            {
+                if (model != null)
+                {
+                    try
+                    {
+                        model.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Add(ex);
+                    }
+                }
+            }
+
+            try
+            {
+                _connection?.Close();
+            }
+            catch (Exception ex)
+            {
+                exceptions.Add(ex);
+            }
+
+            if (exceptions.Count > 0)
+            {
+                throw new AggregateException(exceptions);
+            }
         }
 
         public void Dispose()
         {
-            _model.Dispose();
-            _connection.Dispose();
+            foreach (var model in _models)
+            {
+                model?.Dispose();
+            }
+
+            _connection?.Dispose();
+        }
+
+        private IConnection GetConnection()
+        {
+            if (_connection == null)
+            {
+                lock (_connectionLock)
+                {
+                    if (_connection == null)
+                    {
+                        _connection = _config.Hostnames.Count == 0
+                            ? _connectionFactory.CreateConnection()
+                            : _connectionFactory.CreateConnection(_config.Hostnames);
+                    }
+                }
+            }
+
+            return _connection;
         }
     }
 }

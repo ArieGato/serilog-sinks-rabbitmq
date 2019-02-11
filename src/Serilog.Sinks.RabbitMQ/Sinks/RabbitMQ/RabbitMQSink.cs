@@ -14,7 +14,6 @@
 
 using System;
 using System.IO;
-using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Raw;
@@ -55,6 +54,18 @@ namespace Serilog.Sinks.RabbitMQ
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
+
+            try
+            {
+                // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
+                // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
+                _client.Close();
+            }
+            catch
+            {
+                // ignore exceptions
+            }
+
             _client.Dispose();
         }
     }
