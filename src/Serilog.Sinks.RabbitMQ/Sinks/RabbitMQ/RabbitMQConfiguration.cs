@@ -1,4 +1,4 @@
-﻿// Copyright 2015 Serilog Contributors
+// Copyright 2015 Serilog Contributors
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,5 +35,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public ushort Heartbeat;
         public int BatchPostingLimit;
         public TimeSpan Period;
+        public SslOption SslOption { get; set; }
     }
 }
