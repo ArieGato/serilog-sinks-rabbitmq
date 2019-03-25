@@ -16,6 +16,12 @@ artifacts:
   name: NuGet
 deploy:  
 - provider: NuGet
+  name: development
+  api_key:
+    secure: CDt/ytivyUpblAr9yiFzhIr5ra4E9xbDLsiA+fGVEIk=
+  on:
+    branch: development
+- provider: NuGet
   name: production
   api_key:
     secure: BAtH8CvaSmfHl50sCLITa9KxPfJoL3OwazW6hCRUefLldlTdFyKwU69RRAuc4vko
