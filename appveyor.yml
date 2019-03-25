@@ -16,6 +16,7 @@ artifacts:
   name: NuGet
 deploy:  
 - provider: NuGet
+  symbol_server: https://ci.appveyor.com/nuget/serilog-sinks-rabbitmq-69nw8pmg15th/api/v2/package
   name: development
   api_key:
     secure: CDt/ytivyUpblAr9yiFzhIr5ra4E9xbDLsiA+fGVEIk=
