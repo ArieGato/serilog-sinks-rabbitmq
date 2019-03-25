@@ -16,15 +16,9 @@ artifacts:
   name: NuGet
 deploy:  
 - provider: NuGet
-  server: https://www.myget.org/F/temp-forks/api/v2/package
-  api_key:
-    secure: VcEqx1411TqpedhBjftqTYyIKcd+tZKvXlxQEnEFC4ashyitwS7Zy/s4HU5DxASU
-  skip_symbols: true
-  on:
-    branch: master
-- provider: NuGet
   name: production
   api_key:
     secure: BAtH8CvaSmfHl50sCLITa9KxPfJoL3OwazW6hCRUefLldlTdFyKwU69RRAuc4vko
   on:
     branch: master
+    appveyor_repo_tag: true
