@@ -16,6 +16,13 @@ artifacts:
   name: NuGet
 deploy:  
 - provider: NuGet
+  server: https://ci.appveyor.com/nuget/sonicjolt-7p0cirv7a71a/api/v2/package
+  name: development
+  api_key:
+    secure: cHx9VpdgxJaQWsU2n2fMDaH6vYB6miM44OCgVWRPN+E=
+  on:
+    branch: development
+- provider: NuGet
   name: production
   api_key:
     secure: BAtH8CvaSmfHl50sCLITa9KxPfJoL3OwazW6hCRUefLldlTdFyKwU69RRAuc4vko
