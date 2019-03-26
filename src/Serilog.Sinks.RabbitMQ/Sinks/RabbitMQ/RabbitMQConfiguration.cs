@@ -22,19 +22,19 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
     /// </summary>
     public class RabbitMQConfiguration
     {
-        public string Hostname = string.Empty;
-        public string Username = string.Empty;
-        public string Password = string.Empty;
-        public string Exchange = string.Empty;
-        public string ExchangeType = string.Empty;
-        public RabbitMQDeliveryMode DeliveryMode = RabbitMQDeliveryMode.NonDurable;
-        public string RouteKey = string.Empty;
-        public int Port;
-        public string VHost = string.Empty;
-        public IProtocol Protocol;
-        public ushort Heartbeat;
-        public int BatchPostingLimit;
-        public TimeSpan Period;
+        public string Hostname { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Exchange { get; set; } = string.Empty;
+        public string ExchangeType { get; set; } = string.Empty;
+        public RabbitMQDeliveryMode DeliveryMode { get; set; } = RabbitMQDeliveryMode.NonDurable;
+        public string RouteKey { get; set; } = string.Empty;
+        public int Port { get; set; }
+        public string VHost { get; set; } = string.Empty;
+        public IProtocol Protocol { get; set; }
+        public ushort Heartbeat { get; set; }
+        public int BatchPostingLimit { get; set; }
+        public TimeSpan Period { get; set; }
         public bool UseBackgroundThreadsForIO;
     }
 }
