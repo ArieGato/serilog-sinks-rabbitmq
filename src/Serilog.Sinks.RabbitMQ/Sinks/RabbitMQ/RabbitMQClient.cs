@@ -1,11 +1,10 @@
-﻿// Copyright 2015 Serilog Contributors
-// 
+// Copyright 2015 Serilog Contributors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -43,7 +42,7 @@ namespace Serilog.Sinks.RabbitMQ
             _config = configuration;
             _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
-            // initialize 
+            // initialize
             InitializeEndpoint();
         }
 
@@ -64,7 +63,7 @@ namespace Serilog.Sinks.RabbitMQ
             _model = _connection.CreateModel();
 
             _properties = _model.CreateBasicProperties();
-            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
+            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistence
         }
 
         /// <summary>
@@ -80,9 +79,18 @@ namespace Serilog.Sinks.RabbitMQ
                 UserName = _config.Username,
                 Password = _config.Password,
                 AutomaticRecoveryEnabled = true,
-                NetworkRecoveryInterval = TimeSpan.FromSeconds(2)
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
+                UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
             };
-
+            
+            if (_config.SslOption != null)
+            {
+                connectionFactory.Ssl.Version = _config.SslOption.Version;
+                connectionFactory.Ssl.CertPath = _config.SslOption.CertPath;
+                connectionFactory.Ssl.ServerName = _config.SslOption.ServerName;
+                connectionFactory.Ssl.Enabled = _config.SslOption.Enabled;
+                connectionFactory.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
+            }
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
                 connectionFactory.RequestedHeartbeat = _config.Heartbeat;

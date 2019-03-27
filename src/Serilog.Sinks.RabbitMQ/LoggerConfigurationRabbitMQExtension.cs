@@ -1,11 +1,11 @@
 ﻿// Copyright 2015 Serilog Contributors
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -56,9 +56,10 @@ namespace Serilog
                 rabbitMqConfiguration.BatchPostingLimit,
                 rabbitMqConfiguration.Period,
                 formatter,
-                formatProvider);
+                formatProvider,
+                rabbitMqConfiguration.UseBackgroundThreadsForIO);
         }
-        
+
         /// <summary>
         /// Configures Serilog logger configuration with RabbitMQ
         /// </summary>
@@ -67,25 +68,26 @@ namespace Serilog
             string hostname,
             string username,
             string password,
-            string exchange,
-            string exchangeType,
-            RabbitMQDeliveryMode deliveryMode,
-            string routeKey,
-            int port,
-            string vHost,
-            ushort heartbeat,
-            IProtocol protocol,
-            int batchPostingLimit,
-            TimeSpan period,
-            ITextFormatter formatter,
-            IFormatProvider formatProvider = null)
+            string exchange = null,
+            string exchangeType = null,
+            RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
+            string routeKey = null,
+            int port = 0,
+            string vHost = null,
+            ushort heartbeat = 0,
+            IProtocol protocol = null,
+            int batchPostingLimit = 0,
+            TimeSpan period = default(TimeSpan),
+            ITextFormatter formatter = null,
+            IFormatProvider formatProvider = null,
+            bool useBackgroundThreadsForIO = false)
         {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
             if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (port <= 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
+            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
 
             // setup configuration
             var config = new RabbitMQConfiguration
@@ -102,9 +104,10 @@ namespace Serilog
                 Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
                 BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default(TimeSpan) ? DefaultPeriod : period
+                Period = period == default(TimeSpan) ? DefaultPeriod : period,
+                UseBackgroundThreadsForIO = useBackgroundThreadsForIO
             };
-            
+
             return
                 loggerConfiguration
                     .Sink(new RabbitMQSink(config, formatter, formatProvider));
