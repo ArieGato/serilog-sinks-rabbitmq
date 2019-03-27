@@ -1,5 +1,4 @@
-﻿// Copyright 2015 Serilog Contributors
-//
+// Copyright 2015 Serilog Contributors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -36,5 +35,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public int BatchPostingLimit { get; set; }
         public TimeSpan Period { get; set; }
         public bool UseBackgroundThreadsForIO;
+        public SslOption SslOption { get; set; }
     }
 }
