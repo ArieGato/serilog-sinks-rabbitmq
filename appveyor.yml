@@ -4,6 +4,7 @@ pull_requests:
   do_not_increment_build_number: true
 branches:  
   only:
+  - development
   - master
 nuget:  
   disable_publish_on_pr: true
@@ -15,15 +16,16 @@ artifacts:
   name: NuGet
 deploy:  
 - provider: NuGet
-  server: https://www.myget.org/F/temp-forks/api/v2/package
+  server: https://ci.appveyor.com/nuget/sonicjolt-7p0cirv7a71a/api/v2/package
+  name: development
   api_key:
-    secure: VcEqx1411TqpedhBjftqTYyIKcd+tZKvXlxQEnEFC4ashyitwS7Zy/s4HU5DxASU
-  skip_symbols: true
+    secure: cHx9VpdgxJaQWsU2n2fMDaH6vYB6miM44OCgVWRPN+E=
   on:
-    branch: master
+    branch: development
 - provider: NuGet
   name: production
   api_key:
     secure: BAtH8CvaSmfHl50sCLITa9KxPfJoL3OwazW6hCRUefLldlTdFyKwU69RRAuc4vko
   on:
     branch: master
+    appveyor_repo_tag: true
