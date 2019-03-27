@@ -5,6 +5,10 @@
 </a>
 [![Gitter](https://badges.gitter.im/serilog-sinks-rabbitmq/serilog-sinks-rabbitmq.svg)](https://gitter.im/serilog-sinks-rabbitmq/Lobby)
 
+## Purpose
+
+This project is to allow Serilog to log to RabbitMQ using the RabbitMQ.Client package. The aim is to expose RabbitMQ.Client functionality, in a logical way, and not to build in additional logic into the sink. So expect pure RabbitMQ.Client behavior, but perhaps a little bit simpler interface.
+
 ## Installation
 
 Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
