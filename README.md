@@ -11,7 +11,7 @@ This project is to allow Serilog to log to RabbitMQ using the [RabbitMQ.Client](
 
 ## Versioning
 
-We use [Semantic Versioning](https://semver.org) to express changes in the API. 
+As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes in the API. 
 
 ## Installation
 
