@@ -9,6 +9,10 @@
 
 This project is to allow Serilog to log to RabbitMQ using the [RabbitMQ.Client](https://www.nuget.org/packages/RabbitMQ.Client) package. The aim is to expose RabbitMQ.Client functionality, in a logical way, and not to build in additional logic into the sink. So expect pure RabbitMQ.Client behavior, but perhaps a little bit simpler interface.
 
+## Versioning
+
+We use [Semantic Versioning](https://semver.org) to express changes in the API. 
+
 ## Installation
 
 Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
