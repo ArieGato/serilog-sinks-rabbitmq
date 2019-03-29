@@ -145,7 +145,6 @@ namespace Serilog
             // setup configuration
             var config = new RabbitMQConfiguration
             {
-                Hostnames = hostnames,
                 Username = username,
                 Password = password,
                 Exchange = exchange ?? string.Empty,
@@ -159,6 +158,10 @@ namespace Serilog
                 BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
                 Period = period == default(TimeSpan) ? DefaultPeriod : period
             };
+            foreach (string hostname in hostnames)
+            {
+                config.Hostnames.Add(hostname);
+            }
 
             return
                 loggerConfiguration

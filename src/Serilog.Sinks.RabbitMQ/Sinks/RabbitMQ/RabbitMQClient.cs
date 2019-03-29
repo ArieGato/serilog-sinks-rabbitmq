@@ -55,7 +55,7 @@ namespace Serilog.Sinks.RabbitMQ
             // prepare endpoint
             _connectionFactory = GetConnectionFactory();
 
-            if (_config.Hostnames == null || _config.Hostnames.Count == 0)
+            if (_config.Hostnames.Count == 0)
                 _connection = _connectionFactory.CreateConnection();
             else
                 _connection = _connectionFactory.CreateConnection(_config.Hostnames);

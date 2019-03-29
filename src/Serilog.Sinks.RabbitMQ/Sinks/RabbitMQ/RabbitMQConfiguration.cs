@@ -23,7 +23,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
     public class RabbitMQConfiguration
     {
         public string Hostname { get; set; } = string.Empty;
-        public IList<string> Hostnames = null;
+        public IList<string> Hostnames { get; } = new List<string>();
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string Exchange { get; set; } = string.Empty;
