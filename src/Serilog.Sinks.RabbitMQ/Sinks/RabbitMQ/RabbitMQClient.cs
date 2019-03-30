@@ -14,6 +14,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using RabbitMQ.Client;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
@@ -26,8 +27,10 @@ namespace Serilog.Sinks.RabbitMQ
     {
         // synchronization locks
         private const int MaxChannelCount = 64;
-        private readonly object _connectionLock = new object();
-        private readonly object[] _modelLocks = new object[MaxChannelCount];
+        private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim[] _modelLocks = new SemaphoreSlim[MaxChannelCount];
+        private readonly CancellationTokenSource _closeTokenSource = new CancellationTokenSource();
+        private readonly CancellationToken _closeToken;
         private int _currentModelIndex = -1;
 
         // configuration member
@@ -46,12 +49,14 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="configuration">mandatory</param>
         public RabbitMQClient(RabbitMQConfiguration configuration)
         {
+            _closeToken = _closeTokenSource.Token;
+
             // RabbitMQ channels are not thread-safe.
             // https://www.rabbitmq.com/dotnet-api-guide.html#model-sharing
             // Create a pool of channels and give each call to Publish one channel.
             for (var i = 0; i < MaxChannelCount; i++)
             {
-                _modelLocks[i] = new object();
+                _modelLocks[i] = new SemaphoreSlim(1, 1);
             }
 
             // load configuration
@@ -78,7 +83,7 @@ namespace Serilog.Sinks.RabbitMQ
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
                 UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
             };
-            
+
             if (_config.SslOption != null)
             {
                 connectionFactory.Ssl.Version = _config.SslOption.Version;
@@ -104,7 +109,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
-        public void Publish(string message)
+        public async Task PublishAsync(string message)
         {
             var currentModelIndex = Interlocked.Increment(ref _currentModelIndex);
 
@@ -112,13 +117,15 @@ namespace Serilog.Sinks.RabbitMQ
             // Ensure that currentModelIndex is always in the range of [0, MaxChannelCount) by using this formula.
             // https://stackoverflow.com/a/14997413/263003
             currentModelIndex = (currentModelIndex % MaxChannelCount + MaxChannelCount) % MaxChannelCount;
-            lock (_modelLocks[currentModelIndex])
+            var modelLock = _modelLocks[currentModelIndex];
+            await modelLock.WaitAsync(_closeToken);
+            try
             {
                 var model = _models[currentModelIndex];
                 var properties = _properties[currentModelIndex];
                 if (model == null)
                 {
-                    var connection = GetConnection();
+                    var connection = await GetConnectionAsync();
                     model = connection.CreateModel();
                     _models[currentModelIndex] = model;
 
@@ -130,30 +137,42 @@ namespace Serilog.Sinks.RabbitMQ
                 // push message to exchange
                 model.BasicPublish(_publicationAddress, properties, System.Text.Encoding.UTF8.GetBytes(message));
             }
+            finally
+            {
+                modelLock.Release();
+            }
         }
 
         public void Close()
         {
+            IList<Exception> exceptions = new List<Exception>();
+            try
+            {
+                _closeTokenSource.Cancel();
+            }
+            catch (Exception ex)
+            {
+                exceptions.Add(ex);
+            }
+
             // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
             // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
-            IList<Exception> exceptions = new List<Exception>();
-            foreach (var model in _models)
+            for (var i = 0; i < _models.Length; i++)
             {
-                if (model != null)
+                try
                 {
-                    try
-                    {
-                        model.Close();
-                    }
-                    catch (Exception ex)
-                    {
-                        exceptions.Add(ex);
-                    }
+                    _modelLocks[i].Wait(10);
+                    _models[i]?.Close();
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
                 }
             }
 
             try
             {
+                _connectionLock.Wait(10);
                 _connection?.Close();
             }
             catch (Exception ex)
@@ -169,6 +188,14 @@ namespace Serilog.Sinks.RabbitMQ
 
         public void Dispose()
         {
+            _closeTokenSource.Dispose();
+
+            _connectionLock.Dispose();
+            foreach (var modelLock in _modelLocks)
+            {
+                modelLock.Dispose();
+            }
+
             foreach (var model in _models)
             {
                 model?.Dispose();
@@ -177,11 +204,12 @@ namespace Serilog.Sinks.RabbitMQ
             _connection?.Dispose();
         }
 
-        private IConnection GetConnection()
+        private async Task<IConnection> GetConnectionAsync()
         {
             if (_connection == null)
             {
-                lock (_connectionLock)
+                await _connectionLock.WaitAsync(_closeToken);
+                try
                 {
                     if (_connection == null)
                     {
@@ -189,6 +217,10 @@ namespace Serilog.Sinks.RabbitMQ
                             ? _connectionFactory.CreateConnection()
                             : _connectionFactory.CreateConnection(_config.Hostnames);
                     }
+                }
+                finally
+                {
+                    _connectionLock.Release();
                 }
             }
 
