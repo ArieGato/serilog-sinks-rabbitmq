@@ -20,10 +20,9 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
     /// <summary>
     /// Configuration class for RabbitMqClient
     /// </summary>
-    public class RabbitMQConfiguration
+    public class RabbitMQClientConfiguration
     {
-        public string Hostname { get; set; } = string.Empty;
-        public IList<string> Hostnames { get; } = new List<string>();
+        public IList<string> Hostnames { get; set; } = new List<string>();
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string Exchange { get; set; } = string.Empty;
@@ -34,9 +33,25 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public string VHost { get; set; } = string.Empty;
         public IProtocol Protocol { get; set; }
         public ushort Heartbeat { get; set; }
-        public int BatchPostingLimit { get; set; }
-        public TimeSpan Period { get; set; }
         public bool UseBackgroundThreadsForIO { get; set; }
         public SslOption SslOption { get; set; }
+
+        public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config) {
+            Hostnames                   = config.Hostnames;
+            Username                    = config.Username;
+            Password                    = config.Password;
+            Exchange                    = config.Exchange;
+            ExchangeType                = config.ExchangeType;
+            DeliveryMode                = config.DeliveryMode;
+            RouteKey                    = config.RouteKey;
+            Port                        = config.Port;
+            VHost                       = config.VHost;
+            Protocol                    = config.Protocol;
+            Heartbeat                   = config.Heartbeat;
+            UseBackgroundThreadsForIO   = config.UseBackgroundThreadsForIO;
+            SslOption                   = config.SslOption;
+
+            return this;
+        }
     }
 }

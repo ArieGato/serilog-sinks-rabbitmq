@@ -23,7 +23,7 @@ namespace Serilog.Sinks.RabbitMQ
     public class RabbitMQClient : IDisposable
     {
         // configuration member
-        private readonly RabbitMQConfiguration _config;
+        private readonly RabbitMQClientConfiguration _config;
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
@@ -36,7 +36,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// Constructor for RabbitMqClient
         /// </summary>
         /// <param name="configuration">mandatory</param>
-        public RabbitMQClient(RabbitMQConfiguration configuration)
+        public RabbitMQClient(RabbitMQClientConfiguration configuration)
         {
             // load configuration
             _config = configuration;
@@ -54,12 +54,7 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // prepare endpoint
             _connectionFactory = GetConnectionFactory();
-
-            if (_config.Hostnames.Count == 0)
-                _connection = _connectionFactory.CreateConnection();
-            else
-                _connection = _connectionFactory.CreateConnection(_config.Hostnames);
-
+             _connection = _connectionFactory.CreateConnection(_config.Hostnames);
             _model = _connection.CreateModel();
 
             _properties = _model.CreateBasicProperties();
@@ -75,7 +70,6 @@ namespace Serilog.Sinks.RabbitMQ
             // prepare connection factory
             var connectionFactory = new ConnectionFactory
             {
-                HostName = _config.Hostname,
                 UserName = _config.Username,
                 Password = _config.Password,
                 AutomaticRecoveryEnabled = true,
