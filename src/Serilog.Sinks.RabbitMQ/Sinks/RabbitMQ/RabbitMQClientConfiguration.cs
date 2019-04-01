@@ -22,7 +22,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
     /// </summary>
     public class RabbitMQClientConfiguration
     {
-        public IList<string> Hostnames { get; set; } = new List<string>();
+        public IList<string> Hostnames { get; } = new List<string>();
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string Exchange { get; set; } = string.Empty;
@@ -37,7 +37,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public SslOption SslOption { get; set; }
 
         public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config) {
-            Hostnames                   = config.Hostnames;
             Username                    = config.Username;
             Password                    = config.Password;
             Exchange                    = config.Exchange;
@@ -50,6 +49,11 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             Heartbeat                   = config.Heartbeat;
             UseBackgroundThreadsForIO   = config.UseBackgroundThreadsForIO;
             SslOption                   = config.SslOption;
+
+            foreach (string hostName in config.Hostnames)
+            {
+                Hostnames.Add(hostName);
+            }
 
             return this;
         }

@@ -36,11 +36,10 @@ namespace Serilog
         {
             RabbitMQClientConfiguration rabbitMQConfiguration = new RabbitMQClientConfiguration();
             RabbitMQSinkConfiguration rabbitMQSinkConfiguration = new RabbitMQSinkConfiguration();
-            configure.Invoke(rabbitMQConfiguration, rabbitMQSinkConfiguration);
+            configure(rabbitMQConfiguration, rabbitMQSinkConfiguration);
 
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
-            if (rabbitMQConfiguration.Hostnames == null) throw new ArgumentNullException("hostnames", "hostnames cannot be 'null'. Enter valid hostnames.");
             if (rabbitMQConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
             if (string.IsNullOrEmpty(rabbitMQConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (rabbitMQConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
