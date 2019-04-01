@@ -15,9 +15,9 @@ As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes
 
 ### Dependencies
 
-|Serilog.Sinks.RabbitMQ|Serilog|RabbitMQ.Client|
-|---|---|---|
-|2.0.0|2.3.0|4.\*|
+|Serilog.Sinks.RabbitMQ|.NETStandard|.NETFramework|Serilog|RabbitMQ.Client|
+|---|---|---|---|---|
+|2.0.0|1.6.0|4.5.1|2.3.0|4.\*|
 
 ## Installation
 
