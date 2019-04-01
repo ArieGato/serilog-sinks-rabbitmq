@@ -34,7 +34,7 @@ add the following to `ConfigureServices` in your `Startup` class.
 See the [logging documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
 for specific help on using the `ILoggerFactory` and `ILogger<T>`.
 
-```
+``` csharp
 using Serilog;
 using Serilog.Formatting.Json;
 using Serilog.Sinks.RabbitMQ;
