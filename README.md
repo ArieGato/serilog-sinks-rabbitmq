@@ -13,6 +13,12 @@ This project is to allow Serilog to log to RabbitMQ using the [RabbitMQ.Client](
 
 As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes in the API. 
 
+### Dependencies
+
+|Serilog.Sinks.RabbitMQ|Serilog|RabbitMQ.Client|
+|---|---|---|
+|2.0.0|2.3.0|4.\*|
+
 ## Installation
 
 Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
