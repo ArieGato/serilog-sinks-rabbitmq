@@ -5,6 +5,20 @@
 </a>
 [![Gitter](https://badges.gitter.im/serilog-sinks-rabbitmq/serilog-sinks-rabbitmq.svg)](https://gitter.im/serilog-sinks-rabbitmq/Lobby)
 
+## Purpose
+
+This project is to allow Serilog to log to RabbitMQ using the [RabbitMQ.Client](https://www.nuget.org/packages/RabbitMQ.Client) package. The aim is to expose RabbitMQ.Client functionality, in a logical way, and not to build in additional logic into the sink. So expect pure RabbitMQ.Client behavior, but perhaps a little bit simpler interface.
+
+## Versioning
+
+As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes in the API. 
+
+### Dependencies
+
+|Serilog.Sinks.RabbitMQ|.NETStandard|.NETFramework|Serilog|RabbitMQ.Client|
+|---|---|---|---|---|
+|2.0.0|1.6.0|4.5.1|2.3.0|4.\*|
+
 ## Installation
 
 Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
@@ -20,7 +34,7 @@ add the following to `ConfigureServices` in your `Startup` class.
 See the [logging documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
 for specific help on using the `ILoggerFactory` and `ILogger<T>`.
 
-```
+``` csharp
 using Serilog;
 using Serilog.Formatting.Json;
 using Serilog.Sinks.RabbitMQ;

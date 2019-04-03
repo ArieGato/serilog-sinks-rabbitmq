@@ -2,4 +2,4 @@
 
 [assembly: AssemblyTitle("Serilog.Sinks.RabbitMQ")]
 [assembly: AssemblyDescription("")]
-[assembly: AssemblyCopyright("Copyright © Serilog Contributors 2015")]
+[assembly: AssemblyCopyright("Copyright © Serilog Contributors 2019")]
