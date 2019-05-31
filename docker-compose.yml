@@ -1,11 +1,11 @@
 version: '3'
 
 services:
-  consoleapp:
-    container_name: serilog.sinks.rabbitmq.tests.console
+  integration-test:
+    container_name: serilog.sinks.rabbitmq.tests.integration
     build:
       context: ./ 
-      dockerfile: docker/consoleapp/Dockerfile
+      dockerfile: docker/integration-test/Dockerfile
     depends_on: 
       - rabbitmq
   rabbitmq:
