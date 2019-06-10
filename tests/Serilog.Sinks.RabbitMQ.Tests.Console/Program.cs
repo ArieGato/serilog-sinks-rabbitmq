@@ -25,10 +25,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Console
             config.Hostnames.Add("rabbitmq");
 
             var logger = new LoggerConfiguration()
-                .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
-                    clientConfiguration.From(config);
-                    sinkConfiguration.TextFormatter = new JsonFormatter();
-                })
+                .WriteTo.RabbitMQ(config , new RabbitMQSinkConfiguration(){ TextFormatter = new JsonFormatter() })
                 .MinimumLevel.Verbose()
                 .CreateLogger();
 
