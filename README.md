@@ -28,7 +28,7 @@ Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
 Install-Package Serilog.Sinks.RabbitMQ
 ```
 
-## Usage
+## Version 2.0.0 configuration
 
 To use with `ILoggerFactory` via dependency injection, 
 add the following to `ConfigureServices` in your `Startup` class. 
@@ -74,7 +74,83 @@ public class Startup
    // ...
 }
 ```
+## Version 3.0.0 configuration
 
+There are multiple ways for configuring the RabbitMqSink with the release of v3.0.0
+
+```csharp
+var logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
+        clientConfiguration.Username     = _config["RABBITMQ_USER"];
+        clientConfiguration.Password     = _config["RABBITMQ_PASSWORD"];
+        clientConfiguration.Exchange     = _config["RABBITMQ_EXCHANGE"];
+        clientConfiguration.ExchangeType = _config["RABBITMQ_EXCHANGE_TYPE"];
+        clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+        clientConfiguration.RouteKey     = "Logs";
+        clientConfiguration.Port         = 5672;
+
+        foreach (string hostname in _config["RABBITMQ_HOSTNAMES"]) {
+            clientConfiguration.Hostnames.Add(hostname);
+        }
+
+        sinkConfiguration.TextFormatter  = new JsonFormatter();
+    }).CreateLogger();
+```
+
+```csharp
+// Or
+var config = new RabbitMQClientConfiguration
+    {
+        Port            = 5672,
+        DeliveryMode    = RabbitMQ.RabbitMQDeliveryMode.Durable,
+        Exchange        = "test_exchange",
+        Username        = "guest",
+        Password        = "guest",
+        ExchangeType    = "fanout"
+    };
+
+foreach (string hostname in _config["RABBITMQ_HOSTNAMES"]) {
+    config .Hostnames.Add(hostname);
+}
+
+var logger = new LoggerConfiguration()
+    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
+    clientConfiguration.From(config);
+    sinkConfiguration.TextFormatter = new JsonFormatter();
+}) .CreateLogger();
+```
+
+```csharp
+// Or
+var logger = new LoggerConfiguration()
+    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
+        clientConfiguration.From(Configuration.Bind("RabbitMQClientConfiguration", new RabbitMQClientConfiguration()));
+        sinkConfiguration.TextFormatter = new JsonFormatter();
+}).CreateLogger();
+```
+
+```csharp
+// Or
+LoggerConfiguration loggerConfiguration = new LoggerConfiguration();
+IConfigurationSection rabbitMqSection = configuration.GetSection("log:rabbitMq");
+loggerConfiguration = loggerConfiguration
+    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
+    {
+        rabbitMqSection.Bind(clientConfiguration);
+        sinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Warning;
+    });
+```    
+   
+```csharp
+// At last, don't forget to register the logger into the services
+var loggerFactory = new LoggerFactory();
+      loggerFactory
+        .AddSerilog()
+        .AddConsole(LogLevel.Information);
+
+      services.AddSingleton<ILoggerFactory>(loggerFactory);
+```
 
 ## References
 

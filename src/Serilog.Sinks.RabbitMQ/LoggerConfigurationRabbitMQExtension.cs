@@ -34,23 +34,36 @@ namespace Serilog
             this LoggerSinkConfiguration loggerConfiguration,
             Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure)
         {
-            RabbitMQClientConfiguration rabbitMQConfiguration = new RabbitMQClientConfiguration();
-            RabbitMQSinkConfiguration rabbitMQSinkConfiguration = new RabbitMQSinkConfiguration();
-            configure(rabbitMQConfiguration, rabbitMQSinkConfiguration);
+            RabbitMQClientConfiguration clientConfiguration = new RabbitMQClientConfiguration();
+            RabbitMQSinkConfiguration sinkConfiguration = new RabbitMQSinkConfiguration();
+            configure(clientConfiguration, sinkConfiguration);
 
+            return RegisterSink(loggerConfiguration, clientConfiguration, sinkConfiguration);
+        }
+
+        public static LoggerConfiguration RabbitMQ(
+            this LoggerSinkConfiguration loggerConfiguration,
+            RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration)
+        {
+            return RegisterSink(loggerConfiguration, clientConfiguration, sinkConfiguration);
+        }
+
+        static LoggerConfiguration RegisterSink(LoggerSinkConfiguration loggerConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration)
+        {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
-            if (rabbitMQConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
-            if (string.IsNullOrEmpty(rabbitMQConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
-            if (rabbitMQConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (rabbitMQConfiguration.Port <= 0 || rabbitMQConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
+            if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
+            if (string.IsNullOrEmpty(clientConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
+            if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
+            if (clientConfiguration.Port <= 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
-            rabbitMQSinkConfiguration.BatchPostingLimit = (rabbitMQSinkConfiguration.BatchPostingLimit == default(int)) ? DefaultBatchPostingLimit : rabbitMQSinkConfiguration.BatchPostingLimit;
-            rabbitMQSinkConfiguration.Period = (rabbitMQSinkConfiguration.Period == default(TimeSpan)) ? DefaultPeriod : rabbitMQSinkConfiguration.Period;
+            sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default(int)) ? DefaultBatchPostingLimit : sinkConfiguration.BatchPostingLimit;
+            sinkConfiguration.Period = (sinkConfiguration.Period == default(TimeSpan)) ? DefaultPeriod : sinkConfiguration.Period;
 
             return
                 loggerConfiguration
-                    .Sink(new RabbitMQSink(rabbitMQConfiguration, rabbitMQSinkConfiguration), rabbitMQSinkConfiguration.RestrictedToMinimumLevel);
+                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
         }
     }
+
 }

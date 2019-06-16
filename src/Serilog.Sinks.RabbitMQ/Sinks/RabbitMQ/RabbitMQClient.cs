@@ -27,7 +27,7 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        private IConnectionFactory _connectionFactory;
+        private readonly IConnectionFactory _connectionFactory;
         private IConnection _connection;
         private IModel _model;
         private IBasicProperties _properties;
@@ -43,22 +43,7 @@ namespace Serilog.Sinks.RabbitMQ
             _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
             // initialize
-            InitializeEndpoint();
-        }
-
-        /// <summary>
-        /// Private method, that must be run for the client to work.
-        /// <remarks>See constructor</remarks>
-        /// </summary>
-        private void InitializeEndpoint()
-        {
-            // prepare endpoint
             _connectionFactory = GetConnectionFactory();
-             _connection = _connectionFactory.CreateConnection(_config.Hostnames);
-            _model = _connection.CreateModel();
-
-            _properties = _model.CreateBasicProperties();
-            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistence
         }
 
         /// <summary>
@@ -76,7 +61,7 @@ namespace Serilog.Sinks.RabbitMQ
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
                 UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
             };
-            
+
             if (_config.SslOption != null)
             {
                 connectionFactory.Ssl.Version = _config.SslOption.Version;
@@ -104,14 +89,37 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public void Publish(string message)
         {
-            // push message to exchange
-            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
+            // Publish message to exchange.
+            var channel = GetChannel();
+            channel.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
 
+        /// <inheritdoc />
         public void Dispose()
         {
-            _model.Dispose();
-            _connection.Dispose();
+            _model?.Dispose();
+            _connection?.Dispose();
+        }
+
+        private IModel GetChannel()
+        {
+            if (_connection == null)
+            {
+                _connection = _connectionFactory.CreateConnection(_config.Hostnames);
+            }
+
+            if (_model == null)
+            {
+                _model = _connection.CreateModel();
+            }
+
+            if (_properties == null)
+            {
+                _properties = _model.CreateBasicProperties();
+                _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistence
+            }
+
+            return _model;
         }
     }
 }
