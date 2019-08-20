@@ -1,11 +1,10 @@
-﻿// Copyright 2015 Serilog Contributors
-// 
+// Copyright 2015 Serilog Contributors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,11 +23,11 @@ namespace Serilog.Sinks.RabbitMQ
     public class RabbitMQClient : IDisposable
     {
         // configuration member
-        private readonly RabbitMQConfiguration _config;
+        private readonly RabbitMQClientConfiguration _config;
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        private IConnectionFactory _connectionFactory;
+        private readonly IConnectionFactory _connectionFactory;
         private IConnection _connection;
         private IModel _model;
         private IBasicProperties _properties;
@@ -59,11 +58,7 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // prepare endpoint
             _connectionFactory = GetConnectionFactory();
-            if (_config.Hostnames != null && _config.Hostnames.Count > 0) 
-                _connection = _connectionFactory.CreateConnection(_config.Hostnames);
-            else 
-                _connection = _connectionFactory.CreateConnection();
-
+            _connection = _connectionFactory.CreateConnection();
             _model = _connection.CreateModel();
 
             _properties = _model.CreateBasicProperties();
@@ -83,7 +78,16 @@ namespace Serilog.Sinks.RabbitMQ
             // setup auto recovery
             connectionFactory.AutomaticRecoveryEnabled = true;
             connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
+            connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
 
+            if (_config.SslOption != null)
+            {
+                connectionFactory.Ssl.Version = _config.SslOption.Version;
+                connectionFactory.Ssl.CertPath = _config.SslOption.CertPath;
+                connectionFactory.Ssl.ServerName = _config.SslOption.ServerName;
+                connectionFactory.Ssl.Enabled = _config.SslOption.Enabled;
+                connectionFactory.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
+            }
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
                 connectionFactory.RequestedHeartbeat = _config.Heartbeat;
@@ -106,14 +110,37 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public void Publish(string message)
         {
-            // push message to exchange
-            _model.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
+            // Publish message to exchange.
+            var channel = GetChannel();
+            channel.BasicPublish(_publicationAddress, _properties, System.Text.Encoding.UTF8.GetBytes(message));
         }
 
+        /// <inheritdoc />
         public void Dispose()
         {
-            _model.Dispose();
-            _connection.Dispose();
+            _model?.Dispose();
+            _connection?.Dispose();
+        }
+
+        private IModel GetChannel()
+        {
+            if (_connection == null)
+            {
+                _connection = _connectionFactory.CreateConnection(_config.Hostnames);
+            }
+
+            if (_model == null)
+            {
+                _model = _connection.CreateModel();
+            }
+
+            if (_properties == null)
+            {
+                _properties = _model.CreateBasicProperties();
+                _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistence
+            }
+
+            return _model;
         }
     }
 }

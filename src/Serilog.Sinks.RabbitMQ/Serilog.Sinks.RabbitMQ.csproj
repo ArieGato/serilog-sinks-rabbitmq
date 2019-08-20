@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <VersionPrefix>2.0.3</VersionPrefix>
+    <VersionPrefix>3.0.3</VersionPrefix>
     <VersionSuffix>with-audit01</VersionSuffix>
     <TargetFrameworks>net451;netstandard1.6</TargetFrameworks>
     <DebugType>portable</DebugType>
@@ -9,9 +9,11 @@
     <PackageId>Serilog.Sinks.RabbitMQ</PackageId>
     <PackageTags>serilog;logging;rabbitmq;error</PackageTags>
     <PackageIconUrl>http://serilog.net/images/serilog-sink-nuget.png</PackageIconUrl>
-    <PackageProjectUrl>http://serilog.net</PackageProjectUrl>
+    <PackageProjectUrl>http://github.com/sonicjolt/serilog-sinks-rabbitmq</PackageProjectUrl>
     <PackageLicenseUrl>http://www.apache.org/licenses/LICENSE-2.0</PackageLicenseUrl>
-    <NetStandardImplicitPackageVersion Condition=" '$(TargetFramework)' == 'netstandard1.6' ">1.6.0</NetStandardImplicitPackageVersion>
+    <PackageDescription>Serilog.Sinks.RabbitMq is a Nuget package that extends Serilog to support logging to RabbitMq</PackageDescription>
+    <Authors>Steffen Lyng, Jared Nance, Tsvetelin Tsonev, Jeow Li Huan, Andre Rocha, Shaparam, Meli0r, Johannes Egger, Dag H. Baardsen, Aaron Powell, Thomas Ardal</Authors>
+    <NetStandardImplicitPackageVersion Condition=" '$(TargetFramework)' == 'netstandard1.6' ">1.6.1</NetStandardImplicitPackageVersion>
     <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
     <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
@@ -25,9 +27,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="RabbitMQ.Client" Version="4.*" />
-    <PackageReference Include="Serilog" Version="2.3.0" />
-    <PackageReference Include="Serilog.Sinks.PeriodicBatching" Version="2.*" />
+    <PackageReference Include="RabbitMQ.Client" Version="5.1.0" />
+    <PackageReference Include="Serilog" Version="2.8.0" />
+    <PackageReference Include="Serilog.Sinks.PeriodicBatching" Version="2.1.1" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net451' ">

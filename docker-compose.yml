@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  integration-test:
+    container_name: serilog.sinks.rabbitmq.tests.integration
+    build:
+      context: ./ 
+      dockerfile: docker/integration-test/Dockerfile
+    depends_on: 
+      - rabbitmq
+  rabbitmq:
+    container_name: serilog.sinks.rabbitmq.server
+    build:
+      context: ./
+      dockerfile: docker/rabbitmq/Dockerfile
+    ports:
+      - 4369:4369
+      - 5671:5671
+      - 5672:5672
+      - 25672:25672
+      - 15671:15671
+      - 15672:15672

@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using System.IO;
-using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Formatting.Raw;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 using Serilog.Sinks.PeriodicBatching;
 using System.Collections.Generic;
@@ -30,17 +27,13 @@ namespace Serilog.Sinks.RabbitMQ
     public class RabbitMQSink : PeriodicBatchingSink
     {
         private readonly ITextFormatter _formatter;
-        private readonly IFormatProvider _formatProvider;
         private readonly RabbitMQClient _client;
 
-        public RabbitMQSink(RabbitMQConfiguration configuration,
-            ITextFormatter formatter,
-            IFormatProvider formatProvider,
-            bool autoCreateExchange) : base(configuration.BatchPostingLimit, configuration.Period)
+        public RabbitMQSink(RabbitMQClientConfiguration configuration,
+            RabbitMQSinkConfiguration rabbitMQSinkConfiguration) : base(rabbitMQSinkConfiguration.BatchPostingLimit, rabbitMQSinkConfiguration.Period)
         {
-            _formatter = formatter ?? new RawFormatter();
-            _formatProvider = formatProvider;
-            _client = new RabbitMQClient(configuration, autoCreateExchange);
+            _formatter = rabbitMQSinkConfiguration.TextFormatter;
+            _client = new RabbitMQClient(configuration);
         }
 
         protected override void EmitBatch(IEnumerable<LogEvent> events)
