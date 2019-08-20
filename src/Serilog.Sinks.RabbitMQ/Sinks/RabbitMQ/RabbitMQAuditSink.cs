@@ -2,7 +2,6 @@
 using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Formatting.Raw;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 using System;
 using System.IO;
@@ -14,20 +13,17 @@ namespace Serilog.Sinks.RabbitMQ
     /// </summary>
     public class RabbitMQAuditSink : ILogEventSink, IDisposable {
         private readonly ITextFormatter _formatter;
-        private readonly IFormatProvider _formatProvider;
         private readonly RabbitMQClient _client;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RabbitMQAuditSink" /> class.
         /// </summary>
-        /// <param name="configuration">The configuration.</param>
-        /// <param name="formatter">The formatter, or null.</param>
-        /// <param name="formatProvider">Supplies culture-specific formatting information, or null.</param>
-        /// <param name="autoCreateExchange">if set to <c>true</c> automatic create exchange.</param>
-        public RabbitMQAuditSink(RabbitMQConfiguration configuration, ITextFormatter formatter, IFormatProvider formatProvider, bool autoCreateExchange) {
-            _formatter = formatter ?? new RawFormatter();
-            _formatProvider = formatProvider;
-            _client = new RabbitMQClient(configuration, autoCreateExchange);
+        /// <param name="configuration">The clinet configuration.</param>
+        /// <param name="rabbitMQSinkConfiguration">The Sink configuration.</param>
+        public RabbitMQAuditSink(RabbitMQClientConfiguration configuration,
+            RabbitMQSinkConfiguration rabbitMQSinkConfiguration) {
+            _formatter = rabbitMQSinkConfiguration.TextFormatter;
+            _client = new RabbitMQClient(configuration);
         }
 
         /// <summary>

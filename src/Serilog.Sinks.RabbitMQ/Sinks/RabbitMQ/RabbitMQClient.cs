@@ -36,33 +36,18 @@ namespace Serilog.Sinks.RabbitMQ
         /// Constructor for RabbitMqClient
         /// </summary>
         /// <param name="configuration">mandatory</param>
-        public RabbitMQClient(RabbitMQConfiguration configuration, bool autoCreateExchange)
+        public RabbitMQClient(RabbitMQClientConfiguration configuration)
         {
             // load configuration
             _config = configuration;
             _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
             // initialize 
-            InitializeEndpoint();
-            if (autoCreateExchange)
+            _connectionFactory = GetConnectionFactory();
+            if (configuration.AutoCreateExchange)
             {
                 _model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
             }
-        }
-
-        /// <summary>
-        /// Private method, that must be run for the client to work.
-        /// <remarks>See constructor</remarks>
-        /// </summary>
-        private void InitializeEndpoint()
-        {
-            // prepare endpoint
-            _connectionFactory = GetConnectionFactory();
-            _connection = _connectionFactory.CreateConnection();
-            _model = _connection.CreateModel();
-
-            _properties = _model.CreateBasicProperties();
-            _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistance
         }
 
         /// <summary>
@@ -73,12 +58,13 @@ namespace Serilog.Sinks.RabbitMQ
         {
             // prepare connection factory
             ConnectionFactory connectionFactory = new ConnectionFactory();
+
             if (_config.AmqpUri != null) connectionFactory.Uri = _config.AmqpUri;
 
             // setup auto recovery
             connectionFactory.AutomaticRecoveryEnabled = true;
             connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
-            connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
+            connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO;
 
             if (_config.SslOption != null)
             {
@@ -93,7 +79,6 @@ namespace Serilog.Sinks.RabbitMQ
                 connectionFactory.RequestedHeartbeat = _config.Heartbeat;
 
             // only set, if has value, otherwise leave default
-            //if (!string.IsNullOrEmpty(_config.Hostname)) connectionFactory.HostName = _config.Hostname;
             if (!string.IsNullOrEmpty(_config.Username)) connectionFactory.UserName = _config.Username;
             if (!string.IsNullOrEmpty(_config.Password)) connectionFactory.Password = _config.Password;
             if (_config.Port > 0) connectionFactory.Port = _config.Port;

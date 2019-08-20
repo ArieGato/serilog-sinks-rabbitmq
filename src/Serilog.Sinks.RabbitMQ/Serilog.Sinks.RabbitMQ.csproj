@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <VersionPrefix>3.0.3</VersionPrefix>
-    <VersionSuffix>with-audit01</VersionSuffix>
+    <VersionSuffix>with-audit02</VersionSuffix>
     <TargetFrameworks>net451;netstandard1.6</TargetFrameworks>
     <DebugType>portable</DebugType>
     <AssemblyName>Serilog.Sinks.RabbitMQ</AssemblyName>
