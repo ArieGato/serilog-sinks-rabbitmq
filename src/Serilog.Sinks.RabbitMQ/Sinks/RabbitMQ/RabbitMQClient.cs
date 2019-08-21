@@ -44,10 +44,6 @@ namespace Serilog.Sinks.RabbitMQ
 
             // initialize 
             _connectionFactory = GetConnectionFactory();
-            if (configuration.AutoCreateExchange)
-            {
-                _model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
-            }
         }
 
         /// <summary>
@@ -111,7 +107,10 @@ namespace Serilog.Sinks.RabbitMQ
         {
             if (_connection == null)
             {
-                _connection = _connectionFactory.CreateConnection(_config.Hostnames);
+                if (_config.Hostnames != null && _config.Hostnames.Count > 0)
+                    _connection = _connectionFactory.CreateConnection(_config.Hostnames);
+                else
+                    _connection = _connectionFactory.CreateConnection();
             }
 
             if (_model == null)
@@ -123,6 +122,10 @@ namespace Serilog.Sinks.RabbitMQ
             {
                 _properties = _model.CreateBasicProperties();
                 _properties.DeliveryMode = (byte)_config.DeliveryMode; //persistence
+            }
+
+            if (_config.AutoCreateExchange) {
+                _model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
             }
 
             return _model;

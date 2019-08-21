@@ -35,8 +35,8 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public ushort Heartbeat { get; set; }
         public bool UseBackgroundThreadsForIO { get; set; }
         public SslOption SslOption { get; set; }
-        public Uri AmqpUri { get; set; }
         public bool AutoCreateExchange { get; set; }
+        internal Uri AmqpUri { get; set; }
 
         public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config) {
             Username                    = config.Username;

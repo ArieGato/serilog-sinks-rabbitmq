@@ -48,8 +48,68 @@ namespace Serilog
         }
 
         /// <summary>
+        /// Configures Serilog logger configuration with RabbitMQ
+        /// </summary>
+        /// <remarks>Leaved for compatibility with Serilog.Settings.AppSettings library.</remarks>
+        public static LoggerConfiguration RabbitMQ(
+            this LoggerSinkConfiguration loggerConfiguration,
+            string hostname,
+            string username,
+            string password,
+            string exchange = null,
+            string exchangeType = null,
+            RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
+            string routeKey = null,
+            int port = 0,
+            string vHost = null,
+            ushort heartbeat = 0,
+            IProtocol protocol = null,
+            int batchPostingLimit = 0,
+            TimeSpan period = default(TimeSpan),
+            ITextFormatter formatter = null,
+            IFormatProvider formatProvider = null,
+            bool autoCreateExchange = false) {
+            // guards
+            if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
+            if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
+            if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
+            if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
+            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
+
+            // setup configuration
+            var clientConfiguration = new RabbitMQClientConfiguration {
+                Username = username,
+                Password = password,
+                Exchange = exchange ?? string.Empty,
+                ExchangeType = exchangeType ?? ExchangeType.Fanout,
+                DeliveryMode = deliveryMode,
+                RouteKey = routeKey ?? string.Empty,
+                Port = port,
+                VHost = vHost ?? string.Empty,
+                Protocol = protocol ?? Protocols.DefaultProtocol,
+                Heartbeat = heartbeat,
+            };
+
+            var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
+            foreach (var item in hostnames) {
+                clientConfiguration.Hostnames.Add(item);
+            }
+
+            var sinkConfiguration = new RabbitMQSinkConfiguration {
+                BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
+                Period = period == default(TimeSpan) ? DefaultPeriod : period,
+                TextFormatter = formatter,
+            };
+
+            return
+                loggerConfiguration
+                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+        }
+
+        /// <summary>
         /// Configures Serilog logger configuration with RabbitMQ using AMQP URIs
         /// </summary>
+        /// <remarks>Leaved for compatibility with Serilog.Settings.AppSettings library.</remarks>
         public static LoggerConfiguration RabbitMQ(
             this LoggerSinkConfiguration loggerConfiguration,
             string amqpUri,
@@ -95,22 +155,6 @@ namespace Serilog
                     .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
         }
 
-        static LoggerConfiguration RegisterSink(LoggerSinkConfiguration loggerConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
-            // guards
-            if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
-            if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
-            if (string.IsNullOrEmpty(clientConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
-            if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (clientConfiguration.Port <= 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
-
-            sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default(int)) ? DefaultBatchPostingLimit : sinkConfiguration.BatchPostingLimit;
-            sinkConfiguration.Period = (sinkConfiguration.Period == default(TimeSpan)) ? DefaultPeriod : sinkConfiguration.Period;
-
-            return
-                loggerConfiguration
-                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
-        }
-
         /// <summary>
         /// Configures Serilog audit logger configuration with RabbitMQ
         /// </summary>
@@ -134,9 +178,66 @@ namespace Serilog
             return RegisterAuditSink(loggerAuditSinkConfiguration, clientConfiguration, sinkConfiguration);
         }
 
+
+        /// <summary>
+        /// Configures Serilog audit logger configuration with RabbitMQ
+        /// </summary>
+        /// <remarks>Leaved for compatibility with Serilog.Settings.AppSettings library.</remarks>
+        public static LoggerConfiguration RabbitMQ(
+            this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
+            string hostname,
+            string username,
+            string password,
+            string exchange = null,
+            string exchangeType = null,
+            RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
+            string routeKey = null,
+            int port = 0,
+            string vHost = null,
+            ushort heartbeat = 0,
+            IProtocol protocol = null,
+            ITextFormatter formatter = null,
+            IFormatProvider formatProvider = null,
+            bool autoCreateExchange = false) {
+            // guards
+            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
+            if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
+            if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
+            if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
+            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
+
+            // setup configuration
+            var clientConfiguration = new RabbitMQClientConfiguration {
+                Username = username,
+                Password = password,
+                Exchange = exchange ?? string.Empty,
+                ExchangeType = exchangeType ?? ExchangeType.Fanout,
+                DeliveryMode = deliveryMode,
+                RouteKey = routeKey ?? string.Empty,
+                Port = port,
+                VHost = vHost ?? string.Empty,
+                Protocol = protocol ?? Protocols.DefaultProtocol,
+                Heartbeat = heartbeat,
+            };
+
+            var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
+            foreach(var item in hostnames) {
+                clientConfiguration.Hostnames.Add(item);
+            }
+
+            var sinkConfiguration = new RabbitMQSinkConfiguration {
+                TextFormatter = formatter,
+            };
+
+            return
+                loggerAuditSinkConfiguration
+                    .Sink(new RabbitMQAuditSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+        }
+
         /// <summary>
         /// Configures Serilog audit logger configuration with RabbitMQ using AMQP URIs
         /// </summary>
+        /// <remarks>Leaved for compatibility with Serilog.Settings.AppSettings library.</remarks>
         public static LoggerConfiguration RabbitMQ(
             this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
             string amqpUri,
@@ -176,6 +277,22 @@ namespace Serilog
             return
                 loggerAuditSinkConfiguration
                     .Sink(new RabbitMQAuditSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+        }
+
+        static LoggerConfiguration RegisterSink(LoggerSinkConfiguration loggerConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
+            // guards
+            if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
+            if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
+            if (string.IsNullOrEmpty(clientConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
+            if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
+            if (clientConfiguration.Port <= 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
+
+            sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default(int)) ? DefaultBatchPostingLimit : sinkConfiguration.BatchPostingLimit;
+            sinkConfiguration.Period = (sinkConfiguration.Period == default(TimeSpan)) ? DefaultPeriod : sinkConfiguration.Period;
+
+            return
+                loggerConfiguration
+                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
         }
 
         static LoggerConfiguration RegisterAuditSink(LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
