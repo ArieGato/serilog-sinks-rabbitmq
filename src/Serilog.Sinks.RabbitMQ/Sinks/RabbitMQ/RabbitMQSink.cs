@@ -18,6 +18,7 @@ using Serilog.Formatting;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 using Serilog.Sinks.PeriodicBatching;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Serilog.Sinks.RabbitMQ
 {
@@ -36,19 +37,33 @@ namespace Serilog.Sinks.RabbitMQ
             _client = new RabbitMQClient(configuration);
         }
 
-        protected override void EmitBatch(IEnumerable<LogEvent> events)
+        protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
         {
             foreach (var logEvent in events)
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                await _client.PublishAsync(sw.ToString());
             }
         }
 
         protected override void Dispose(bool disposing)
         {
+            // base.Dispose must be called first, because it flushes all pending EmitBatchAsync.
+            // Closing the client first would have resulted in an infinite retry loop to flush.
             base.Dispose(disposing);
+
+            try
+            {
+                // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
+                // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
+                _client.Close();
+            }
+            catch
+            {
+                // ignore exceptions
+            }
+
             _client.Dispose();
         }
     }
