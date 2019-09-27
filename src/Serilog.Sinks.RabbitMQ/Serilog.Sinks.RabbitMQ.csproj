@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <VersionPrefix>3.0.3</VersionPrefix>
-    <VersionSuffix>with-audit04</VersionSuffix>
+    <VersionPrefix>3.0.7/VersionPrefix>
+	 <VersionSuffix>with-audit00</VersionSuffix>
     <TargetFrameworks>net451;netstandard1.6</TargetFrameworks>
     <DebugType>portable</DebugType>
     <AssemblyName>Serilog.Sinks.RabbitMQ</AssemblyName>

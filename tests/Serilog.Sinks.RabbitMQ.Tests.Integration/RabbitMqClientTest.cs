@@ -49,7 +49,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 async () =>
                 {
                     this.channel.BasicConsume(QueueName, autoAck: true, consumer);
-                    this.client.Publish(message);
+                    await this.client.PublishAsync(message);
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);

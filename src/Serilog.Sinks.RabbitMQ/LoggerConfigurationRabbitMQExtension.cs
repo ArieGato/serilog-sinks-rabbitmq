@@ -24,7 +24,8 @@ namespace Serilog
     /// <summary>
     /// Extension method to configure Serilog with a Sink for RabbitMq
     /// </summary>
-    public static class LoggerConfigurationRabbitMqExtension {
+    public static class LoggerConfigurationRabbitMqExtension
+    {
         private const int DefaultBatchPostingLimit = 50;
         private static readonly TimeSpan DefaultPeriod = TimeSpan.FromSeconds(2);
 
@@ -33,7 +34,8 @@ namespace Serilog
         /// </summary>
         public static LoggerConfiguration RabbitMQ(
             this LoggerSinkConfiguration loggerConfiguration,
-            Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure) {
+            Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure)
+        {
             RabbitMQClientConfiguration clientConfiguration = new RabbitMQClientConfiguration();
             RabbitMQSinkConfiguration sinkConfiguration = new RabbitMQSinkConfiguration();
             configure(clientConfiguration, sinkConfiguration);
@@ -43,7 +45,8 @@ namespace Serilog
 
         public static LoggerConfiguration RabbitMQ(
             this LoggerSinkConfiguration loggerConfiguration,
-            RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
+            RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration)
+        {
             return RegisterSink(loggerConfiguration, clientConfiguration, sinkConfiguration);
         }
 
