@@ -128,6 +128,11 @@ namespace Serilog.Sinks.RabbitMQ
                 {
                     var connection = await GetConnectionAsync();
                     model = connection.CreateModel();
+
+                    if (_config.AutoCreateExchange) {
+                        model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+                    }
+
                     _models[currentModelIndex] = model;
 
                     properties = model.CreateBasicProperties();

@@ -34,10 +34,10 @@ namespace Serilog.Sinks.RabbitMQ
             try {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                _client.PublishAsync(sw.ToString()).Wait();
             }
             catch (Exception ex) {
-                SelfLog.WriteLine("Unable to write log event to the RabbitMQ due to following error: {1}", ex.Message);
+                SelfLog.WriteLine("Unable to write log event to the RabbitMQ due to following error: {0}", ex.Message);
                 throw;
             }
         }
@@ -45,6 +45,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// <summary>
         /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
+        /// <filterpriority>2</filterpriority>
         public void Dispose() {
             Dispose(true);
             GC.SuppressFinalize(this);
@@ -55,9 +56,16 @@ namespace Serilog.Sinks.RabbitMQ
         /// </summary>
         /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
         protected virtual void Dispose(bool disposing) {
-            if (disposing) {
-                _client.Dispose();
+            try {
+                // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
+                // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
+                _client.Close();
             }
+            catch {
+                // ignore exceptions
+            }
+
+            _client.Dispose();
         }
     }
 }

@@ -200,7 +200,6 @@ namespace Serilog
             ushort heartbeat = 0,
             IProtocol protocol = null,
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null,
             bool autoCreateExchange = false) {
             // guards
             if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
@@ -208,6 +207,7 @@ namespace Serilog
             if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
             if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
+            if (formatter == null) throw new ArgumentException("formatter cannot be 'null'. Enter a valid formatter.");
 
             // setup configuration
             var clientConfiguration = new RabbitMQClientConfiguration {
@@ -251,10 +251,10 @@ namespace Serilog
             ushort heartbeat = 0,
             IProtocol protocol = null,
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null,
             bool autoCreateExchange = false) {
             // guards
             if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
+            if (formatter == null) throw new ArgumentException("formatter cannot be 'null'. Enter a valid formatter.");
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
 
 #if NET_FX
