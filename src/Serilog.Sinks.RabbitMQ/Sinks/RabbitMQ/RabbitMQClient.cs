@@ -35,7 +35,6 @@ namespace Serilog.Sinks.RabbitMQ
 
         // configuration member
         private readonly RabbitMQClientConfiguration _config;
-        private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
         private readonly IConnectionFactory _connectionFactory;
@@ -61,7 +60,6 @@ namespace Serilog.Sinks.RabbitMQ
 
             // load configuration
             _config = configuration;
-            _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
 
             // initialize
             _connectionFactory = GetConnectionFactory();
@@ -108,8 +106,20 @@ namespace Serilog.Sinks.RabbitMQ
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
-        public async Task PublishAsync(string message)
+        public Task PublishAsync(string message)
         {
+            return PublishAsync(message, routingKey: null);
+        }
+
+        /// <summary>
+        /// Publishes a message to RabbitMq Exchange
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="routingKey">The routing key to use when publishing the message.</param>
+        public async Task PublishAsync(string message, string routingKey)
+        {
+            routingKey = routingKey ?? _config.RouteKey;
+
             var currentModelIndex = Interlocked.Increment(ref _currentModelIndex);
 
             // Interlocked.Increment can overflow and return a negative currentModelIndex.
@@ -133,8 +143,10 @@ namespace Serilog.Sinks.RabbitMQ
                     _properties[currentModelIndex] = properties;
                 }
 
+                var publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, routingKey);
+
                 // push message to exchange
-                model.BasicPublish(_publicationAddress, properties, System.Text.Encoding.UTF8.GetBytes(message));
+                model.BasicPublish(publicationAddress, properties, System.Text.Encoding.UTF8.GetBytes(message));
             }
             finally
             {
