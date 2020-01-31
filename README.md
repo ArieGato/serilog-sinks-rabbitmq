@@ -152,6 +152,20 @@ var loggerFactory = new LoggerFactory();
       services.AddSingleton<ILoggerFactory>(loggerFactory);
 ```
 
+### Dynamic Routing Keys
+
+If you need support for dynamic routing keys you can supply a delegate to build a routing key based on the log event.
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
+    clientConfiguration.From(config);
+    // The routing key used to publish the message to RabbitMQ will now be
+    // the level of the log event (e.g., "Information", "Fatal", etc.).
+    sinkConfiguration.BuildRoutingKey = logEvent => logEvent.Level.ToString();
+}).CreateLogger();
+```
+
 ## References
 
 - [Serilog](https://serilog.net/)
