@@ -35,21 +35,21 @@ namespace Serilog.Sinks.RabbitMQ
     {
         private readonly ITextFormatter _formatter;
         private readonly RabbitMQClient _client;
-
-        public BuildRoutingKey BuildRoutingKey { get; set; }
+        private readonly BuildRoutingKey _buildRoutingKey;
 
         public RabbitMQSink(RabbitMQClientConfiguration configuration,
             RabbitMQSinkConfiguration rabbitMQSinkConfiguration) : base(rabbitMQSinkConfiguration.BatchPostingLimit, rabbitMQSinkConfiguration.Period)
         {
             _formatter = rabbitMQSinkConfiguration.TextFormatter;
             _client = new RabbitMQClient(configuration);
+            _buildRoutingKey = rabbitMQSinkConfiguration.BuildRoutingKey;
         }
 
         protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
         {
             foreach (var logEvent in events)
             {
-                var routingKey = BuildRoutingKey?.Invoke(logEvent);
+                var routingKey = _buildRoutingKey?.Invoke(logEvent);
 
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);

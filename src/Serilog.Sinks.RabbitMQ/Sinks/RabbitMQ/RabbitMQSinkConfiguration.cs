@@ -28,6 +28,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public int BatchPostingLimit { get; set; }
         public TimeSpan Period { get; set; }
         public ITextFormatter TextFormatter { get; set; } = new RawFormatter();
+        public BuildRoutingKey BuildRoutingKey { get; set; }
         public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
     }
 }
