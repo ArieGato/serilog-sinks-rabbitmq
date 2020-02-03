@@ -67,11 +67,11 @@ namespace Serilog
             string hostname, string username, string password, string exchange = null, string exchangeType = null,
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable, string routeKey = null, int port = 0,
             string vHost = null, ushort heartbeat = 0, IProtocol protocol = null, int batchPostingLimit = 0,
-            TimeSpan period = default(TimeSpan), ITextFormatter formatter = null, IFormatProvider formatProvider = null
+            TimeSpan period = default(TimeSpan), ITextFormatter formatter = null, IFormatProvider formatProvider = null,  SslOption sslOption = null
         )
         {
             return loggerConfiguration.RabbitMQ(new string[] {hostname}, username, password, exchange, exchangeType,
-                deliveryMode, routeKey, port, vHost, heartbeat, protocol, batchPostingLimit, period, formatter);
+                deliveryMode, routeKey, port, vHost, heartbeat, protocol, batchPostingLimit, period, formatter, sslOption);
         }
 
         /// <summary>
@@ -84,7 +84,7 @@ namespace Serilog
             string[] hostnames, string username, string password, string exchange = null, string exchangeType = null,
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable, string routeKey = null, int port = 0,
             string vHost = null, ushort heartbeat = 0, IProtocol protocol = null, int batchPostingLimit = 0,
-            TimeSpan period = default, ITextFormatter formatter = null
+            TimeSpan period = default, ITextFormatter formatter = null,  SslOption sslOption = null
         )
         {
             RabbitMQClientConfiguration clientConfiguration = new RabbitMQClientConfiguration
@@ -98,7 +98,8 @@ namespace Serilog
                 Port = port,
                 VHost = vHost,
                 Heartbeat = heartbeat,
-                Protocol = protocol
+                Protocol = protocol,
+                SslOption = sslOption == null ? null : new SslOption { ServerName = sslOption.ServerName, Enabled = sslOption.Enabled, Version = sslOption.Version }
             };
             foreach (string hostname in hostnames)
             {
