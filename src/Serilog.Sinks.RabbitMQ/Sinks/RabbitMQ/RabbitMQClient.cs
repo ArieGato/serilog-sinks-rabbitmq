@@ -213,13 +213,7 @@ namespace Serilog.Sinks.RabbitMQ
                 {
                     if (_connection == null)
                     {
-                        if (_config.SslOption == null)
-                        {
-                            _connection = _config.Hostnames.Count == 0
-                                ? _connectionFactory.CreateConnection()
-                                : _connectionFactory.CreateConnection(_config.Hostnames);
-                        }
-                        else if (_config.SslOption.Enabled)
+                        if (_config.SslOption != null && _config.SslOption.Enabled)
                         {
                             List<AmqpTcpEndpoint> endPoint = new List<AmqpTcpEndpoint>();
                             foreach (var HostName in _config.Hostnames)
@@ -232,6 +226,12 @@ namespace Serilog.Sinks.RabbitMQ
                                 endPoint.Add(endpt);
                             }
                             _connection = _connectionFactory.CreateConnection(endPoint);
+                        }
+                        else
+                        {
+                            _connection = _config.Hostnames.Count == 0
+                                ? _connectionFactory.CreateConnection()
+                                : _connectionFactory.CreateConnection(_config.Hostnames);
                         }
                     }
                 }
