@@ -31,8 +31,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public string RouteKey { get; set; } = string.Empty;
         public int Port { get; set; }
         public string VHost { get; set; } = string.Empty;
-        public IProtocol Protocol { get; set; }
-        public ushort Heartbeat { get; set; }
+        public TimeSpan Heartbeat { get; set; }
         public bool UseBackgroundThreadsForIO { get; set; }
         public SslOption SslOption { get; set; }
 
@@ -45,7 +44,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             RouteKey                    = config.RouteKey;
             Port                        = config.Port;
             VHost                       = config.VHost;
-            Protocol                    = config.Protocol;
             Heartbeat                   = config.Heartbeat;
             UseBackgroundThreadsForIO   = config.UseBackgroundThreadsForIO;
             SslOption                   = config.SslOption;
