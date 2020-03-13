@@ -1,6 +1,7 @@
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
     using System;
+    using System.Collections.Generic;
     using System.Text;
     using System.Threading.Tasks;
     using global::RabbitMQ.Client;
@@ -49,7 +50,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 async () =>
                 {
                     this.channel.BasicConsume(QueueName, autoAck: true, consumer);
-                    await this.client.PublishAsync(message);
+                    await this.client.PublishAsync(new List<string> { message });
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);
