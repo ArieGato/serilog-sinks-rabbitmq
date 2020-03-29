@@ -92,13 +92,12 @@ namespace Serilog.Sinks.RabbitMQ
                 connectionFactory.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
             }
             // setup heartbeat if needed
-            if (_config.Heartbeat > 0)
+            if (_config.Heartbeat > default(TimeSpan))
                 connectionFactory.RequestedHeartbeat = _config.Heartbeat;
 
             // only set, if has value, otherwise leave default
             if (_config.Port > 0) connectionFactory.Port = _config.Port;
             if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
-            if (_config.Protocol != null) connectionFactory.Protocol = _config.Protocol;
 
             // return factory
             return connectionFactory;
@@ -108,7 +107,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
-        public async Task PublishAsync(string message)
+        public async Task PublishAsync(List<string> messages)
         {
             var currentModelIndex = Interlocked.Increment(ref _currentModelIndex);
 
@@ -133,8 +132,14 @@ namespace Serilog.Sinks.RabbitMQ
                     _properties[currentModelIndex] = properties;
                 }
 
-                // push message to exchange
-                model.BasicPublish(_publicationAddress, properties, System.Text.Encoding.UTF8.GetBytes(message));
+                // push messages to exchange
+                var batch = model.CreateBasicPublishBatch();
+                foreach(var message in messages)
+                {
+                    batch.Add(_publicationAddress.ExchangeName, _publicationAddress.RoutingKey, false, properties, System.Text.Encoding.UTF8.GetBytes(message));
+                }
+
+                batch.Publish();
             }
             finally
             {

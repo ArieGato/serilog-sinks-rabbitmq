@@ -61,7 +61,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     await Task.Delay(50);
                 });
 
-            var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body));
+            var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body.Span));
             Assert.Equal("Error", receivedMessage["Level"]);
             Assert.Equal(messageTemplate, receivedMessage["MessageTemplate"]);
             Assert.NotNull(receivedMessage["Properties"]);

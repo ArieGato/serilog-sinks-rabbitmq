@@ -66,7 +66,7 @@ namespace Serilog
             this LoggerSinkConfiguration loggerConfiguration,
             string hostname, string username, string password, string exchange = null, string exchangeType = null,
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable, string routeKey = null, int port = 0,
-            string vHost = null, ushort heartbeat = 0, IProtocol protocol = null, int batchPostingLimit = 0,
+            string vHost = null, TimeSpan heartbeat = default(TimeSpan), IProtocol protocol = null, int batchPostingLimit = 0,
             TimeSpan period = default(TimeSpan), ITextFormatter formatter = null, IFormatProvider formatProvider = null
         )
         {
@@ -83,7 +83,7 @@ namespace Serilog
             this LoggerSinkConfiguration loggerConfiguration,
             string[] hostnames, string username, string password, string exchange = null, string exchangeType = null,
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable, string routeKey = null, int port = 0,
-            string vHost = null, ushort heartbeat = 0, IProtocol protocol = null, int batchPostingLimit = 0,
+            string vHost = null, TimeSpan heartbeat = default(TimeSpan), IProtocol protocol = null, int batchPostingLimit = 0,
             TimeSpan period = default, ITextFormatter formatter = null
         )
         {
@@ -98,7 +98,6 @@ namespace Serilog
                 Port = port,
                 VHost = vHost,
                 Heartbeat = heartbeat,
-                Protocol = protocol
             };
             foreach (string hostname in hostnames)
             {
