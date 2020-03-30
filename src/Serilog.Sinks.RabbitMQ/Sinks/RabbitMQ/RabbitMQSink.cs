@@ -39,12 +39,14 @@ namespace Serilog.Sinks.RabbitMQ
 
         protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
         {
+            var batch = new List<string>();
             foreach (var logEvent in events)
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                await _client.PublishAsync(sw.ToString());
+                batch.Add(sw.ToString());
             }
+            await _client.PublishAsync(batch);
         }
 
         protected override void Dispose(bool disposing)
