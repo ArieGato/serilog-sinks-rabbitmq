@@ -15,6 +15,7 @@
 using System;
 using RabbitMQ.Client;
 using Serilog.Configuration;
+using Serilog.Core;
 using Serilog.Formatting;
 using Serilog.Sinks.RabbitMQ;
 using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
@@ -67,11 +68,12 @@ namespace Serilog
             string hostname, string username, string password, string exchange = null, string exchangeType = null,
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable, string routeKey = null, int port = 0,
             string vHost = null, ushort heartbeat = 0, IProtocol protocol = null, int batchPostingLimit = 0,
-            TimeSpan period = default(TimeSpan), ITextFormatter formatter = null, IFormatProvider formatProvider = null
+            TimeSpan period = default(TimeSpan), ITextFormatter formatter = null, IFormatProvider formatProvider = null,
+            LoggingLevelSwitch levelSwitch = null
         )
         {
             return loggerConfiguration.RabbitMQ(new string[] {hostname}, username, password, exchange, exchangeType,
-                deliveryMode, routeKey, port, vHost, heartbeat, protocol, batchPostingLimit, period, formatter);
+                deliveryMode, routeKey, port, vHost, heartbeat, protocol, batchPostingLimit, period, formatter, levelSwitch);
         }
 
         /// <summary>
@@ -84,7 +86,7 @@ namespace Serilog
             string[] hostnames, string username, string password, string exchange = null, string exchangeType = null,
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable, string routeKey = null, int port = 0,
             string vHost = null, ushort heartbeat = 0, IProtocol protocol = null, int batchPostingLimit = 0,
-            TimeSpan period = default, ITextFormatter formatter = null
+            TimeSpan period = default, ITextFormatter formatter = null, LoggingLevelSwitch levelSwitch = null
         )
         {
             RabbitMQClientConfiguration clientConfiguration = new RabbitMQClientConfiguration
@@ -107,7 +109,10 @@ namespace Serilog
 
             RabbitMQSinkConfiguration sinkConfiguration = new RabbitMQSinkConfiguration
             {
-                BatchPostingLimit = batchPostingLimit, Period = period, TextFormatter = formatter
+                BatchPostingLimit = batchPostingLimit, 
+                Period = period, 
+                TextFormatter = formatter, 
+                LevelSwitch = levelSwitch
             };
 
             return RegisterSink(loggerConfiguration, clientConfiguration, sinkConfiguration);
@@ -127,7 +132,7 @@ namespace Serilog
 
             return
                 loggerConfiguration
-                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel, sinkConfiguration.LevelSwitch);
         }
     }
 

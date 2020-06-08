@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Raw;
@@ -29,5 +30,6 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public TimeSpan Period { get; set; }
         public ITextFormatter TextFormatter { get; set; } = new RawFormatter();
         public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
+        public LoggingLevelSwitch LevelSwitch { get; set; }
     }
 }
