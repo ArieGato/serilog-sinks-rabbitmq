@@ -98,7 +98,6 @@ namespace Serilog.Sinks.RabbitMQ
             // only set, if has value, otherwise leave default
             if (_config.Port > 0) connectionFactory.Port = _config.Port;
             if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
-            if (_config.Protocol != null) connectionFactory.Protocol = _config.Protocol;
 
             // return factory
             return connectionFactory;
