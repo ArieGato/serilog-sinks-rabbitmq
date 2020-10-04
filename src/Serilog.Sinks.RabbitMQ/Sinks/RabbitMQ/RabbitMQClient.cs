@@ -93,7 +93,7 @@ namespace Serilog.Sinks.RabbitMQ
             }
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
-                connectionFactory.RequestedHeartbeat = _config.Heartbeat;
+                connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
 
             // only set, if has value, otherwise leave default
             if (_config.Port > 0) connectionFactory.Port = _config.Port;
