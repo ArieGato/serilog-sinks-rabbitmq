@@ -18,7 +18,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// <summary>
         /// Initializes a new instance of the <see cref="RabbitMQAuditSink" /> class.
         /// </summary>
-        /// <param name="configuration">The clinet configuration.</param>
+        /// <param name="configuration">The client configuration.</param>
         /// <param name="rabbitMQSinkConfiguration">The Sink configuration.</param>
         public RabbitMQAuditSink(RabbitMQClientConfiguration configuration,
             RabbitMQSinkConfiguration rabbitMQSinkConfiguration) {

@@ -67,7 +67,7 @@
                     await Task.Delay(50);
                 });
 
-            var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body));
+            var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray()));
             Assert.Equal("Information", receivedMessage["Level"]);
             Assert.Equal(messageTemplate, receivedMessage["MessageTemplate"]);
             Assert.NotNull(receivedMessage["Properties"]);

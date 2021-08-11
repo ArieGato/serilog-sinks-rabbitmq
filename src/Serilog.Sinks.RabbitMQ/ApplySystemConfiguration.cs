@@ -2,10 +2,10 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
-#if NET_FX
+#if NETFRAMEWORK
     using System.Configuration;
 #endif
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 
     using Microsoft.Extensions.Configuration;
 #endif
     using Serilog.Debugging;
@@ -22,7 +22,7 @@
         /// If it is, return the uri item, if not, return string as supplied.
         /// </summary>
         /// <param name="nameOrUri">The name of the ConnectionStrings key or raw uri.</param>
-#if NET_FX
+#if NETFRAMEWORK
         internal static string GetUri(string nameOrUri) {
             // If there is an `://`, we assume this is a raw uri
             // If there are no `://`, attempt to pull the named value from config

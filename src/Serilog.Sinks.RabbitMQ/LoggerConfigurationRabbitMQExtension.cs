@@ -130,7 +130,7 @@ namespace Serilog
             if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
 
-#if NET_FX 
+#if NETFRAMEWORK 
             amqpUri = ApplySystemConfiguration.GetUri(amqpUri);
 #endif
 
@@ -257,7 +257,7 @@ namespace Serilog
             if (formatter == null) throw new ArgumentException("formatter cannot be 'null'. Enter a valid formatter.");
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
 
-#if NET_FX
+#if NETFRAMEWORK
             amqpUri = ApplySystemConfiguration.GetUri(amqpUri);
 #endif
 
