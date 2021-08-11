@@ -5,6 +5,10 @@
 </a>
 [![Gitter](https://badges.gitter.im/serilog-sinks-rabbitmq/serilog-sinks-rabbitmq.svg)](https://gitter.im/serilog-sinks-rabbitmq/Lobby)
 
+# Maintainers Wanted
+
+This project is looking for maintainers. No new features or releases are scheduled. If you want to become a steward for this repository, please open an issue, and let us know.
+
 ## Purpose
 
 This project is to allow Serilog to log to RabbitMQ using the [RabbitMQ.Client](https://www.nuget.org/packages/RabbitMQ.Client) package. The aim is to expose RabbitMQ.Client functionality, in a logical way, and not to build in additional logic into the sink. So expect pure RabbitMQ.Client behavior, but perhaps a little bit simpler interface.
@@ -170,7 +174,7 @@ This is an example of configuring the multihost using _Serilog.Settings.AppSetti
 There are multiple ways for configuring the RabbitMqSink with the release of v3.0.0
 
 ```csharp
-var logger = new LoggerConfiguration()
+Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
         clientConfiguration.Username     = _config["RABBITMQ_USER"];
@@ -205,7 +209,7 @@ foreach (string hostname in _config["RABBITMQ_HOSTNAMES"]) {
     config .Hostnames.Add(hostname);
 }
 
-var logger = new LoggerConfiguration()
+Log.Logger = new LoggerConfiguration()
     .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
     clientConfiguration.From(config);
     sinkConfiguration.TextFormatter = new JsonFormatter();
@@ -214,7 +218,7 @@ var logger = new LoggerConfiguration()
 
 ```csharp
 // Or
-var logger = new LoggerConfiguration()
+Log.Logger = new LoggerConfiguration()
     .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) => {
         clientConfiguration.From(Configuration.Bind("RabbitMQClientConfiguration", new RabbitMQClientConfiguration()));
         sinkConfiguration.TextFormatter = new JsonFormatter();
@@ -237,7 +241,7 @@ loggerConfiguration = loggerConfiguration
 // At last, don't forget to register the logger into the services
 var loggerFactory = new LoggerFactory();
       loggerFactory
-        .AddSerilog()
+        .AddSerilog() //if you are not assigning the logger to Log.Logger, then you need to add your logger here.
         .AddConsole(LogLevel.Information);
 
       services.AddSingleton<ILoggerFactory>(loggerFactory);
