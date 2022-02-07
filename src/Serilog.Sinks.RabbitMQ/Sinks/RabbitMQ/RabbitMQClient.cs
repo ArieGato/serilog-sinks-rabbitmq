@@ -80,8 +80,13 @@ namespace Serilog.Sinks.RabbitMQ
                 Password = _config.Password,
                 AutomaticRecoveryEnabled = true,
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
-                UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
+                UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO,
             };
+
+            if (!string.IsNullOrWhiteSpace(_config.ClientProvidedName))
+            {
+                connectionFactory.ClientProvidedName = _config.ClientProvidedName;
+            }
 
             if (_config.SslOption != null)
             {

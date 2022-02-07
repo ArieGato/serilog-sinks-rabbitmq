@@ -35,6 +35,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         public ushort Heartbeat { get; set; }
         public bool UseBackgroundThreadsForIO { get; set; }
         public SslOption SslOption { get; set; }
+        public string ClientProvidedName { get; set; }
 
         public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config) {
             Username                    = config.Username;
@@ -49,6 +50,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             Heartbeat                   = config.Heartbeat;
             UseBackgroundThreadsForIO   = config.UseBackgroundThreadsForIO;
             SslOption                   = config.SslOption;
+            ClientProvidedName          = config.ClientProvidedName;
 
             foreach (string hostName in config.Hostnames)
             {
