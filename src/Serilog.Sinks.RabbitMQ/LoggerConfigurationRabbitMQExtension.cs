@@ -1,4 +1,4 @@
-﻿// Copyright 2015 Serilog Contributors
+﻿// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,12 @@
 // limitations under the License.
 
 using System;
+using System.Net.Security;
+using System.Security.Authentication;
 using RabbitMQ.Client;
 using Serilog.Configuration;
 using Serilog.Formatting;
 using Serilog.Sinks.RabbitMQ;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog
 {
@@ -66,11 +67,14 @@ namespace Serilog
             int port = 0,
             string vHost = null,
             ushort heartbeat = 0,
-            IProtocol protocol = null,
+            bool sslEnabled = false,
+            string sslServerName = null,
+            SslProtocols sslVersion = SslProtocols.None, 
+            SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None, 
+            bool sslCheckCertificateRevocation = false,
             int batchPostingLimit = 0,
             TimeSpan period = default(TimeSpan),
             ITextFormatter formatter = null,
-            IFormatProvider formatProvider = null,
             bool autoCreateExchange = false) {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
@@ -89,13 +93,23 @@ namespace Serilog
                 RouteKey = routeKey ?? string.Empty,
                 Port = port,
                 VHost = vHost ?? string.Empty,
-                Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
+                AutoCreateExchange = autoCreateExchange,
             };
 
             var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
             foreach (var item in hostnames) {
                 clientConfiguration.Hostnames.Add(item);
+            }
+
+            if (sslEnabled) {
+                clientConfiguration.SslOption = new SslOption() {
+                    Enabled = sslEnabled,
+                    ServerName = sslServerName,
+                    Version = sslVersion,
+                    AcceptablePolicyErrors = sslAcceptablePolicyErrors,
+                    CheckCertificateRevocation = sslCheckCertificateRevocation
+                };
             }
 
             var sinkConfiguration = new RabbitMQSinkConfiguration {
@@ -121,7 +135,6 @@ namespace Serilog
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
             string routeKey = null,
             ushort heartbeat = 0,
-            IProtocol protocol = null,
             int batchPostingLimit = 0,
             TimeSpan period = default(TimeSpan),
             ITextFormatter formatter = null,
@@ -136,12 +149,11 @@ namespace Serilog
 
             // setup configuration
             var clientConfiguration = new RabbitMQClientConfiguration {
-                AmqpUri = new Uri(amqpUri), // TODO: validate
+                AmqpUri = new Uri(amqpUri),
                 Exchange = exchange ?? string.Empty,
                 ExchangeType = exchangeType ?? ExchangeType.Fanout,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
-                Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
                 AutoCreateExchange = autoCreateExchange,
             };
@@ -198,7 +210,11 @@ namespace Serilog
             int port = 0,
             string vHost = null,
             ushort heartbeat = 0,
-            IProtocol protocol = null,
+            bool sslEnabled = false,
+            string sslServerName = null,
+            SslProtocols sslVersion = SslProtocols.None,
+            SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None,
+            bool sslCheckCertificateRevocation = false,
             ITextFormatter formatter = null,
             bool autoCreateExchange = false) {
             // guards
@@ -219,13 +235,23 @@ namespace Serilog
                 RouteKey = routeKey ?? string.Empty,
                 Port = port,
                 VHost = vHost ?? string.Empty,
-                Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
+                AutoCreateExchange = autoCreateExchange,
             };
 
             var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
-            foreach(var item in hostnames) {
+            foreach (var item in hostnames) {
                 clientConfiguration.Hostnames.Add(item);
+            }
+
+            if (sslEnabled) {
+                clientConfiguration.SslOption = new SslOption() {
+                    Enabled = sslEnabled,
+                    ServerName = sslServerName,
+                    Version = sslVersion,
+                    AcceptablePolicyErrors = sslAcceptablePolicyErrors,
+                    CheckCertificateRevocation = sslCheckCertificateRevocation
+                };
             }
 
             var sinkConfiguration = new RabbitMQSinkConfiguration {
@@ -249,7 +275,6 @@ namespace Serilog
             RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
             string routeKey = null,
             ushort heartbeat = 0,
-            IProtocol protocol = null,
             ITextFormatter formatter = null,
             bool autoCreateExchange = false) {
             // guards
@@ -263,12 +288,11 @@ namespace Serilog
 
             // setup configuration
             var clientConfiguration = new RabbitMQClientConfiguration {
-                AmqpUri = new Uri(amqpUri), // TODO: validate
+                AmqpUri = new Uri(amqpUri),
                 Exchange = exchange ?? string.Empty,
                 ExchangeType = exchangeType ?? ExchangeType.Fanout,
                 DeliveryMode = deliveryMode,
                 RouteKey = routeKey ?? string.Empty,
-                Protocol = protocol ?? Protocols.DefaultProtocol,
                 Heartbeat = heartbeat,
                 AutoCreateExchange = autoCreateExchange,
             };
@@ -288,7 +312,7 @@ namespace Serilog
             if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
             if (string.IsNullOrEmpty(clientConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (clientConfiguration.Port <= 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
+            if (clientConfiguration.Port < 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
             sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default(int)) ? DefaultBatchPostingLimit : sinkConfiguration.BatchPostingLimit;
             sinkConfiguration.Period = (sinkConfiguration.Period == default(TimeSpan)) ? DefaultPeriod : sinkConfiguration.Period;
@@ -304,7 +328,7 @@ namespace Serilog
             if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
             if (string.IsNullOrEmpty(clientConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (clientConfiguration.Port <= 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
+            if (clientConfiguration.Port < 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
             return
                 loggerAuditSinkConfiguration

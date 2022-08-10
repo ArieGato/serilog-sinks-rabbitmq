@@ -1,4 +1,4 @@
-﻿// Copyright 2015 Serilog Contributors
+﻿// Copyright 2015-2022 Serilog Contributors
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 using System.IO;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 using Serilog.Sinks.PeriodicBatching;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -30,13 +29,19 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly ITextFormatter _formatter;
         private readonly RabbitMQClient _client;
 
-        public RabbitMQSink(RabbitMQClientConfiguration configuration,
-            RabbitMQSinkConfiguration rabbitMQSinkConfiguration) : base(rabbitMQSinkConfiguration.BatchPostingLimit, rabbitMQSinkConfiguration.Period)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RabbitMQSink" /> class.
+        /// </summary>
+        /// <param name="configuration">The client configuration.</param>
+        /// <param name="rabbitMQSinkConfiguration">The Sink configuration.</param>
+        public RabbitMQSink(RabbitMQClientConfiguration configuration, RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
+            : base(rabbitMQSinkConfiguration.BatchPostingLimit, rabbitMQSinkConfiguration.Period)
         {
             _formatter = rabbitMQSinkConfiguration.TextFormatter;
             _client = new RabbitMQClient(configuration);
         }
 
+        /// <inheritdoc/>
         protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
         {
             foreach (var logEvent in events)
@@ -47,6 +52,7 @@ namespace Serilog.Sinks.RabbitMQ
             }
         }
 
+        /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
             // base.Dispose must be called first, because it flushes all pending EmitBatchAsync.

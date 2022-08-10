@@ -15,7 +15,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
         public static string HostName => "localhost";
         public static string UserName => "guest";
         public static string Password => "guest";
-        public static string AmqpUri => "amqp://" + HostName;
+        public static Uri AmqpUri => new Uri("amqp://" + HostName);
 
         [TestMethod]
         public void WriteAndAudit() {

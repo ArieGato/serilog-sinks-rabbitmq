@@ -1,4 +1,5 @@
-// Copyright 2015 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -13,17 +14,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq
     /// </summary>
-    public class RabbitMQClient : IDisposable
+    internal class RabbitMQClient : IDisposable
     {
         // synchronization locks
         private const int MaxChannelCount = 64;
@@ -83,14 +84,8 @@ namespace Serilog.Sinks.RabbitMQ
             connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
             connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO;
 
-            if (_config.SslOption != null)
-            {
-                connectionFactory.Ssl.Version = _config.SslOption.Version;
-                connectionFactory.Ssl.CertPath = _config.SslOption.CertPath;
-                connectionFactory.Ssl.ServerName = _config.SslOption.ServerName;
-                connectionFactory.Ssl.Enabled = _config.SslOption.Enabled;
-                connectionFactory.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
-            }
+            if (_config.SslOption != null) connectionFactory.Ssl = _config.SslOption;
+
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
                 connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
@@ -221,7 +216,17 @@ namespace Serilog.Sinks.RabbitMQ
                     {
                         _connection = _config.Hostnames.Count == 0
                             ? _connectionFactory.CreateConnection()
-                            : _connectionFactory.CreateConnection(_config.Hostnames);
+                            : _connectionFactory.CreateConnection(_config.Hostnames.Select(h => {
+                                var amqpTcpEndpoint = new AmqpTcpEndpoint(h, _config.Port);
+                                if (_config.SslOption != null && _config.SslOption.Enabled) {
+                                    amqpTcpEndpoint.Ssl.Enabled = true;
+                                    amqpTcpEndpoint.Ssl.ServerName = string.IsNullOrEmpty(_config.SslOption.ServerName) ? h : _config.SslOption.ServerName;
+                                    amqpTcpEndpoint.Ssl.Version = _config.SslOption.Version;
+                                    amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
+                                    amqpTcpEndpoint.Ssl.CheckCertificateRevocation = _config.SslOption.CheckCertificateRevocation;
+                                }
+                                return amqpTcpEndpoint;
+                            }).ToList());
                     }
                 }
                 finally
