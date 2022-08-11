@@ -93,5 +93,32 @@ namespace Serilog.Sinks.RabbitMQ
         /// The Uri to use for the connection.
         /// </summary>
         internal Uri AmqpUri { get; set; }
+
+        /// <summary>
+        /// Create options from other one
+        /// </summary>
+        /// <param name="config">The source options.</param>
+        /// <returns>The created options.</returns>
+        public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config) {
+            Username = config.Username;
+            Password = config.Password;
+            Exchange = config.Exchange;
+            ExchangeType = config.ExchangeType;
+            DeliveryMode = config.DeliveryMode;
+            RouteKey = config.RouteKey;
+            Port = config.Port;
+            VHost = config.VHost;
+            Heartbeat = config.Heartbeat;
+            UseBackgroundThreadsForIO = config.UseBackgroundThreadsForIO;
+            SslOption = config.SslOption;
+            AutoCreateExchange = config.AutoCreateExchange;
+            AmqpUri = config.AmqpUri;
+
+            foreach (string hostName in config.Hostnames) {
+                Hostnames.Add(hostName);
+            }
+
+            return this;
+        }
     }
 }
