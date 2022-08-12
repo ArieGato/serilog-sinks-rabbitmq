@@ -43,6 +43,7 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly IModel[] _models = new IModel[MaxChannelCount];
         private readonly IBasicProperties[] _properties = new IBasicProperties[MaxChannelCount];
         private volatile IConnection _connection;
+        private bool _exchangeCreated;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -69,38 +70,6 @@ namespace Serilog.Sinks.RabbitMQ
         }
 
         /// <summary>
-        /// Configures a new ConnectionFactory, and returns it
-        /// </summary>
-        /// <returns></returns>
-        private IConnectionFactory GetConnectionFactory()
-        {
-            // prepare connection factory
-            ConnectionFactory connectionFactory = new ConnectionFactory();
-
-            if (_config.AmqpUri != null) connectionFactory.Uri = _config.AmqpUri;
-
-            // setup auto recovery
-            connectionFactory.AutomaticRecoveryEnabled = true;
-            connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
-            connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO;
-
-            if (_config.SslOption != null) connectionFactory.Ssl = _config.SslOption;
-
-            // setup heartbeat if needed
-            if (_config.Heartbeat > 0)
-                connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
-
-            // only set, if has value, otherwise leave default
-            if (!string.IsNullOrEmpty(_config.Username)) connectionFactory.UserName = _config.Username;
-            if (!string.IsNullOrEmpty(_config.Password)) connectionFactory.Password = _config.Password;
-            if (_config.Port > 0) connectionFactory.Port = _config.Port;
-            if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
-
-            // return factory
-            return connectionFactory;
-        }
-
-        /// <summary>
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
@@ -118,16 +87,12 @@ namespace Serilog.Sinks.RabbitMQ
             {
                 var model = _models[currentModelIndex];
                 var properties = _properties[currentModelIndex];
-                if (model == null)
-                {
+                if (model == null) {
                     var connection = await GetConnectionAsync();
                     model = connection.CreateModel();
-
-                    if (_config.AutoCreateExchange) {
-                        model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
-                    }
-
                     _models[currentModelIndex] = model;
+
+                    CreateExchange(model);
 
                     properties = model.CreateBasicProperties();
                     properties.DeliveryMode = (byte)_config.DeliveryMode; // persistence
@@ -235,8 +200,41 @@ namespace Serilog.Sinks.RabbitMQ
                 }
             }
 
-
             return _connection;
+        }
+
+        private IConnectionFactory GetConnectionFactory() {
+            // prepare connection factory
+            ConnectionFactory connectionFactory = new ConnectionFactory();
+
+            if (_config.AmqpUri != null) connectionFactory.Uri = _config.AmqpUri;
+
+            // setup auto recovery
+            connectionFactory.AutomaticRecoveryEnabled = true;
+            connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
+            connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO;
+
+            if (_config.SslOption != null) connectionFactory.Ssl = _config.SslOption;
+
+            // setup heartbeat if needed
+            if (_config.Heartbeat > 0)
+                connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
+
+            // only set, if has value, otherwise leave default
+            if (!string.IsNullOrEmpty(_config.Username)) connectionFactory.UserName = _config.Username;
+            if (!string.IsNullOrEmpty(_config.Password)) connectionFactory.Password = _config.Password;
+            if (_config.Port > 0) connectionFactory.Port = _config.Port;
+            if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
+
+            // return factory
+            return connectionFactory;
+        }
+
+        private void CreateExchange(IModel model) {
+            if (!_exchangeCreated && _config.AutoCreateExchange) {
+                model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+                _exchangeCreated = true;
+            }
         }
     }
 }

@@ -51,7 +51,7 @@ All sink configuration methods accept the follwing arguments, though not necessa
 Use of named arguments is strongly recommended.
 
 * `amqpUri`
-* `hostanme`
+* `hostname`
 * `username`
 * `password`
 * `port`
@@ -60,6 +60,11 @@ Use of named arguments is strongly recommended.
 * `exchangeType`
 * `deliveryMode`
 * `routeKey`
+* `sslEnabled`
+* `sslServerName`
+* `sslVersion`
+* `sslAcceptablePolicyErrors`
+* `sslCheckCertificateRevocation`
 * `batchPostingLimit`
 * `period`
 * `formatter`
@@ -70,12 +75,17 @@ At minimum, `amqpUri`.  Refer to [RabbitMQ URI Specification](https://www.rabbit
 If you are using an external configuration source such as an XML file, you can use a named reference to connection string instead of providing the full "raw" uri. 
 This is necessary in cases where in ASP.NET applications need to encrypt the connection settings for RabbitMQ.
 
-Parameters `exchange`, `exchangeType`, `deliveryMode`, `routeKey` provide additional configuration when connecting to RabbitMQ.
-
+Parameters `exchange`, `exchangeType`, `deliveryMode`, `routeKey`, provide additional configuration when connecting to RabbitMQ.
 If `autoCreateExchange` is `true`, the sink will create the exchange if a exchange by that name doesn't exist.
+Exchange is not created by default.
+
+If `sslEnabled` is `true`, the sink will use secure connection to server.
+By default, the server name is the same as the host name, no TLS version is specified, no server certificate errors are accepted, and certificate revocation checking is disabled.
+You can change server name through by setting the `sslServerName`, `sslVersion`, `sslAcceptablePolicyErrors`, `sslCheckCertificateRevocation` arguments
 
 This is a "periodic batching sink." The sink will queue a certain number of log events before they're actually written to RabbitMQ. 
-There is also a timeout period so that the batch is always written even if it has not been filled. By default, the batch size is 50 rows and the timeout is 2 seconds. 
+There is also a timeout period so that the batch is always written even if it has not been filled. 
+By default, the batch size is 50 rows and the timeout is 2 seconds. 
 You can change these through by setting the `batchPostingLimit` and `period` arguments.
 
 Refer to the [Formatter](https://github.com/serilog/serilog/wiki/Formatting-Output#formatting-json) for details about the _formatter_ arguments.
@@ -144,7 +154,7 @@ You should wrap audit logging output in a `try/catch` block. The usual example i
 The constructor accepts most of the same arguments, and like other Serilog audit sinks, you configure one by using `AuditTo` instead of `WriteTo`.
 
 * `amqpUri`
-* `hostanme`
+* `hostname`
 * `username`
 * `password`
 * `port`
@@ -153,6 +163,11 @@ The constructor accepts most of the same arguments, and like other Serilog audit
 * `exchangeType`
 * `deliveryMode`
 * `routeKey`
+* `sslEnabled`
+* `sslServerName`
+* `sslVersion`
+* `sslAcceptablePolicyErrors`
+* `sslCheckCertificateRevocation`
 * `formatter`
 
 The _batchPostingLimit_ and _period_ parameters are not available because the audit sink writes log events immediately.
@@ -168,6 +183,36 @@ This is an example of configuring the multihost using _Serilog.Settings.AppSetti
 <add key="serilog:write-to:RabbitMQ.hostname" value="host1,host2"/>
 <add key="serilog:write-to:RabbitMQ.username" value="user"/>
 <add key="serilog:write-to:RabbitMQ.pasword" value="pwd"/>
+```
+
+## Use protected configuration (ASP.NET)
+
+ASP.NET has the possibility to encrypt connection string in the web.config. 
+
+### Add connection string
+To protect RabbitMQ credentials `amqpUri` argument may specify in connection string section.
+
+```xml
+<appSettings>
+  <add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
+  <add key="serilog:write-to:RabbitMQ.amqpUri" value="AMQPConnection"/>
+</appSettings>
+<connectionStrings>  
+  <add name="AMQPConnection" connectionString="amqp://user:pwd@localhost" />  
+</connectionStrings>
+```
+### Encrypting connection string
+
+You will find aspnet_regiis.exe in the `C:\\Windows\\Microsoft.NET\\Framework\\version` folder.
+The general synatax to encrypt a config section is as follows:
+```
+aspnet_regiis.exe -pef section physical_directory -prov provider
+```
+
+### Decrypting connection string
+Here is the syntax to decrypt a configuration file section:
+```
+aspnet_regiis.exe –pdf section physical_directory 
 ```
 
 ## Version 3.0.0 configuration

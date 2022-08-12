@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <VersionPrefix>6.1.0</VersionPrefix>
-    <VersionSuffix>with-audit01</VersionSuffix>
+    <VersionSuffix>with-audit02</VersionSuffix>
     <TargetFrameworks>net472;netstandard2.1;netcoreapp3.1;net6.0</TargetFrameworks>
     <DebugType>portable</DebugType>
     <AssemblyOriginatorKeyFile>../../assets/Serilog.snk</AssemblyOriginatorKeyFile>

@@ -19,7 +19,7 @@ namespace Serilog.Sinks.RabbitMQ {
 #if NETFRAMEWORK
     using System.Configuration;
 #endif
-#if NETSTANDARD2_0 
+#if NETSTANDARD 
     using Microsoft.Extensions.Configuration;
 #endif
     using Serilog.Debugging;
@@ -53,7 +53,7 @@ namespace Serilog.Sinks.RabbitMQ {
             return nameOrUri;
         }
 #endif
-#if NETSTANDARD2_0
+#if NETSTANDARD
         /// <summary>
         /// Examine if supplied uri is a reference to an item in the "ConnectionStrings" section of web.config
         /// If it is, return the uri item, if not, return string as supplied.
