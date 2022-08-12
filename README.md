@@ -5,10 +5,6 @@
 </a>
 [![Gitter](https://badges.gitter.im/serilog-sinks-rabbitmq/serilog-sinks-rabbitmq.svg)](https://gitter.im/serilog-sinks-rabbitmq/Lobby)
 
-# Maintainers Wanted
-
-This project is looking for maintainers. No new features or releases are scheduled. If you want to become a steward for this repository, please open an issue, and let us know.
-
 ## Purpose
 
 This project is to allow Serilog to log to RabbitMQ using the [RabbitMQ.Client](https://www.nuget.org/packages/RabbitMQ.Client) package. The aim is to expose RabbitMQ.Client functionality, in a logical way, and not to build in additional logic into the sink. So expect pure RabbitMQ.Client behavior, but perhaps a little bit simpler interface.
@@ -33,13 +29,15 @@ Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
 Install-Package Serilog.Sinks.RabbitMQ
 ```
 
-## Version 2.0.0 configuration
-
 #### Topics
 
 * [Sink Configuration Options](#sink-configuration-options)
+* [External configuration using Serilog.Settings.AppSettings](#external-configuration-using-serilogsettingsappsettings)
+* [External configuration using Serilog.Settings.Configuration](#external-configuration-using-serilogsettingsconfiguration)
 * [Audit Sink Configuration](#audit-sink-configuration)
 * [Multihost configuration](#multihost-configuration)
+* [Use protected configuration (ASP.NET)](#use-protected-configuration-aspnet)
+* [Configuration via code](#configuration-via-code)
 
 ### Sink Configuration Options
 
@@ -215,7 +213,7 @@ Here is the syntax to decrypt a configuration file section:
 aspnet_regiis.exe -pdf section physical_directory 
 ```
 
-## Version 3.0.0 configuration
+## Configuration via code
 
 There are multiple ways for configuring the RabbitMqSink with the release of v3.0.0
 
