@@ -203,7 +203,7 @@ To protect RabbitMQ credentials `amqpUri` argument may specify in connection str
 ```
 ### Encrypting connection string
 
-You will find aspnet_regiis.exe in the `C:\\Windows\\Microsoft.NET\\Framework\\version` folder.
+You will find aspnet_regiis.exe in the _C:\\Windows\\Microsoft.NET\\Framework\\version_ folder.
 The general synatax to encrypt a config section is as follows:
 ```
 aspnet_regiis.exe -pef section physical_directory -prov provider
@@ -212,7 +212,7 @@ aspnet_regiis.exe -pef section physical_directory -prov provider
 ### Decrypting connection string
 Here is the syntax to decrypt a configuration file section:
 ```
-aspnet_regiis.exe –pdf section physical_directory 
+aspnet_regiis.exe -pdf section physical_directory 
 ```
 
 ## Version 3.0.0 configuration
