@@ -39,7 +39,7 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        private readonly IConnectionFactory _connectionFactory;
+        private readonly ConnectionFactory _connectionFactory;
         private readonly IModel[] _models = new IModel[MaxChannelCount];
         private readonly IBasicProperties[] _properties = new IBasicProperties[MaxChannelCount];
         private volatile IConnection _connection;
@@ -182,14 +182,8 @@ namespace Serilog.Sinks.RabbitMQ
                         _connection = _config.Hostnames.Count == 0
                             ? _connectionFactory.CreateConnection()
                             : _connectionFactory.CreateConnection(_config.Hostnames.Select(h => {
-                                var amqpTcpEndpoint = new AmqpTcpEndpoint(h, _config.Port);
-                                if (_config.SslOption != null && _config.SslOption.Enabled) {
-                                    amqpTcpEndpoint.Ssl.Enabled = true;
-                                    amqpTcpEndpoint.Ssl.ServerName = string.IsNullOrEmpty(_config.SslOption.ServerName) ? h : _config.SslOption.ServerName;
-                                    amqpTcpEndpoint.Ssl.Version = _config.SslOption.Version;
-                                    amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
-                                    amqpTcpEndpoint.Ssl.CheckCertificateRevocation = _config.SslOption.CheckCertificateRevocation;
-                                }
+                                var amqpTcpEndpoint = new AmqpTcpEndpoint(h, _connectionFactory.Port, _connectionFactory.Ssl);
+                                if (string.IsNullOrEmpty(amqpTcpEndpoint.Ssl.ServerName)) amqpTcpEndpoint.Ssl.ServerName = h;
                                 return amqpTcpEndpoint;
                             }).ToList());
                     }
@@ -203,7 +197,7 @@ namespace Serilog.Sinks.RabbitMQ
             return _connection;
         }
 
-        private IConnectionFactory GetConnectionFactory() {
+        private ConnectionFactory GetConnectionFactory() {
             // prepare connection factory
             ConnectionFactory connectionFactory = new ConnectionFactory();
 
