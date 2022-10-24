@@ -6,7 +6,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
     using global::RabbitMQ.Client;
     using global::RabbitMQ.Client.Events;
     using global::RabbitMQ.Client.Exceptions;
-    using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
+    using Serilog.Sinks.RabbitMQ;
     using Xunit;
 
     /// <summary>

@@ -182,8 +182,15 @@ namespace Serilog.Sinks.RabbitMQ
                         _connection = _config.Hostnames.Count == 0
                             ? _connectionFactory.CreateConnection()
                             : _connectionFactory.CreateConnection(_config.Hostnames.Select(h => {
-                                var amqpTcpEndpoint = new AmqpTcpEndpoint(h, _connectionFactory.Port, _connectionFactory.Ssl);
-                                if (string.IsNullOrEmpty(amqpTcpEndpoint.Ssl.ServerName)) amqpTcpEndpoint.Ssl.ServerName = h;
+                                var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(h);
+                                if (_connectionFactory.Port > 0) amqpTcpEndpoint.Port = _connectionFactory.Port;
+                                amqpTcpEndpoint.Ssl.Enabled = _connectionFactory.Ssl.Enabled;
+                                amqpTcpEndpoint.Ssl.Version = _connectionFactory.Ssl.Version;
+                                amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _connectionFactory.Ssl.AcceptablePolicyErrors;
+                                amqpTcpEndpoint.Ssl.CheckCertificateRevocation = _connectionFactory.Ssl.CheckCertificateRevocation;
+                                amqpTcpEndpoint.Ssl.ServerName = !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName) 
+                                    ? _connectionFactory.Ssl.ServerName 
+                                    : amqpTcpEndpoint.HostName;
                                 return amqpTcpEndpoint;
                             }).ToList());
                     }

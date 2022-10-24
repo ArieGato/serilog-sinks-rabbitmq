@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using Serilog.Core;
-using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
 using System;
@@ -44,15 +43,9 @@ namespace Serilog.Sinks.RabbitMQ
         /// </summary>
         /// <param name="logEvent">The log event to write.</param>
         public void Emit(LogEvent logEvent) {
-            try {
-                var sw = new StringWriter();
-                _formatter.Format(logEvent, sw);
-                _client.PublishAsync(sw.ToString()).Wait();
-            }
-            catch (Exception ex) {
-                SelfLog.WriteLine("Unable to write log event to the RabbitMQ due to following error: {0}", ex.Message);
-                throw;
-            }
+            var sw = new StringWriter();
+            _formatter.Format(logEvent, sw);
+            _client.PublishAsync(sw.ToString()).Wait();
         }
 
         /// <summary>
