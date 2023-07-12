@@ -1,0 +1,82 @@
+version: 2.1
+
+orbs:
+    codecov: codecov/codecov@3
+
+jobs:
+    integration-tests:
+        docker:
+            - image: mcr.microsoft.com/dotnet/sdk:7.0
+        parameters:
+            project:
+                type: string
+        steps:
+            - checkout
+            - run:
+                name: Run integration tests
+                command: |
+                    dotnet test << parameters.project >> \
+                        -nodereuse:false \
+                        --configuration Test \
+                        --logger "trx"
+            - run:
+                name: Test results
+                when: always
+                command: |
+                    dotnet tool restore
+                    dotnet trx2junit ./**/TestResults/*.trx --output ./TestResults
+            - store_test_results:
+                  path: ./TestResults
+            - store_artifacts:
+                  path: ./TestResults
+                  destination: TestResults
+
+    build:
+        docker:
+            - image: mcr.microsoft.com/dotnet/sdk:7.0
+        parameters:
+            project:
+                type: string
+        steps:
+            - checkout
+            - run:
+                name: Install node
+                command: |
+                    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs
+            - run:
+                name: Build
+                command: |
+                    dotnet publish << parameters.project >> \
+                        -nodereuse:false \
+                        --configuration Release \
+                        --self-contained \
+                        -p:PublishSingleFile=true \
+                        -p:RuntimeIdentifier=win-x64 \
+                        -o publish
+            - store_artifacts:
+                path: ./publish
+                destination: publish
+            - persist_to_workspace:
+                root: ./
+                paths:
+                    - publish
+
+workflows:
+    build_and_test:
+        jobs:
+            - integration-tests:
+                matrix:
+                    parameters:
+                        project: ["tests/Serilog.Sinks.RabbitMQ.Tests.Integration"]
+                filters:
+                    branches:
+                        ignore: master
+    build_master:
+        jobs:
+            - build:
+                matrix:
+                    parameters:
+                        project: ["src/Serilog.Sinks.RabbitMQ"]
+                filters:
+                    branches:
+                        only: master
