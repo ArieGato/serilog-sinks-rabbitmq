@@ -1,4 +1,5 @@
-// Copyright 2015 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -13,17 +14,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq
     /// </summary>
-    public class RabbitMQClient : IDisposable
+    internal class RabbitMQClient : IDisposable
     {
         // synchronization locks
         private const int MaxChannelCount = 64;
@@ -38,10 +39,11 @@ namespace Serilog.Sinks.RabbitMQ
         private readonly PublicationAddress _publicationAddress;
 
         // endpoint members
-        private readonly IConnectionFactory _connectionFactory;
+        private readonly ConnectionFactory _connectionFactory;
         private readonly IModel[] _models = new IModel[MaxChannelCount];
         private readonly IBasicProperties[] _properties = new IBasicProperties[MaxChannelCount];
         private volatile IConnection _connection;
+        private bool _exchangeCreated;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -68,42 +70,6 @@ namespace Serilog.Sinks.RabbitMQ
         }
 
         /// <summary>
-        /// Configures a new ConnectionFactory, and returns it
-        /// </summary>
-        /// <returns></returns>
-        private IConnectionFactory GetConnectionFactory()
-        {
-            // prepare connection factory
-            var connectionFactory = new ConnectionFactory
-            {
-                UserName = _config.Username,
-                Password = _config.Password,
-                AutomaticRecoveryEnabled = true,
-                NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
-                UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
-            };
-
-            if (_config.SslOption != null)
-            {
-                connectionFactory.Ssl.Version = _config.SslOption.Version;
-                connectionFactory.Ssl.CertPath = _config.SslOption.CertPath;
-                connectionFactory.Ssl.ServerName = _config.SslOption.ServerName;
-                connectionFactory.Ssl.Enabled = _config.SslOption.Enabled;
-                connectionFactory.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
-            }
-            // setup heartbeat if needed
-            if (_config.Heartbeat > 0)
-                connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
-
-            // only set, if has value, otherwise leave default
-            if (_config.Port > 0) connectionFactory.Port = _config.Port;
-            if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
-
-            // return factory
-            return connectionFactory;
-        }
-
-        /// <summary>
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
@@ -121,11 +87,12 @@ namespace Serilog.Sinks.RabbitMQ
             {
                 var model = _models[currentModelIndex];
                 var properties = _properties[currentModelIndex];
-                if (model == null)
-                {
+                if (model == null) {
                     var connection = await GetConnectionAsync();
                     model = connection.CreateModel();
                     _models[currentModelIndex] = model;
+
+                    CreateExchange(model);
 
                     properties = model.CreateBasicProperties();
                     properties.DeliveryMode = (byte)_config.DeliveryMode; // persistence
@@ -214,7 +181,18 @@ namespace Serilog.Sinks.RabbitMQ
                     {
                         _connection = _config.Hostnames.Count == 0
                             ? _connectionFactory.CreateConnection()
-                            : _connectionFactory.CreateConnection(_config.Hostnames);
+                            : _connectionFactory.CreateConnection(_config.Hostnames.Select(h => {
+                                var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(h);
+                                if (_connectionFactory.Port > 0) amqpTcpEndpoint.Port = _connectionFactory.Port;
+                                amqpTcpEndpoint.Ssl.Enabled = _connectionFactory.Ssl.Enabled;
+                                amqpTcpEndpoint.Ssl.Version = _connectionFactory.Ssl.Version;
+                                amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _connectionFactory.Ssl.AcceptablePolicyErrors;
+                                amqpTcpEndpoint.Ssl.CheckCertificateRevocation = _connectionFactory.Ssl.CheckCertificateRevocation;
+                                amqpTcpEndpoint.Ssl.ServerName = !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName) 
+                                    ? _connectionFactory.Ssl.ServerName 
+                                    : amqpTcpEndpoint.HostName;
+                                return amqpTcpEndpoint;
+                            }).ToList());
                     }
                 }
                 finally
@@ -224,6 +202,40 @@ namespace Serilog.Sinks.RabbitMQ
             }
 
             return _connection;
+        }
+
+        private ConnectionFactory GetConnectionFactory() {
+            // prepare connection factory
+            ConnectionFactory connectionFactory = new ConnectionFactory();
+
+            if (_config.AmqpUri != null) connectionFactory.Uri = _config.AmqpUri;
+
+            // setup auto recovery
+            connectionFactory.AutomaticRecoveryEnabled = true;
+            connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
+            connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO;
+
+            if (_config.SslOption != null) connectionFactory.Ssl = _config.SslOption;
+
+            // setup heartbeat if needed
+            if (_config.Heartbeat > 0)
+                connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
+
+            // only set, if has value, otherwise leave default
+            if (!string.IsNullOrEmpty(_config.Username)) connectionFactory.UserName = _config.Username;
+            if (!string.IsNullOrEmpty(_config.Password)) connectionFactory.Password = _config.Password;
+            if (_config.Port > 0) connectionFactory.Port = _config.Port;
+            if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
+
+            // return factory
+            return connectionFactory;
+        }
+
+        private void CreateExchange(IModel model) {
+            if (!_exchangeCreated && _config.AutoCreateExchange) {
+                model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+                _exchangeCreated = true;
+            }
         }
     }
 }

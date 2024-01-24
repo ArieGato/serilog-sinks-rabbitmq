@@ -1,4 +1,4 @@
-﻿// Copyright 2015 Serilog Contributors
+﻿// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,17 +17,32 @@ using Serilog.Formatting;
 using Serilog.Formatting.Raw;
 using System;
 
-
-/// <summary>
-/// Configuration class for RabbitMQSink
-/// </summary>
-namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ
 {
+    /// <summary>
+    /// Initialization options for <see cref="RabbitMQSink"/>.
+    /// </summary>
     public class RabbitMQSinkConfiguration
     {
+        /// <summary>
+        /// The maximum number of events to include in a single batch.
+        /// </summary>
         public int BatchPostingLimit { get; set; }
+
+        /// <summary>
+        /// The time to wait between checking for event batches.
+        /// </summary>
         public TimeSpan Period { get; set; }
+
+        /// <summary>
+        /// Controls the rendering of log events into text, for example to log JSON. 
+        /// To control plain text formatting, use the overload that accepts an output template.
+        /// </summary>
         public ITextFormatter TextFormatter { get; set; } = new RawFormatter();
+
+        /// <summary>
+        /// The minimum level for events passed through the sink.
+        /// </summary>
         public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
     }
 }

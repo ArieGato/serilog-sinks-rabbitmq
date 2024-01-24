@@ -6,7 +6,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
     using global::RabbitMQ.Client;
     using global::RabbitMQ.Client.Events;
     using global::RabbitMQ.Client.Exceptions;
-    using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
+    using Serilog.Sinks.RabbitMQ;
     using Xunit;
 
     /// <summary>
@@ -55,7 +55,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     await Task.Delay(50);
                 });
 
-            var receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.ToArray());
+            var receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
             Assert.Equal(message, receivedMessage);
         }
 
