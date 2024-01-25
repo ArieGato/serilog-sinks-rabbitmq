@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Serilog.Sinks.RabbitMQ {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
 #if NETFRAMEWORK
-    using System.Configuration;
+using System.Configuration;
 #endif
-#if NETSTANDARD 
+#if NETSTANDARD
     using Microsoft.Extensions.Configuration;
 #endif
-    using Serilog.Debugging;
+using Serilog.Debugging;
+
+namespace Serilog.Sinks.RabbitMQ {
 
     internal static class ApplySystemConfiguration {
         internal static List<string> ParseHostName(string hostname) {

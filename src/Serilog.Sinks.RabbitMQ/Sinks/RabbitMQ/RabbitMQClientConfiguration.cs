@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
 using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ
@@ -57,6 +55,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// <summary>
         /// When set to <c>true</c>, background thread will be used for the I/O loop.
         /// </summary>
+        [Obsolete("RabbitMQ Client obsoleted this setting. Will be removed in version 7")]
         public bool UseBackgroundThreadsForIO { get; set; }
 
         /// <summary>

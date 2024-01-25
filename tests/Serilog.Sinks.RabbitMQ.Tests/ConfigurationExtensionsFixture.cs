@@ -1,5 +1,4 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Collections.Generic;
 #if NET_FX
 using System.Configuration;
 #endif
@@ -12,11 +11,11 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
         [TestCategory("WriteTo")]
         [TestMethod]
         public void WriteWithUriByName() {
-            string NameOrUri = "NamedConnection";
+            const string nameOrUri = "NamedConnection";
 
             var loggerConfiguration = new LoggerConfiguration();
             Log.Logger = loggerConfiguration.WriteTo.RabbitMQ(
-                amqpUri: NameOrUri,
+                amqpUri: nameOrUri,
                 exchange: RabbitMQFixture.ExchangeName)
                 .CreateLogger();
 
@@ -56,11 +55,11 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
         [TestCategory("AuditTo")]
         [TestMethod]
         public void AuditWithUriByName() {
-            string NameOrUri = "NamedConnection";
+            const string nameOrUri = "NamedConnection";
 
             var loggerConfiguration = new LoggerConfiguration();
             Log.Logger = loggerConfiguration.AuditTo.RabbitMQ(
-                amqpUri: NameOrUri,
+                amqpUri: nameOrUri,
                 exchange: RabbitMQFixture.ExchangeName)
                 .CreateLogger();
 
@@ -84,7 +83,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
         public void WriteWithUri() {
             var loggerConfiguration = new LoggerConfiguration();
             Log.Logger = loggerConfiguration.WriteTo.RabbitMQ(
-                amqpUri: RabbitMQFixture.AmqpUri,
+                amqpUri: RabbitMQFixture.AmqpUri.ToString(),
                 exchange: RabbitMQFixture.ExchangeName)
                 .CreateLogger();
 
@@ -93,16 +92,21 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
 
         [TestCategory("WriteTo")]
         [TestMethod]
-        public void WriteWithUriAutocreate() {
+        public async Task WriteWithUriAutoCreate() {
             RabbitMQFixture.DropRabbitMQExchange();
 
             var loggerConfiguration = new LoggerConfiguration();
             Log.Logger = loggerConfiguration.WriteTo.RabbitMQ(
-                amqpUri: RabbitMQFixture.AmqpUri,
+                amqpUri: RabbitMQFixture.AmqpUri.ToString(),
                 exchange: RabbitMQFixture.ExchangeName,
-                exchangeType: RabbitMQFixture.ExchangeType, 
+                exchangeType: RabbitMQFixture.ExchangeType,
                 autoCreateExchange: true)
                 .CreateLogger();
+
+            // Actually log something to trigger the exchange creation
+            Log.Logger.Information("Some text");
+
+            await Task.Delay(1000); // wait batch execution
 
             // should not throw
             Assert.IsTrue(RabbitMQFixture.RabbitMQExchangeExists());
@@ -127,7 +131,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests {
         public void AuditWithUri() {
             var loggerConfiguration = new LoggerConfiguration();
             Log.Logger = loggerConfiguration.AuditTo.RabbitMQ(
-                amqpUri: RabbitMQFixture.AmqpUri,
+                amqpUri: RabbitMQFixture.AmqpUri.ToString(),
                 exchange: RabbitMQFixture.ExchangeName)
                 .CreateLogger();
 

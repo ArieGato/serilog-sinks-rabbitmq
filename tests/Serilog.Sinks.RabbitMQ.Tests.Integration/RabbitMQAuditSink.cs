@@ -1,16 +1,5 @@
 ﻿namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
-    using System;
-    using System.Text;
-    using System.Threading.Tasks;
-    using global::RabbitMQ.Client;
-    using global::RabbitMQ.Client.Events;
-    using global::RabbitMQ.Client.Exceptions;
-    using Newtonsoft.Json.Linq;
-    using Serilog.Core;
-    using Serilog.Formatting.Json;
-    using Xunit;
-
     /// <summary>
     ///   Tests for <see cref="RabbitMqAuditSink" />.
     /// </summary>
@@ -18,24 +7,13 @@
     public sealed class RabbitMqAuditSink : IDisposable
     {
         private const string QueueName = "serilog-sink-audit-queue";
-        private const string HostName = "localhost";
+        private const string HostName = "rabbitmq.local";
+        private const string UserName = "serilog";
+        private const string Password = "serilog";
 
         private readonly Logger logger = new LoggerConfiguration()
             .AuditTo
-            /*
-            .RabbitMQ((clientConfiguration, sinkConfiguration) =>
-            {
-                clientConfiguration.Port = 5672;
-                clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-                clientConfiguration.AmqpUri = new Uri($"amqp://guest:guest@{HostName}");
-                clientConfiguration.Exchange = "serilog-sink-audit-exchange";
-                //clientConfiguration.Username = "guest";
-                //clientConfiguration.Password = "guest";
-                clientConfiguration.ExchangeType = "fanout";
-                //clientConfiguration.Hostnames.Add(HostName);
-                sinkConfiguration.TextFormatter = new JsonFormatter();
-            })*/
-            .RabbitMQ($"amqp://guest:guest@{HostName}", deliveryMode: RabbitMQDeliveryMode.Durable, exchange: "serilog-sink-audit-exchange", exchangeType: "fanout", formatter: new JsonFormatter(), autoCreateExchange: true)
+            .RabbitMQ($"amqp://{UserName}:{Password}@{HostName}", deliveryMode: RabbitMQDeliveryMode.Durable, exchange: "serilog-sink-audit-exchange", exchangeType: "fanout", formatter: new JsonFormatter(), autoCreateExchange: true)
             .MinimumLevel.Verbose()
             .CreateLogger();
 
@@ -47,7 +25,7 @@
         /// </summary>
         /// <returns>A task that represents the asynchronous operation.</returns>.
         [Fact]
-        public async Task Error_LogWithExcptionAndProperties_ConsumerReceivesMessage()
+        public async Task Error_LogWithExceptionAndProperties_ConsumerReceivesMessage()
         {
             await this.InitializeAsync();
             var messageTemplate = "Audit entry with {value}";
@@ -84,25 +62,29 @@
 
         private async Task InitializeAsync()
         {
-            if (this.connection == null)
+            if (connection != null)
             {
-                var factory = new ConnectionFactory { HostName = HostName };
+                return;
+            }
 
-                // Wait for RabbitMQ docker container to start and retry connecting to it.
-                for (int i = 0; i < 10; ++i)
+            var factory = new ConnectionFactory { HostName = HostName, UserName = UserName, Password = Password };
+
+            // Wait for RabbitMQ docker container to start and retry connecting to it.
+            for (int i = 0; i < 10; ++i)
+            {
+                try
                 {
-                    try
-                    {
-                        this.connection = factory.CreateConnection();
-                        this.channel = this.connection.CreateModel();
-                        break;
-                    }
-                    catch (BrokerUnreachableException)
-                    {
-                        await Task.Delay(1000);
-                    }
+                    this.connection = factory.CreateConnection();
+                    this.channel = this.connection.CreateModel();
+                    return;
+                }
+                catch (BrokerUnreachableException)
+                {
+                    await Task.Delay(1000);
                 }
             }
+
+            throw new InvalidOperationException("Failed to initialize");
         }
     }
 }

@@ -15,8 +15,6 @@
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
-using System;
-using System.IO;
 
 namespace Serilog.Sinks.RabbitMQ
 {

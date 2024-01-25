@@ -1,14 +1,5 @@
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
-    using System;
-    using System.Text;
-    using System.Threading.Tasks;
-    using global::RabbitMQ.Client;
-    using global::RabbitMQ.Client.Events;
-    using global::RabbitMQ.Client.Exceptions;
-    using Serilog.Sinks.RabbitMQ;
-    using Xunit;
-
     /// <summary>
     ///   Tests for <see cref="RabbitMQClient" />.
     /// </summary>
@@ -16,15 +7,17 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
     public sealed class RabbitMqClientTest : IDisposable
     {
         private const string QueueName = "serilog-sink-queue";
-        private const string HostName = "rabbitmq";
+        private const string HostName = "rabbitmq.local";
+        private const string UserName = "serilog";
+        private const string Password = "serilog";
 
         private readonly RabbitMQClient client = new RabbitMQClient(new RabbitMQClientConfiguration
         {
             Port = 5672,
             DeliveryMode = RabbitMQDeliveryMode.Durable,
             Exchange = "serilog-sink-exchange",
-            Username = "guest",
-            Password = "guest",
+            Username = UserName,
+            Password = Password,
             ExchangeType = "fanout",
             Hostnames = { HostName },
         });
@@ -69,23 +62,26 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 
         private async Task InitializeAsync()
         {
-            if (this.connection == null)
+            if (channel != null)
             {
-                var factory = new ConnectionFactory { HostName = HostName };
+                return;
+            }
 
-                // Wait for RabbitMQ docker container to start and retry connecting to it.
-                for (int i = 0; i < 10; ++i)
+            var factory = new ConnectionFactory { HostName = HostName, UserName = UserName, Password = Password };
+
+            // Wait for RabbitMQ docker container to start and retry connecting to it.
+            for (var i = 0; i < 10; ++i)
+            {
+                try
                 {
-                    try
-                    {
-                        this.connection = factory.CreateConnection();
-                        this.channel = this.connection.CreateModel();
-                        break;
-                    }
-                    catch (BrokerUnreachableException)
-                    {
-                        await Task.Delay(1000);
-                    }
+                    connection = factory.CreateConnection();
+                    channel = connection.CreateModel();
+
+                    break;
+                }
+                catch (BrokerUnreachableException)
+                {
+                    await Task.Delay(1000);
                 }
             }
         }

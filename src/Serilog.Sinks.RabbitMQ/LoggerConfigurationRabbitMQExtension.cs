@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using System.Net.Security;
 using System.Security.Authentication;
 using RabbitMQ.Client;
 using Serilog.Configuration;
 using Serilog.Formatting;
+using Serilog.Sinks.PeriodicBatching;
 using Serilog.Sinks.RabbitMQ;
 
 namespace Serilog
@@ -37,13 +37,16 @@ namespace Serilog
             this LoggerSinkConfiguration loggerConfiguration,
             Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure)
         {
-            RabbitMQClientConfiguration clientConfiguration = new RabbitMQClientConfiguration();
-            RabbitMQSinkConfiguration sinkConfiguration = new RabbitMQSinkConfiguration();
+            var clientConfiguration = new RabbitMQClientConfiguration();
+            var sinkConfiguration = new RabbitMQSinkConfiguration();
             configure(clientConfiguration, sinkConfiguration);
 
             return RegisterSink(loggerConfiguration, clientConfiguration, sinkConfiguration);
         }
 
+        /// <summary>
+        /// Adds a sink that lets you push log messages to RabbitMQ
+        /// </summary>
         public static LoggerConfiguration RabbitMQ(
             this LoggerSinkConfiguration loggerConfiguration,
             RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration)
@@ -73,15 +76,15 @@ namespace Serilog
             SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None, 
             bool sslCheckCertificateRevocation = false,
             int batchPostingLimit = 0,
-            TimeSpan period = default(TimeSpan),
+            TimeSpan period = default,
             ITextFormatter formatter = null,
             bool autoCreateExchange = false) {
             // guards
-            if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
+            if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
             if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
+            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port), "port must be in a valid range (1 and 65535 or 0 for default)");
 
             // setup configuration
             var clientConfiguration = new RabbitMQClientConfiguration {
@@ -113,14 +116,15 @@ namespace Serilog
             }
 
             var sinkConfiguration = new RabbitMQSinkConfiguration {
-                BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default(TimeSpan) ? DefaultPeriod : period,
-                TextFormatter = formatter,
+                BatchPostingLimit = batchPostingLimit == default ? DefaultBatchPostingLimit : batchPostingLimit,
+                Period = period == default ? DefaultPeriod : period
             };
+            if (formatter != null)
+            {
+                sinkConfiguration.TextFormatter = formatter;
+            }
 
-            return
-                loggerConfiguration
-                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+            return loggerConfiguration.Sink(clientConfiguration, sinkConfiguration);
         }
 
         /// <summary>
@@ -136,7 +140,7 @@ namespace Serilog
             string routeKey = null,
             ushort heartbeat = 0,
             int batchPostingLimit = 0,
-            TimeSpan period = default(TimeSpan),
+            TimeSpan period = default,
             ITextFormatter formatter = null,
             bool autoCreateExchange = false) {
             // guards
@@ -158,16 +162,18 @@ namespace Serilog
                 AutoCreateExchange = autoCreateExchange,
             };
 
-
-            var sinkConfiguration = new RabbitMQSinkConfiguration {
-                BatchPostingLimit = batchPostingLimit == default(int) ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default(TimeSpan) ? DefaultPeriod : period,
-                TextFormatter = formatter,
+            var sinkConfiguration = new RabbitMQSinkConfiguration
+            {
+                BatchPostingLimit = batchPostingLimit == default ? DefaultBatchPostingLimit : batchPostingLimit,
+                Period = period == default ? DefaultPeriod : period,
             };
+            if (formatter != null)
+            {
+                sinkConfiguration.TextFormatter = formatter;
+            }
 
-            return
-                loggerConfiguration
-                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+
+            return loggerConfiguration.Sink(clientConfiguration, sinkConfiguration);
         }
 
         /// <summary>
@@ -176,8 +182,8 @@ namespace Serilog
         public static LoggerConfiguration RabbitMQ(
             this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
             Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure) {
-            RabbitMQClientConfiguration clientConfiguration = new RabbitMQClientConfiguration();
-            RabbitMQSinkConfiguration sinkConfiguration = new RabbitMQSinkConfiguration();
+            var clientConfiguration = new RabbitMQClientConfiguration();
+            var sinkConfiguration = new RabbitMQSinkConfiguration();
             configure(clientConfiguration, sinkConfiguration);
 
             return RegisterAuditSink(loggerAuditSinkConfiguration, clientConfiguration, sinkConfiguration);
@@ -218,12 +224,11 @@ namespace Serilog
             ITextFormatter formatter = null,
             bool autoCreateExchange = false) {
             // guards
-            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
+            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
             if (string.IsNullOrEmpty(username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535 or 0 for default)");
-            if (formatter == null) throw new ArgumentException("formatter cannot be 'null'. Enter a valid formatter.");
+            if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port), "port must be in a valid range (1 and 65535 or 0 for default)");
 
             // setup configuration
             var clientConfiguration = new RabbitMQClientConfiguration {
@@ -254,9 +259,11 @@ namespace Serilog
                 };
             }
 
-            var sinkConfiguration = new RabbitMQSinkConfiguration {
-                TextFormatter = formatter,
-            };
+            var sinkConfiguration = new RabbitMQSinkConfiguration();
+            if (formatter != null)
+            {
+                sinkConfiguration.TextFormatter = formatter;
+            }
 
             return
                 loggerAuditSinkConfiguration
@@ -278,9 +285,8 @@ namespace Serilog
             ITextFormatter formatter = null,
             bool autoCreateExchange = false) {
             // guards
-            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
-            if (formatter == null) throw new ArgumentException("formatter cannot be 'null'. Enter a valid formatter.");
-            if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
+            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
+            if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null' or empty. Enter a valid uri.", nameof(amqpUri));
 
 #if NETFRAMEWORK
             amqpUri = ApplySystemConfiguration.GetUri(amqpUri);
@@ -297,9 +303,11 @@ namespace Serilog
                 AutoCreateExchange = autoCreateExchange,
             };
 
-            var sinkConfiguration = new RabbitMQSinkConfiguration {
-                TextFormatter = formatter,
-            };
+            var sinkConfiguration = new RabbitMQSinkConfiguration();
+            if (formatter != null)
+            {
+                sinkConfiguration.TextFormatter = formatter;
+            }
 
             return
                 loggerAuditSinkConfiguration
@@ -308,23 +316,21 @@ namespace Serilog
 
         static LoggerConfiguration RegisterSink(LoggerSinkConfiguration loggerConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
             // guards
-            if (loggerConfiguration == null) throw new ArgumentNullException("loggerConfiguration");
+            if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
             if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
             if (string.IsNullOrEmpty(clientConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
             if (clientConfiguration.Port < 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
-            sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default(int)) ? DefaultBatchPostingLimit : sinkConfiguration.BatchPostingLimit;
-            sinkConfiguration.Period = (sinkConfiguration.Period == default(TimeSpan)) ? DefaultPeriod : sinkConfiguration.Period;
+            sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default) ? DefaultBatchPostingLimit : sinkConfiguration.BatchPostingLimit;
+            sinkConfiguration.Period = (sinkConfiguration.Period == default) ? DefaultPeriod : sinkConfiguration.Period;
 
-            return
-                loggerConfiguration
-                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+            return loggerConfiguration.Sink(clientConfiguration, sinkConfiguration);
         }
 
         static LoggerConfiguration RegisterAuditSink(LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
             // guards
-            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException("loggerAuditSinkConfiguration");
+            if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
             if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
             if (string.IsNullOrEmpty(clientConfiguration.Username)) throw new ArgumentException("username cannot be 'null' or and empty string.");
             if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
@@ -333,6 +339,23 @@ namespace Serilog
             return
                 loggerAuditSinkConfiguration
                     .Sink(new RabbitMQAuditSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+        }
+
+        private static LoggerConfiguration Sink(
+            this LoggerSinkConfiguration loggerConfiguration,
+            RabbitMQClientConfiguration clientConfiguration,
+            RabbitMQSinkConfiguration sinkConfiguration)
+        {
+            var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration);
+            var periodicBatchingSinkOptions = new PeriodicBatchingSinkOptions()
+            {
+                BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
+                Period = sinkConfiguration.Period,
+                EagerlyEmitFirstEvent = true
+            };
+            var batchSink = new PeriodicBatchingSink(rabbitMQSink, periodicBatchingSinkOptions);
+
+            return loggerConfiguration.Sink(batchSink, sinkConfiguration.RestrictedToMinimumLevel);
         }
     }
 }

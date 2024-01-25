@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+﻿// Copyright 2015 Serilog Contributors
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,39 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.IO;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Sinks.PeriodicBatching;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
     /// </summary>
-    public class RabbitMQSink : PeriodicBatchingSink
+    public class RabbitMQSink : IBatchedLogEventSink, IDisposable
     {
         private readonly ITextFormatter _formatter;
         private readonly RabbitMQClient _client;
 
+        private bool _disposedValue;
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="RabbitMQSink" /> class.
+        /// Default constructor
         /// </summary>
-        /// <param name="configuration">The client configuration.</param>
-        /// <param name="rabbitMQSinkConfiguration">The Sink configuration.</param>
-        public RabbitMQSink(RabbitMQClientConfiguration configuration, RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
-            : base(rabbitMQSinkConfiguration.BatchPostingLimit, rabbitMQSinkConfiguration.Period)
+        /// <param name="configuration"></param>
+        /// <param name="rabbitMQSinkConfiguration"></param>
+        public RabbitMQSink(RabbitMQClientConfiguration configuration,
+            RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
         {
             _formatter = rabbitMQSinkConfiguration.TextFormatter;
             _client = new RabbitMQClient(configuration);
         }
 
-        /// <inheritdoc/>
-        protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
+
+        /// <inheritdoc cref="EmitBatchAsync" />
+        public async Task EmitBatchAsync(IEnumerable<LogEvent> batch)
         {
-            foreach (var logEvent in events)
+            foreach (var logEvent in batch)
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
@@ -52,25 +52,48 @@ namespace Serilog.Sinks.RabbitMQ
             }
         }
 
-        /// <inheritdoc/>
-        protected override void Dispose(bool disposing)
+        /// <inheritdoc cref="OnEmptyBatchAsync" />
+        public Task OnEmptyBatchAsync()
         {
-            // base.Dispose must be called first, because it flushes all pending EmitBatchAsync.
-            // Closing the client first would have resulted in an infinite retry loop to flush.
-            base.Dispose(disposing);
+            return Task.CompletedTask;
+        }
 
-            try
+        /// <summary>
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Releases the unmanaged resources used by the Serilog.Sinks.RabbitMQSink and optionally
+        /// releases the managed resources.
+        /// </summary>
+        /// <param name="disposing">True to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposedValue) return;
+
+            if (disposing)
             {
-                // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
-                // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
-                _client.Close();
-            }
-            catch
-            {
-                // ignore exceptions
+                try
+                {
+                    // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
+                    // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
+                    _client.Close();
+                }
+                catch
+                {
+                    // ignore exceptions
+                }
+
+                _client.Dispose();
             }
 
-            _client.Dispose();
+            _disposedValue = true;
         }
     }
 }

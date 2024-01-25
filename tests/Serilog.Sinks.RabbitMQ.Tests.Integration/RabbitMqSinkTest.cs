@@ -1,16 +1,5 @@
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
-    using System;
-    using System.Text;
-    using System.Threading.Tasks;
-    using global::RabbitMQ.Client;
-    using global::RabbitMQ.Client.Events;
-    using global::RabbitMQ.Client.Exceptions;
-    using Newtonsoft.Json.Linq;
-    using Serilog.Core;
-    using Serilog.Formatting.Json;
-    using Xunit;
-
     /// <summary>
     ///   Tests for <see cref="RabbitMQSink" />.
     /// </summary>
@@ -18,7 +7,9 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
     public sealed class RabbitMqSinkTest : IDisposable
     {
         private const string QueueName = "serilog-sink-queue";
-        private const string HostName = "rabbitmq";
+        private const string HostName = "rabbitmq.local";
+        private const string UserName = "serilog";
+        private const string Password = "serilog";
 
         private readonly Logger logger = new LoggerConfiguration()
             .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
@@ -26,8 +17,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 clientConfiguration.Port = 5672;
                 clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
                 clientConfiguration.Exchange = "serilog-sink-exchange";
-                clientConfiguration.Username = "guest";
-                clientConfiguration.Password = "guest";
+                clientConfiguration.Username = UserName;
+                clientConfiguration.Password = Password;
                 clientConfiguration.ExchangeType = "fanout";
                 clientConfiguration.Hostnames.Add(HostName);
                 sinkConfiguration.TextFormatter = new JsonFormatter();
@@ -58,7 +49,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     this.logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
 
                     // Wait for consumer to receive the message.
-                    await Task.Delay(50);
+                    await Task.Delay(100);
                 });
 
             var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray()));
@@ -80,23 +71,25 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 
         private async Task InitializeAsync()
         {
-            if (this.connection == null)
+            if (channel != null)
             {
-                var factory = new ConnectionFactory { HostName = HostName };
+                return;
+            }
 
-                // Wait for RabbitMQ docker container to start and retry connecting to it.
-                for (int i = 0; i < 10; ++i)
+            var factory = new ConnectionFactory { HostName = HostName, UserName = UserName, Password = Password };
+
+            // Wait for RabbitMQ docker container to start and retry connecting to it.
+            for (var i = 0; i < 10; ++i)
+            {
+                try
                 {
-                    try
-                    {
-                        this.connection = factory.CreateConnection();
-                        this.channel = this.connection.CreateModel();
-                        break;
-                    }
-                    catch (BrokerUnreachableException)
-                    {
-                        await Task.Delay(1000);
-                    }
+                    connection = factory.CreateConnection();
+                    channel = connection.CreateModel();
+                    break;
+                }
+                catch (BrokerUnreachableException)
+                {
+                    await Task.Delay(1000);
                 }
             }
         }
