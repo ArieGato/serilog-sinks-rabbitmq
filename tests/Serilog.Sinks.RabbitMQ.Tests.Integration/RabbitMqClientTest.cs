@@ -11,16 +11,17 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         private const string UserName = "serilog";
         private const string Password = "serilog";
 
-        private readonly RabbitMQClient client = new RabbitMQClient(new RabbitMQClientConfiguration
-        {
-            Port = 5672,
-            DeliveryMode = RabbitMQDeliveryMode.Durable,
-            Exchange = "serilog-sink-exchange",
-            Username = UserName,
-            Password = Password,
-            ExchangeType = "fanout",
-            Hostnames = { HostName },
-        });
+        private readonly RabbitMQClient _rabbitMQClient = new RabbitMQClient(
+            new RabbitMQClientConfiguration
+            {
+                Port = 5672,
+                DeliveryMode = RabbitMQDeliveryMode.Durable,
+                Exchange = "serilog-sink-exchange",
+                Username = UserName,
+                Password = Password,
+                ExchangeType = "fanout",
+                Hostnames = { HostName },
+            });
 
         private IConnection connection;
         private IModel channel;
@@ -42,7 +43,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 async () =>
                 {
                     this.channel.BasicConsume(QueueName, autoAck: true, consumer);
-                    await this.client.PublishAsync(message);
+                    await this._rabbitMQClient.PublishAsync(message);
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);
@@ -55,7 +56,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         /// <inheritdoc />
         public void Dispose()
         {
-            this.client?.Dispose();
+            this._rabbitMQClient.Close();
+            this._rabbitMQClient.Dispose();
             this.channel?.Dispose();
             this.connection?.Dispose();
         }

@@ -21,7 +21,8 @@ namespace Serilog.Sinks.RabbitMQ
     /// <summary>
     /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog audit logic.
     /// </summary>
-    public class RabbitMQAuditSink : ILogEventSink, IDisposable {
+    public class RabbitMQAuditSink : ILogEventSink, IDisposable
+    {
         private readonly ITextFormatter _formatter;
         private readonly RabbitMQClient _client;
 
@@ -31,7 +32,8 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="configuration">The client configuration.</param>
         /// <param name="rabbitMQSinkConfiguration">The Sink configuration.</param>
         public RabbitMQAuditSink(RabbitMQClientConfiguration configuration,
-            RabbitMQSinkConfiguration rabbitMQSinkConfiguration) {
+            RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
+        {
             _formatter = rabbitMQSinkConfiguration.TextFormatter;
             _client = new RabbitMQClient(configuration);
         }
@@ -40,7 +42,8 @@ namespace Serilog.Sinks.RabbitMQ
         /// Emit the provided log event to the sink.
         /// </summary>
         /// <param name="logEvent">The log event to write.</param>
-        public void Emit(LogEvent logEvent) {
+        public void Emit(LogEvent logEvent)
+        {
             var sw = new StringWriter();
             _formatter.Format(logEvent, sw);
             _client.PublishAsync(sw.ToString()).Wait();
@@ -50,7 +53,8 @@ namespace Serilog.Sinks.RabbitMQ
         /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
         /// <filterpriority>2</filterpriority>
-        public void Dispose() {
+        public void Dispose()
+        {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
@@ -59,13 +63,16 @@ namespace Serilog.Sinks.RabbitMQ
         /// Releases unmanaged and - optionally - managed resources.
         /// </summary>
         /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
-        protected virtual void Dispose(bool disposing) {
-            try {
+        protected virtual void Dispose(bool disposing)
+        {
+            try
+            {
                 // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
                 // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
                 _client.Close();
             }
-            catch {
+            catch
+            {
                 // ignore exceptions
             }
 

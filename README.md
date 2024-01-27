@@ -20,6 +20,7 @@ As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes
 |2.0.0|1.6.0|4.5.1|2.3.0|4.\*|
 |3.0.0|1.6.1|4.5.1|2.8.0|5.\*|
 |6.0.0|2.0.0|4.7.2|2.8.0|6.\*|
+|7.0.0|2.0.0|4.7.2|3.1.1|6.8.\*|
 
 ## Installation
 
@@ -29,7 +30,7 @@ Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
 Install-Package Serilog.Sinks.RabbitMQ
 ```
 
-#### Topics
+### Topics
 
 * [Sink Configuration Options](#sink-configuration-options)
 * [External configuration using Serilog.Settings.AppSettings](#external-configuration-using-serilogsettingsappsettings)
@@ -135,7 +136,7 @@ Keys and values are not case-sensitive. This is an example of configuring the si
             "exchange": "LogExchange",
             "autoCreateExchange": true,
             "batchPostingLimit": 1000,
-            "period": 30,
+            "period": 30
         } 
       }
     ]

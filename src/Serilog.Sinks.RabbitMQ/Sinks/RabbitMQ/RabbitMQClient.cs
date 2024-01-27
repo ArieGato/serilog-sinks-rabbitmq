@@ -23,9 +23,9 @@ namespace Serilog.Sinks.RabbitMQ
     {
         // synchronization locks
         private const int MaxChannelCount = 64;
-        private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _connectionLock = new(1, 1);
         private readonly SemaphoreSlim[] _modelLocks = new SemaphoreSlim[MaxChannelCount];
-        private readonly CancellationTokenSource _closeTokenSource = new CancellationTokenSource();
+        private readonly CancellationTokenSource _closeTokenSource = new();
         private readonly CancellationToken _closeToken;
         private int _currentModelIndex = -1;
 
@@ -78,11 +78,21 @@ namespace Serilog.Sinks.RabbitMQ
             currentModelIndex = (currentModelIndex % MaxChannelCount + MaxChannelCount) % MaxChannelCount;
             var modelLock = _modelLocks[currentModelIndex];
             await modelLock.WaitAsync(_closeToken);
+
             try
             {
                 var model = _models[currentModelIndex];
                 var properties = _properties[currentModelIndex];
-                if (model == null) {
+
+                // if model is closed, dispose it and create a new one
+                if (model is { IsOpen: false })
+                {
+                    model.Dispose();
+                    model = null;
+                }
+
+                if (model == null)
+                {
                     var connection = await GetConnectionAsync();
                     model = connection.CreateModel();
                     _models[currentModelIndex] = model;
@@ -103,9 +113,14 @@ namespace Serilog.Sinks.RabbitMQ
             }
         }
 
+        /// <summary>
+        /// Close the connection and all channels to RabbitMq
+        /// </summary>
+        /// <exception cref="AggregateException"></exception>
         public void Close()
         {
-            IList<Exception> exceptions = new List<Exception>();
+            var exceptions = new List<Exception>();
+
             try
             {
                 _closeTokenSource.Cancel();
@@ -142,7 +157,7 @@ namespace Serilog.Sinks.RabbitMQ
 
             if (exceptions.Count > 0)
             {
-                throw new AggregateException(exceptions);
+                throw new AggregateException($"Exceptions occurred while closing {nameof(RabbitMQClient)}", exceptions);
             }
         }
 
@@ -176,16 +191,20 @@ namespace Serilog.Sinks.RabbitMQ
                     {
                         _connection = _config.Hostnames.Count == 0
                             ? _connectionFactory.CreateConnection()
-                            : _connectionFactory.CreateConnection(_config.Hostnames.Select(h => {
+                            : _connectionFactory.CreateConnection(_config.Hostnames.Select(h =>
+                            {
                                 var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(h);
                                 if (_connectionFactory.Port > 0) amqpTcpEndpoint.Port = _connectionFactory.Port;
                                 amqpTcpEndpoint.Ssl.Enabled = _connectionFactory.Ssl.Enabled;
                                 amqpTcpEndpoint.Ssl.Version = _connectionFactory.Ssl.Version;
-                                amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _connectionFactory.Ssl.AcceptablePolicyErrors;
-                                amqpTcpEndpoint.Ssl.CheckCertificateRevocation = _connectionFactory.Ssl.CheckCertificateRevocation;
-                                amqpTcpEndpoint.Ssl.ServerName = !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName) 
-                                    ? _connectionFactory.Ssl.ServerName 
-                                    : amqpTcpEndpoint.HostName;
+                                amqpTcpEndpoint.Ssl.AcceptablePolicyErrors =
+                                    _connectionFactory.Ssl.AcceptablePolicyErrors;
+                                amqpTcpEndpoint.Ssl.CheckCertificateRevocation =
+                                    _connectionFactory.Ssl.CheckCertificateRevocation;
+                                amqpTcpEndpoint.Ssl.ServerName =
+                                    !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName)
+                                        ? _connectionFactory.Ssl.ServerName
+                                        : amqpTcpEndpoint.HostName;
                                 return amqpTcpEndpoint;
                             }).ToList());
                     }
@@ -199,36 +218,58 @@ namespace Serilog.Sinks.RabbitMQ
             return _connection;
         }
 
-        private ConnectionFactory GetConnectionFactory() {
+        private ConnectionFactory GetConnectionFactory()
+        {
             // prepare connection factory
-            ConnectionFactory connectionFactory = new ConnectionFactory();
+            var connectionFactory = new ConnectionFactory();
 
-            if (_config.AmqpUri != null) connectionFactory.Uri = _config.AmqpUri;
+            if (_config.AmqpUri != null)
+            {
+                connectionFactory.Uri = _config.AmqpUri;
+            }
 
             // setup auto recovery
             connectionFactory.AutomaticRecoveryEnabled = true;
             connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
-            connectionFactory.UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO;
 
             if (_config.SslOption != null) connectionFactory.Ssl = _config.SslOption;
 
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
+            {
                 connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
+            }
 
-            // only set, if has value, otherwise leave default
-            if (!string.IsNullOrEmpty(_config.Username)) connectionFactory.UserName = _config.Username;
-            if (!string.IsNullOrEmpty(_config.Password)) connectionFactory.Password = _config.Password;
-            if (_config.Port > 0) connectionFactory.Port = _config.Port;
-            if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
+            // only set values when set in configuration, otherwise leave default
+            if (!string.IsNullOrEmpty(_config.Username))
+            {
+                connectionFactory.UserName = _config.Username;
+            }
 
-            // return factory
+            if (!string.IsNullOrEmpty(_config.Password))
+            {
+                connectionFactory.Password = _config.Password;
+            }
+
+            if (_config.Port > 0)
+            {
+                connectionFactory.Port = _config.Port;
+            }
+
+            if (!string.IsNullOrEmpty(_config.VHost))
+            {
+                connectionFactory.VirtualHost = _config.VHost;
+            }
+
             return connectionFactory;
         }
 
-        private void CreateExchange(IModel model) {
-            if (!_exchangeCreated && _config.AutoCreateExchange) {
-                model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+        private void CreateExchange(IModel model)
+        {
+            if (!_exchangeCreated && _config.AutoCreateExchange)
+            {
+                model.ExchangeDeclare(_config.Exchange, _config.ExchangeType,
+                    _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
                 _exchangeCreated = true;
             }
         }
