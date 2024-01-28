@@ -14,6 +14,7 @@
 
 using Serilog.Events;
 using Serilog.Formatting;
+using Serilog.Formatting.Compact;
 
 namespace Serilog.Sinks.RabbitMQ
 {
@@ -36,7 +37,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// Controls the rendering of log events into text, for example to log JSON. 
         /// To control plain text formatting, use the overload that accepts an output template.
         /// </summary>
-        public ITextFormatter TextFormatter { get; set; } = new RawFormatter();
+        public ITextFormatter TextFormatter { get; set; } = new CompactJsonFormatter();
 
         /// <summary>
         /// The minimum level for events passed through the sink.

@@ -16,8 +16,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Serilog.Sinks.RabbitMQ.Tests", "tests\Serilog.Sinks.RabbitMQ.Tests\Serilog.Sinks.RabbitMQ.Tests.csproj", "{FB351047-7675-4F53-B2CF-A1FD2F11A2BA}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,10 +30,6 @@ Global
 		{94CFEA39-091B-42EF-A3E4-2130AC76A191}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{94CFEA39-091B-42EF-A3E4-2130AC76A191}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{94CFEA39-091B-42EF-A3E4-2130AC76A191}.Release|Any CPU.Build.0 = Release|Any CPU
-		{FB351047-7675-4F53-B2CF-A1FD2F11A2BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FB351047-7675-4F53-B2CF-A1FD2F11A2BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FB351047-7675-4F53-B2CF-A1FD2F11A2BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FB351047-7675-4F53-B2CF-A1FD2F11A2BA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -43,7 +37,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{E9EFBA4E-E403-4722-9880-0FDCDA495667} = {3F8BFE39-F51C-4BEA-A0ED-1FA9D2453082}
 		{94CFEA39-091B-42EF-A3E4-2130AC76A191} = {6BD5A928-1573-4A9A-9D9D-EBA7A0EE17B2}
-		{FB351047-7675-4F53-B2CF-A1FD2F11A2BA} = {6BD5A928-1573-4A9A-9D9D-EBA7A0EE17B2}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {154911B7-34EE-428C-834D-6AF57B44532A}

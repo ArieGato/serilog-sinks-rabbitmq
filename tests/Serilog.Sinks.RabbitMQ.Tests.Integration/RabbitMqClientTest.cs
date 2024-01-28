@@ -1,30 +1,17 @@
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
     /// <summary>
-    ///   Tests for <see cref="RabbitMQClient" />.
+    /// Tests for <see cref="RabbitMQClient" />.
     /// </summary>
     [Collection("Sequential")]
-    public sealed class RabbitMqClientTest : IDisposable
+    public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
     {
-        private const string QueueName = "serilog-sink-queue";
-        private const string HostName = "rabbitmq.local";
-        private const string UserName = "serilog";
-        private const string Password = "serilog";
+        private readonly RabbitMQFixture _rabbitMQFixture;
 
-        private readonly RabbitMQClient _rabbitMQClient = new RabbitMQClient(
-            new RabbitMQClientConfiguration
-            {
-                Port = 5672,
-                DeliveryMode = RabbitMQDeliveryMode.Durable,
-                Exchange = "serilog-sink-exchange",
-                Username = UserName,
-                Password = Password,
-                ExchangeType = "fanout",
-                Hostnames = { HostName },
-            });
-
-        private IConnection connection;
-        private IModel channel;
+        public RabbitMqClientTest(RabbitMQFixture rabbitMQFixture)
+        {
+            _rabbitMQFixture = rabbitMQFixture;
+        }
 
         /// <summary>
         ///   Consumer should receive a message after calling Publish.
@@ -33,17 +20,19 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         [Fact]
         public async Task Publish_SingleMessage_ConsumerReceivesMessage()
         {
-            await this.InitializeAsync();
+            await _rabbitMQFixture.InitializeAsync();
+
             var message = Guid.NewGuid().ToString();
 
-            var consumer = new EventingBasicConsumer(this.channel);
+            using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+            var consumer = new EventingBasicConsumer(consumingChannel);
             var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
                 h => consumer.Received += h,
                 h => consumer.Received -= h,
                 async () =>
                 {
-                    this.channel.BasicConsume(QueueName, autoAck: true, consumer);
-                    await this._rabbitMQClient.PublishAsync(message);
+                    consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+                    await _rabbitMQFixture.PublishAsync(message);
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);
@@ -53,39 +42,99 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             Assert.Equal(message, receivedMessage);
         }
 
-        /// <inheritdoc />
-        public void Dispose()
+        /// <summary>
+        /// Consumer should receive a message after calling Publish.
+        /// </summary>
+        /// <returns>A task that represents the asynchronous operation.</returns>.
+        [Fact]
+        public async Task Publish_BulkMessages_ConsumerReceivesMessage()
         {
-            this._rabbitMQClient.Close();
-            this._rabbitMQClient.Dispose();
-            this.channel?.Dispose();
-            this.connection?.Dispose();
-        }
+            await _rabbitMQFixture.InitializeAsync();
 
-        private async Task InitializeAsync()
-        {
-            if (channel != null)
-            {
-                return;
-            }
+            var message = Guid.NewGuid().ToString();
 
-            var factory = new ConnectionFactory { HostName = HostName, UserName = UserName, Password = Password };
-
-            // Wait for RabbitMQ docker container to start and retry connecting to it.
-            for (var i = 0; i < 10; ++i)
-            {
-                try
+            using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+            var consumer = new EventingBasicConsumer(consumingChannel);
+            var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
+                h => consumer.Received += h,
+                h => consumer.Received -= h,
+                async () =>
                 {
-                    connection = factory.CreateConnection();
-                    channel = connection.CreateModel();
+                    // start consuming queue
+                    consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
 
-                    break;
-                }
-                catch (BrokerUnreachableException)
-                {
+                    for (int i = 0; i < 100; i++)
+                    {
+                        await _rabbitMQFixture.PublishAsync(message);
+                    }
+
+                    // Wait for consumer to receive the message.
                     await Task.Delay(1000);
-                }
+                });
+
+            var receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+            Assert.Equal(message, receivedMessage);
+        }
+
+        [Fact]
+        public async Task AutoCreateExchange_WhenTrue_ThenShouldCreateExchange()
+        {
+            var rabbitMQClientConfiguration = new RabbitMQClientConfiguration
+            {
+                Port = 5672,
+                DeliveryMode = RabbitMQDeliveryMode.Durable,
+                Exchange = "auto-created-exchange-name",
+                Username = RabbitMQFixture.UserName,
+                Password = RabbitMQFixture.Password,
+                ExchangeType = "topic",
+                Hostnames = { RabbitMQFixture.HostName },
+                AutoCreateExchange = true
+            };
+
+            var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
+            await rabbitMQClient.PublishAsync("a message");
+            
+            //// wait for message sent
+            //await Task.Delay(1000);
+
+            using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+
+            try
+            {
+                // should not throw
+                consumingChannel.ExchangeDeclarePassive("auto-created-exchange-name");
+            }
+            finally
+            {
+                consumingChannel.ExchangeDelete("auto-created-exchange-name");
             }
         }
+
+#if NET8_0_OR_GREATER
+        /// <summary>
+        /// Consumer should receive a message after calling Publish.
+        /// </summary>
+        /// <returns>A task that represents the asynchronous operation.</returns>.
+        [Fact]
+        public async Task Publish_ParallelMessages_AllMessagesArePublished()
+        {
+            await _rabbitMQFixture.InitializeAsync();
+
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var message = Guid.NewGuid().ToString();
+
+            var parallelOptions = new ParallelOptions(){ MaxDegreeOfParallelism = 10 };
+
+            await Parallel.ForAsync(0, 10, parallelOptions, async (_, _) =>
+            {
+                for (var i = 0; i < 1000; i++)
+                {
+                    await _rabbitMQFixture.PublishAsync(message);
+                }
+            });
+
+            watch.Stop();
+        }
+#endif
     }
 }

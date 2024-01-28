@@ -78,7 +78,8 @@ namespace Serilog
             int batchPostingLimit = 0,
             TimeSpan period = default,
             ITextFormatter formatter = null,
-            bool autoCreateExchange = false) {
+            bool autoCreateExchange = false,
+            int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
@@ -98,6 +99,7 @@ namespace Serilog
                 VHost = vHost ?? string.Empty,
                 Heartbeat = heartbeat,
                 AutoCreateExchange = autoCreateExchange,
+                MaxChannels = maxChannels
             };
 
             var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
@@ -142,7 +144,8 @@ namespace Serilog
             int batchPostingLimit = 0,
             TimeSpan period = default,
             ITextFormatter formatter = null,
-            bool autoCreateExchange = false) {
+            bool autoCreateExchange = false,
+            int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
             // guards
             if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
@@ -160,6 +163,7 @@ namespace Serilog
                 RouteKey = routeKey ?? string.Empty,
                 Heartbeat = heartbeat,
                 AutoCreateExchange = autoCreateExchange,
+                MaxChannels = maxChannels
             };
 
             var sinkConfiguration = new RabbitMQSinkConfiguration
@@ -222,7 +226,8 @@ namespace Serilog
             SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None,
             bool sslCheckCertificateRevocation = false,
             ITextFormatter formatter = null,
-            bool autoCreateExchange = false) {
+            bool autoCreateExchange = false,
+            int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
             // guards
             if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
             if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
@@ -242,6 +247,7 @@ namespace Serilog
                 VHost = vHost ?? string.Empty,
                 Heartbeat = heartbeat,
                 AutoCreateExchange = autoCreateExchange,
+                MaxChannels = maxChannels
             };
 
             var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
@@ -283,7 +289,8 @@ namespace Serilog
             string routeKey = null,
             ushort heartbeat = 0,
             ITextFormatter formatter = null,
-            bool autoCreateExchange = false) {
+            bool autoCreateExchange = false,
+            int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
             // guards
             if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null' or empty. Enter a valid uri.", nameof(amqpUri));
@@ -301,6 +308,7 @@ namespace Serilog
                 RouteKey = routeKey ?? string.Empty,
                 Heartbeat = heartbeat,
                 AutoCreateExchange = autoCreateExchange,
+                MaxChannels = maxChannels
             };
 
             var sinkConfiguration = new RabbitMQSinkConfiguration();

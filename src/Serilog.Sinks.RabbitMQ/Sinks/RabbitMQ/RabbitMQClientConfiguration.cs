@@ -28,7 +28,7 @@ namespace Serilog.Sinks.RabbitMQ
         public IList<string> Hostnames { get; } = new List<string>();
 
         /// <summary>
-        /// User name to use when authenticating to the server.
+        /// Username to use when authenticating to the server.
         /// </summary>
         public string Username { get; set; } = string.Empty;
 
@@ -51,12 +51,6 @@ namespace Serilog.Sinks.RabbitMQ
         /// Heartbeat timeout to use when negotiating with the server.
         /// </summary>
         public ushort Heartbeat { get; set; }
-
-        /// <summary>
-        /// When set to <c>true</c>, background thread will be used for the I/O loop.
-        /// </summary>
-        [Obsolete("RabbitMQ Client obsoleted this setting. Will be removed in version 7")]
-        public bool UseBackgroundThreadsForIO { get; set; }
 
         /// <summary>
         /// TLS options for the connection.
@@ -89,6 +83,11 @@ namespace Serilog.Sinks.RabbitMQ
         public bool AutoCreateExchange { get; set; }
 
         /// <summary>
+        /// Maximum number of channels in the channel pool. Default is 64.
+        /// </summary>
+        public int MaxChannels { get; set; } = RabbitMQClient.DefaultMaxChannelCount;
+
+        /// <summary>
         /// The Uri to use for the connection.
         /// </summary>
         internal Uri AmqpUri { get; set; }
@@ -108,9 +107,9 @@ namespace Serilog.Sinks.RabbitMQ
             Port = config.Port;
             VHost = config.VHost;
             Heartbeat = config.Heartbeat;
-            UseBackgroundThreadsForIO = config.UseBackgroundThreadsForIO;
             SslOption = config.SslOption;
             AutoCreateExchange = config.AutoCreateExchange;
+            MaxChannels = config.MaxChannels;
             AmqpUri = config.AmqpUri;
 
             foreach (string hostName in config.Hostnames) {
