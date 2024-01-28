@@ -26,7 +26,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         private IConnection _connection;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="RabbitMQChannelObjectPoolPolicy"/> class.
+        /// Initializes a new instance of the <see cref="RabbitMQConnectionFactory"/> class.
         /// </summary>
         /// <param name="rabbitMQConfiguration"></param>
         /// <param name="cancellationTokenSource"></param>
@@ -39,6 +39,10 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             _connectionFactory = GetConnectionFactory();
         }
 
+        /// <summary>
+        /// Returns the connection. Creates a new connection if none exists.
+        /// </summary>
+        /// <returns></returns>
         public IConnection GetConnection()
         {
             if (_connection != null)
