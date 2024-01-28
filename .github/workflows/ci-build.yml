@@ -7,9 +7,8 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: ubuntu
     services:
-      rabbitmq.local:
+      rabbitmq:
         image: bitnami/rabbitmq:latest
         ports:
           - 5672:5672
