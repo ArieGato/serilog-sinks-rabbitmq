@@ -2,6 +2,8 @@ name: CI build
 
 on: push
 
+env:
+  Configuration: Release
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,16 +18,58 @@ jobs:
           RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS: true
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
     - name: Setup .NET 8
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 8.0.x
+
+    # Determine new version
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0
+      with:
+        versionSpec: '5.x'
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v0
+      with:
+        useConfigFile: true
+        configFilePath: gitversion.yml
+
     - name: Restore dependencies
       run: dotnet restore
+
     - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
-    - name: Test
-      run: dotnet pack --no-build --verbosity normal
+      run: dotnet build --no-restore -c ${{ env.Configuration }} /p:Version=${{ steps.gitversion.outputs.FullSemVer }}
+
+    - name: Run integration tests
+      run: dotnet test --no-build --verbosity normal -c ${{ env.Configuration }}
+    
+    - name: Create nuget packages
+      run: dotnet pack --no-build --verbosity normal -c ${{ env.Configuration }} /p:PackageVersion=${{ steps.gitversion.outputs.FullSemVer }}
+
+  deploy-github:
+    runs-on: 'ubuntu-latest'
+    environment: 'github'
+    needs: build
+    steps:
+      - name: Publish Nuget to GitHub registry
+        run: dotnet nuget push ./<project>/out/*.nupkg -k ${GITHUB_TOKEN} -s https://nuget.pkg.github.com/ArieGato/index.json --skip-duplicate --no-symbols
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-nuget:
+    if: false
+    runs-on: 'ubuntu-latest'
+    environment: 'nuget'
+    needs: deploy-github
+    steps:
+      - name: Publish Nuget to nuget.org registry
+        run: dotnet nuget push ./<project>/out/*.nupkg -k ${GITHUB_TOKEN} -s https://nuget.pkg.github.com/ArieGato/index.json --skip-duplicate --no-symbols
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
