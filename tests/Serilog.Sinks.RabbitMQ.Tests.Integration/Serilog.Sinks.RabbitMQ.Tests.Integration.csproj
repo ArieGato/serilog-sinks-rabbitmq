@@ -11,16 +11,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-      <PropertyGroup Condition=" '$(TargetFramework)' == 'net472' ">
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net472' ">
     <DefineConstants>$(DefineConstants);NET_FX</DefineConstants>
   </PropertyGroup>
   
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-            <PackageReference Include="Serilog.Settings.AppSettings" Version="2.2.2" />
+    <PackageReference Include="Serilog.Settings.AppSettings" Version="2.2.2" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.0" />
-        <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit" Version="2.6.6" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
@@ -30,18 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Serilog.Sinks.RabbitMQ\Serilog.Sinks.RabbitMQ.csproj" />
   </ItemGroup>
-
-      <ItemGroup Condition=" '$(TargetFramework)' == 'net472' ">
-    <Reference Include="System" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="Microsoft.CSharp" />
-  </ItemGroup>
   
-  <ItemGroup>
-    <None Update="App.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' == 'net472' ">
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
@@ -53,5 +42,11 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!-- START: This is a buildtime work around for https://github.com/dotnet/corefx/issues/22101 -->
+  <Target Name="CopyCustomContent" AfterTargets="AfterBuild">
+    <Copy SourceFiles="App.config" DestinationFiles="$(OutDir)\testhost.dll.config" />
+  </Target>
+  <!-- END: This is a buildtime work around for https://github.com/dotnet/corefx/issues/22101 -->
 
 </Project>

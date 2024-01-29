@@ -2,7 +2,7 @@
 {
     public class RabbitMQFixture : IDisposable
     {
-        public const string HostName = "rabbitmq.local";
+        public const string HostName = "localhost";
         public const string UserName = "serilog";
         public const string Password = "serilog";
         public const string SerilogAuditSinkExchange = "serilog-sink-audit-exchange";
