@@ -1,7 +1,7 @@
 next-version: 7.0
 assembly-versioning-scheme: MajorMinorPatch
 assembly-file-versioning-scheme: MajorMinorPatch
-mode: ContinuousDelivery
+mode: ContinuousDeployment
 tag-prefix: '[vV]'
 continuous-delivery-fallback-tag: ci
 major-version-bump-message: '\+semver:\s?(breaking|major)'
@@ -27,7 +27,7 @@ branches:
     is-mainline: false
     pre-release-weight: 0
   main:
-    mode: ContinuousDelivery
+    mode: ContinuousDeployment
     tag: ''
     increment: Patch
     prevent-increment-of-merged-branch-version: true
@@ -41,7 +41,7 @@ branches:
     is-mainline: true
     pre-release-weight: 55000
   release:
-    mode: ContinuousDelivery
+    mode: ContinuousDeployment
     tag: beta
     increment: None
     prevent-increment-of-merged-branch-version: true
@@ -57,7 +57,7 @@ branches:
     is-mainline: false
     pre-release-weight: 30000
   feature:
-    mode: ContinuousDelivery
+    mode: ContinuousDeployment
     tag: useBranchName
     increment: Inherit
     prevent-increment-of-merged-branch-version: false
@@ -75,7 +75,7 @@ branches:
     is-mainline: false
     pre-release-weight: 30000
   pull-request:
-    mode: ContinuousDelivery
+    mode: ContinuousDeployment
     tag: PullRequest
     increment: Inherit
     prevent-increment-of-merged-branch-version: false
@@ -94,7 +94,7 @@ branches:
     is-mainline: false
     pre-release-weight: 30000
   hotfix:
-    mode: ContinuousDelivery
+    mode: ContinuousDeployment
     tag: beta
     increment: Patch
     prevent-increment-of-merged-branch-version: false
