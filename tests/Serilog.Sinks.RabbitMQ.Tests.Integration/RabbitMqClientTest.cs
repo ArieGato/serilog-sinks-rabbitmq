@@ -39,17 +39,17 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         [Fact]
         public async Task Publish_SingleMessage_ConsumerReceivesMessage()
         {
-            await this.InitializeAsync();
+            await InitializeAsync();
             var message = Guid.NewGuid().ToString();
 
-            var consumer = new EventingBasicConsumer(this.channel);
+            var consumer = new EventingBasicConsumer(channel);
             var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
                 h => consumer.Received += h,
                 h => consumer.Received -= h,
                 async () =>
                 {
-                    this.channel.BasicConsume(QueueName, autoAck: true, consumer);
-                    await this.client.PublishAsync(message);
+                    channel.BasicConsume(QueueName, autoAck: true, consumer);
+                    await client.PublishAsync(message);
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);
@@ -62,14 +62,14 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         /// <inheritdoc />
         public void Dispose()
         {
-            this.client?.Dispose();
-            this.channel?.Dispose();
-            this.connection?.Dispose();
+            client?.Dispose();
+            channel?.Dispose();
+            connection?.Dispose();
         }
 
         private async Task InitializeAsync()
         {
-            if (this.connection == null)
+            if (connection == null)
             {
                 var factory = new ConnectionFactory { HostName = HostName };
 
@@ -78,8 +78,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 {
                     try
                     {
-                        this.connection = factory.CreateConnection();
-                        this.channel = this.connection.CreateModel();
+                        connection = factory.CreateConnection();
+                        channel = connection.CreateModel();
                         break;
                     }
                     catch (BrokerUnreachableException)

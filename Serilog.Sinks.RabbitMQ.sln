@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28803.156
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34330.188
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Serilog.Sinks.RabbitMQ", "src\Serilog.Sinks.RabbitMQ\Serilog.Sinks.RabbitMQ.csproj", "{E9EFBA4E-E403-4722-9880-0FDCDA495667}"
 EndProject
@@ -10,6 +10,11 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6BD5A928-1573-4A9A-9D9D-EBA7A0EE17B2}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Serilog.Sinks.RabbitMQ.Tests.Integration", "tests\Serilog.Sinks.RabbitMQ.Tests.Integration\Serilog.Sinks.RabbitMQ.Tests.Integration.csproj", "{94CFEA39-091B-42EF-A3E4-2130AC76A191}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3B09D730-8F0F-439C-90F2-0CB3FFA54B46}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -17,8 +17,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
     [Collection("Sequential")]
     public sealed class RabbitMqSinkTest : IDisposable
     {
-        private const string QueueName = "serilog-sink-queue";
-        private const string HostName = "rabbitmq";
+        private const string QUEUE_NAME = "serilog-sink-queue";
+        private const string HOST_NAME = "rabbitmq";
 
         private readonly Logger logger = new LoggerConfiguration()
             .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
@@ -29,13 +29,13 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 clientConfiguration.Username = "guest";
                 clientConfiguration.Password = "guest";
                 clientConfiguration.ExchangeType = "fanout";
-                clientConfiguration.Hostnames.Add(HostName);
+                clientConfiguration.Hostnames.Add(HOST_NAME);
                 sinkConfiguration.TextFormatter = new JsonFormatter();
             })
             .MinimumLevel.Verbose()
             .CreateLogger();
 
-        private IConnection connection;
+        private IConnection _connection;
         private IModel channel;
 
         /// <summary>
@@ -43,19 +43,19 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         /// </summary>
         /// <returns>A task that represents the asynchronous operation.</returns>.
         [Fact]
-        public async Task Error_LogWithExcptionAndProperties_ConsumerReceivesMessage()
+        public async Task Error_LogWithExceptionAndProperties_ConsumerReceivesMessage()
         {
-            await this.InitializeAsync();
+            await InitializeAsync();
             var messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
 
-            var consumer = new EventingBasicConsumer(this.channel);
+            var consumer = new EventingBasicConsumer(channel);
             var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
                 h => consumer.Received += h,
                 h => consumer.Received -= h,
                 async () =>
                 {
-                    this.channel.BasicConsume(QueueName, autoAck: true, consumer);
-                    this.logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
+                    channel.BasicConsume(QUEUE_NAME, autoAck: true, consumer);
+                    logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);
@@ -73,24 +73,24 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         /// <inheritdoc />
         public void Dispose()
         {
-            this.logger?.Dispose();
-            this.channel?.Dispose();
-            this.connection?.Dispose();
+            logger?.Dispose();
+            channel?.Dispose();
+            _connection?.Dispose();
         }
 
         private async Task InitializeAsync()
         {
-            if (this.connection == null)
+            if (_connection == null)
             {
-                var factory = new ConnectionFactory { HostName = HostName };
+                var factory = new ConnectionFactory { HostName = HOST_NAME };
 
                 // Wait for RabbitMQ docker container to start and retry connecting to it.
                 for (int i = 0; i < 10; ++i)
                 {
                     try
                     {
-                        this.connection = factory.CreateConnection();
-                        this.channel = this.connection.CreateModel();
+                        _connection = factory.CreateConnection();
+                        channel = _connection.CreateModel();
                         break;
                     }
                     catch (BrokerUnreachableException)
