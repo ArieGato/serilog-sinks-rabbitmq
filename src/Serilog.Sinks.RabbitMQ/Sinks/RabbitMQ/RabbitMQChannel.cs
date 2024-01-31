@@ -15,12 +15,12 @@
 using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// A wrapper class for <see cref="IModel"/> to be used in <see cref="ObjectPool{T}"/>.
     /// </summary>
-    internal sealed class RabbitMQChannel : IDisposable
+    internal sealed class RabbitMQChannel : IRabbitMQChannel
     {
         private readonly IBasicProperties _properties;
 

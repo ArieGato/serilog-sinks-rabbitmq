@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-global using System;
-global using System.Text;
-global using System.Threading.Tasks;
 global using FluentAssertions;
-global using Newtonsoft.Json.Linq;
-global using RabbitMQ.Client;
-global using RabbitMQ.Client.Events;
-global using RabbitMQ.Client.Exceptions;
-global using Serilog.Core;
-global using Serilog.Formatting.Json;
+global using NSubstitute;
 global using Xunit;

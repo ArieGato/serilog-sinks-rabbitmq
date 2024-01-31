@@ -15,13 +15,13 @@
 using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ
 {
     /// <inheritdoc />
-    internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<RabbitMQChannel>
+    internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRabbitMQChannel>
     {
         private readonly RabbitMQClientConfiguration _config;
-        private readonly RabbitMQConnectionFactory _rabbitMQConnectionFactory;
+        private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
         private bool _exchangeCreated;
 
@@ -32,14 +32,14 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         /// <param name="rabbitMQConnectionFactory"></param>
         public RabbitMQChannelObjectPoolPolicy(
             RabbitMQClientConfiguration rabbitMQConfiguration,
-            RabbitMQConnectionFactory rabbitMQConnectionFactory)
+            IRabbitMQConnectionFactory rabbitMQConnectionFactory)
         {
             _config = rabbitMQConfiguration;
             _rabbitMQConnectionFactory = rabbitMQConnectionFactory;
         }
 
         /// <inheritdoc />
-        public RabbitMQChannel Create()
+        public IRabbitMQChannel Create()
         {
             var connection = _rabbitMQConnectionFactory.GetConnection();
 
@@ -51,7 +51,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
         }
 
         /// <inheritdoc />
-        public bool Return(RabbitMQChannel obj)
+        public bool Return(IRabbitMQChannel obj)
         {
             return obj.IsOpen;
         }

@@ -13,10 +13,11 @@
 // limitations under the License.
 
 using RabbitMQ.Client;
+using Serilog.Debugging;
 
-namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ
 {
-    internal class RabbitMQConnectionFactory : IDisposable
+    internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     {
         private readonly RabbitMQClientConfiguration _config;
         private readonly CancellationTokenSource _cancellationTokenSource;
@@ -127,38 +128,28 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             return connectionFactory;
         }
 
+        /// <summary>
+        /// Close the connection and all channels to RabbitMq
+        /// </summary>
+        /// <exception cref="AggregateException"></exception>
         public void Close()
         {
-            var exceptions = new List<Exception>();
-
-            try
-            {
-                _cancellationTokenSource.Cancel();
-            }
-            catch (Exception ex)
-            {
-                exceptions.Add(ex);
-            }
-
-            try
-            {
-                _connectionLock.Wait(10);
-                _connection?.Close();
-            }
-            catch (Exception ex)
-            {
-                exceptions.Add(ex);
-            }
-
-            if (exceptions.Count > 0)
-            {
-                throw new AggregateException(exceptions);
-            }
+            _connectionLock.Wait(10);
+            _connection?.Close();
         }
+
+        /// <inheritdoc />
         public void Dispose()
         {
-            _connectionLock?.Dispose();
-            _connection?.Dispose();
+            try
+            {
+                _connectionLock?.Dispose();
+                _connection?.Dispose();
+            }
+            catch(Exception exception)
+            {
+                SelfLog.WriteLine(exception.Message);
+            }
         }
     }
 }

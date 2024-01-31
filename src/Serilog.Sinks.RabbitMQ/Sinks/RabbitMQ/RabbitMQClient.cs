@@ -14,24 +14,22 @@
 
 using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq
     /// </summary>
-    internal class RabbitMQClient : IDisposable
+    internal class RabbitMQClient : IRabbitMQClient
     {
-        private readonly ObjectPool<RabbitMQChannel> _modelObjectPool;
+        private readonly ObjectPool<IRabbitMQChannel> _modelObjectPool;
 
-        // synchronization locks
         public const int DefaultMaxChannelCount = 64;
         private readonly CancellationTokenSource _closeTokenSource = new();
 
         // configuration member
         private readonly PublicationAddress _publicationAddress;
-        private readonly RabbitMQConnectionFactory _rabbitMQConnectionFactory;
+        private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -39,13 +37,37 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="configuration">mandatory</param>
         public RabbitMQClient(RabbitMQClientConfiguration configuration)
         {
+            _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
+
+            var pooledObjectPolicy = new RabbitMQChannelObjectPoolPolicy(configuration, _rabbitMQConnectionFactory);
             var defaultObjectPoolProvider = new DefaultObjectPoolProvider
             {
                 MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DefaultMaxChannelCount
             };
+            _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
-            _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
-            _modelObjectPool = defaultObjectPoolProvider.Create(new RabbitMQChannelObjectPoolPolicy(configuration, _rabbitMQConnectionFactory));
+            _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
+        }
+
+        /// <summary>
+        /// Internal constructor for testing
+        /// </summary>
+        /// <param name="configuration">The RabbitMQ configuration</param>
+        /// <param name="connectionFactory">The RabbitMQ connection factory</param>
+        /// <param name="pooledObjectPolicy">The pooled object policy for creating channels</param>
+        internal RabbitMQClient(
+            RabbitMQClientConfiguration configuration,
+            IRabbitMQConnectionFactory connectionFactory,
+            IPooledObjectPolicy<IRabbitMQChannel> pooledObjectPolicy)
+        {
+            _rabbitMQConnectionFactory = connectionFactory;
+
+            var defaultObjectPoolProvider = new DefaultObjectPoolProvider
+            {
+                MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DefaultMaxChannelCount
+            };
+            _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
+
             _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
         }
 
@@ -55,7 +77,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="message"></param>
         public Task PublishAsync(string message)
         {
-            RabbitMQChannel channel = null;
+            IRabbitMQChannel channel = null;
             try
             {
                 channel = _modelObjectPool.Get();

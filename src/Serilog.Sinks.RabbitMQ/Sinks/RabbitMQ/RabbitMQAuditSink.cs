@@ -21,10 +21,10 @@ namespace Serilog.Sinks.RabbitMQ
     /// <summary>
     /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog audit logic.
     /// </summary>
-    public class RabbitMQAuditSink : ILogEventSink, IDisposable
+    public sealed class RabbitMQAuditSink : ILogEventSink, IDisposable
     {
         private readonly ITextFormatter _formatter;
-        private readonly RabbitMQClient _client;
+        private readonly IRabbitMQClient _client;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RabbitMQAuditSink" /> class.
@@ -36,6 +36,12 @@ namespace Serilog.Sinks.RabbitMQ
         {
             _formatter = rabbitMQSinkConfiguration.TextFormatter;
             _client = new RabbitMQClient(configuration);
+        }
+
+        internal RabbitMQAuditSink(IRabbitMQClient client, ITextFormatter formatter)
+        {
+            _client = client;
+            _formatter = formatter;
         }
 
         /// <summary>
@@ -54,16 +60,6 @@ namespace Serilog.Sinks.RabbitMQ
         /// </summary>
         /// <filterpriority>2</filterpriority>
         public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
-        /// Releases unmanaged and - optionally - managed resources.
-        /// </summary>
-        /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
-        protected virtual void Dispose(bool disposing)
         {
             try
             {
