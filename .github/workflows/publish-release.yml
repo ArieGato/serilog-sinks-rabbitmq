@@ -79,7 +79,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy-nuget:
-    if: false
     runs-on: 'ubuntu-latest'
     environment: 'nuget'
     needs: deploy-github
@@ -90,6 +89,6 @@ jobs:
           path: dist
 
       - name: Publish Nuget to nuget.org registry
-        run: dotnet nuget push dist/*.nupkg --api-key ${NUGET_API_KEY} --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols
+        run: dotnet nuget push ./dist/*.nupkg --api-key ${NUGET_API_KEY} --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
