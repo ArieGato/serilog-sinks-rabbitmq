@@ -14,15 +14,8 @@
 
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
-    public class RabbitMQConnectionFactoryTests : IClassFixture<RabbitMQFixture>
+    public class RabbitMQConnectionFactoryTests
     {
-        private readonly RabbitMQFixture _fixture;
-
-        public RabbitMQConnectionFactoryTests(RabbitMQFixture fixture)
-        {
-            _fixture = fixture;
-        }
-
         [Fact]
         public void GetConnection_ShouldReturnOpenConnection()
         {

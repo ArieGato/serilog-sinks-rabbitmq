@@ -107,7 +107,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 
             var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
             rabbitMQClient.Publish("a message");
-            
+
             //// wait for message sent
             //await Task.Delay(1000);
 
@@ -124,7 +124,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             }
         }
 
-#if NET8_0_OR_GREATER
         /// <summary>
         /// Consumer should receive a message after calling Publish.
         /// </summary>
@@ -137,9 +136,9 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             var watch = System.Diagnostics.Stopwatch.StartNew();
             var message = Guid.NewGuid().ToString();
 
-            var parallelOptions = new ParallelOptions(){ MaxDegreeOfParallelism = 10 };
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
 
-            await Parallel.ForAsync(0, 10, parallelOptions, async (_, _) =>
+            Parallel.For(0, 10, parallelOptions, (_, _) =>
             {
                 for (var i = 0; i < 1000; i++)
                 {
@@ -149,6 +148,5 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 
             watch.Stop();
         }
-#endif
     }
 }

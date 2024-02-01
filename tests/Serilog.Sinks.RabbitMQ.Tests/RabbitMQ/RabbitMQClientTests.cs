@@ -20,7 +20,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
     public class RabbitMQClientTests
     {
         [Fact]
-        public async Task PublishAsync_ShouldCreateAndReturnChannelToPool()
+        public void Publish_ShouldCreateAndReturnChannelToPool()
         {
             // Arrange
             var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -81,7 +81,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
                 RouteKey = "some-route-key"
             };
             var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-            rabbitMQConnectionFactory.When(x => x.Close()).Do(x => throw new InvalidOperationException("some-exception"));
+            rabbitMQConnectionFactory.When(x => x.Close()).Do(_ => throw new InvalidOperationException("some-exception"));
 
             var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
 
@@ -100,7 +100,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
         }
 
         [Fact]
-        public async Task Dispose_ShouldDisposeConnectionAndChannel()
+        public void Dispose_ShouldDisposeConnectionAndChannel()
         {
             // Arrange
             var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
