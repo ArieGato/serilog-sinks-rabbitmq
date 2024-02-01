@@ -2,7 +2,8 @@ name: CI build
 
 on:
   push:
-    branches:    
+    branches:
+      - '**'        # matches every branch
       - '!master'   # excludes master
 
 env:
