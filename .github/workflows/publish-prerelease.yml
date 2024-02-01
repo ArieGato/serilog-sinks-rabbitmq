@@ -1,9 +1,9 @@
-name: CI build
+name: Publish pre-release
 
 on:
   push:
-    branches:    
-      - '!master'   # excludes master
+    branches:
+      - master
 
 env:
   Configuration: Release
@@ -69,3 +69,18 @@ jobs:
       with:
         name: nuget-packages
         path: dist/packages
+
+  deploy-github:
+    runs-on: 'ubuntu-latest'
+    environment: 'github'
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: dist
+
+      - name: Publish Nuget to GitHub registry
+        run: dotnet nuget push ./dist/*.nupkg -k ${GITHUB_TOKEN} -s https://nuget.pkg.github.com/ArieGato/index.json --skip-duplicate --no-symbols
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

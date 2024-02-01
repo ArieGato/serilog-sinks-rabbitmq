@@ -1,9 +1,9 @@
-name: CI build
+name: Publish release
 
 on:
-  push:
-    branches:    
-      - '!master'   # excludes master
+  release:
+    types:
+      - published
 
 env:
   Configuration: Release
@@ -53,15 +53,8 @@ jobs:
       run: dotnet build --no-restore -c ${{ env.Configuration }} /p:Version=${{ steps.gitversion.outputs.FullSemVer }}
 
     - name: Run tests
-      run: dotnet test --no-build --verbosity normal -c ${{ env.Configuration }} -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+      run: dotnet test --no-build --verbosity normal -c ${{ env.Configuration }}
 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      with:
-        files: out/.coverage/*.opencover.xml
-    
     - name: Create nuget packages
       run: dotnet pack --no-build --verbosity normal -c ${{ env.Configuration }} -o dist/packages /p:PackageVersion=${{ steps.gitversion.outputs.FullSemVer }}
 
@@ -69,3 +62,34 @@ jobs:
       with:
         name: nuget-packages
         path: dist/packages
+
+  deploy-github:
+    runs-on: 'ubuntu-latest'
+    environment: 'github'
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: dist
+
+      - name: Publish Nuget to GitHub registry
+        run: dotnet nuget push ./dist/*.nupkg -k ${GITHUB_TOKEN} -s https://nuget.pkg.github.com/ArieGato/index.json --skip-duplicate --no-symbols
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-nuget:
+    if: false
+    runs-on: 'ubuntu-latest'
+    environment: 'nuget'
+    needs: deploy-github
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: dist
+
+      - name: Publish Nuget to nuget.org registry
+        run: dotnet nuget push dist/*.nupkg --api-key ${NUGET_API_KEY} --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
