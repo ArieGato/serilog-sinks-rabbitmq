@@ -2,29 +2,24 @@
 
   <PropertyGroup>
     <TargetFrameworks>net472;net6.0;net8.0</TargetFrameworks>
-    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <AssemblyOriginatorKeyFile>../../assets/Serilog.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
-    <IsPackable>false</IsPackable>
-    <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net472' ">
-    <DefineConstants>$(DefineConstants);NET_FX</DefineConstants>
-  </PropertyGroup>
-  
   <ItemGroup>
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Serilog.Settings.AppSettings" Version="2.2.2" />
-    <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.0" />
+    <PackageReference Include="NSubstitute" Version="5.1.0" />
     <PackageReference Include="xunit" Version="2.6.6" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
     <PackageReference Include="coverlet.collector" Version="6.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -39,23 +34,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Serilog.Sinks.RabbitMQ\Serilog.Sinks.RabbitMQ.csproj" />
   </ItemGroup>
-  
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' ">
-    <Reference Include="System" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="Microsoft.CSharp" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="App.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <!-- START: This is a buildtime work around for https://github.com/dotnet/corefx/issues/22101 -->
-  <Target Name="CopyCustomContent" AfterTargets="AfterBuild">
-    <Copy SourceFiles="App.config" DestinationFiles="$(OutDir)\testhost.dll.config" />
-  </Target>
-  <!-- END: This is a buildtime work around for https://github.com/dotnet/corefx/issues/22101 -->
 
 </Project>

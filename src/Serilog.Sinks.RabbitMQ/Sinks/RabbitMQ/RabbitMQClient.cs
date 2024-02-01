@@ -1,4 +1,5 @@
-// Copyright 2015 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,37 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq
     /// </summary>
-    public class RabbitMQClient : IDisposable
+    internal class RabbitMQClient : IRabbitMQClient
     {
-        // synchronization locks
-        private const int MaxChannelCount = 64;
-        private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
-        private readonly SemaphoreSlim[] _modelLocks = new SemaphoreSlim[MaxChannelCount];
-        private readonly CancellationTokenSource _closeTokenSource = new CancellationTokenSource();
-        private readonly CancellationToken _closeToken;
-        private int _currentModelIndex = -1;
+        private readonly ObjectPool<IRabbitMQChannel> _modelObjectPool;
+
+        public const int DefaultMaxChannelCount = 64;
+        private readonly CancellationTokenSource _closeTokenSource = new();
 
         // configuration member
-        private readonly RabbitMQClientConfiguration _config;
         private readonly PublicationAddress _publicationAddress;
-
-        // endpoint members
-        private readonly IConnectionFactory _connectionFactory;
-        private readonly IModel[] _models = new IModel[MaxChannelCount];
-        private readonly IBasicProperties[] _properties = new IBasicProperties[MaxChannelCount];
-        private volatile IConnection _connection;
+        private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
         /// <summary>
         /// Constructor for RabbitMqClient
@@ -49,101 +37,69 @@ namespace Serilog.Sinks.RabbitMQ
         /// <param name="configuration">mandatory</param>
         public RabbitMQClient(RabbitMQClientConfiguration configuration)
         {
-            _closeToken = _closeTokenSource.Token;
+            _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
 
-            // RabbitMQ channels are not thread-safe.
-            // https://www.rabbitmq.com/dotnet-api-guide.html#model-sharing
-            // Create a pool of channels and give each call to Publish one channel.
-            for (var i = 0; i < MaxChannelCount; i++)
+            var pooledObjectPolicy = new RabbitMQChannelObjectPoolPolicy(configuration, _rabbitMQConnectionFactory);
+            var defaultObjectPoolProvider = new DefaultObjectPoolProvider
             {
-                _modelLocks[i] = new SemaphoreSlim(1, 1);
-            }
+                MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DefaultMaxChannelCount
+            };
+            _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
-            // load configuration
-            _config = configuration;
-            _publicationAddress = new PublicationAddress(_config.ExchangeType, _config.Exchange, _config.RouteKey);
-
-            // initialize
-            _connectionFactory = GetConnectionFactory();
+            _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
         }
 
         /// <summary>
-        /// Configures a new ConnectionFactory, and returns it
+        /// Internal constructor for testing
         /// </summary>
-        /// <returns></returns>
-        private IConnectionFactory GetConnectionFactory()
+        /// <param name="configuration">The RabbitMQ configuration</param>
+        /// <param name="connectionFactory">The RabbitMQ connection factory</param>
+        /// <param name="pooledObjectPolicy">The pooled object policy for creating channels</param>
+        internal RabbitMQClient(
+            RabbitMQClientConfiguration configuration,
+            IRabbitMQConnectionFactory connectionFactory,
+            IPooledObjectPolicy<IRabbitMQChannel> pooledObjectPolicy)
         {
-            // prepare connection factory
-            var connectionFactory = new ConnectionFactory
+            _rabbitMQConnectionFactory = connectionFactory;
+
+            var defaultObjectPoolProvider = new DefaultObjectPoolProvider
             {
-                UserName = _config.Username,
-                Password = _config.Password,
-                AutomaticRecoveryEnabled = true,
-                NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
-                UseBackgroundThreadsForIO = _config.UseBackgroundThreadsForIO
+                MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DefaultMaxChannelCount
             };
+            _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
-            if (_config.SslOption != null)
-            {
-                connectionFactory.Ssl.Version = _config.SslOption.Version;
-                connectionFactory.Ssl.CertPath = _config.SslOption.CertPath;
-                connectionFactory.Ssl.ServerName = _config.SslOption.ServerName;
-                connectionFactory.Ssl.Enabled = _config.SslOption.Enabled;
-                connectionFactory.Ssl.AcceptablePolicyErrors = _config.SslOption.AcceptablePolicyErrors;
-            }
-            // setup heartbeat if needed
-            if (_config.Heartbeat > 0)
-                connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
-
-            // only set, if has value, otherwise leave default
-            if (_config.Port > 0) connectionFactory.Port = _config.Port;
-            if (!string.IsNullOrEmpty(_config.VHost)) connectionFactory.VirtualHost = _config.VHost;
-
-            // return factory
-            return connectionFactory;
+            _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
         }
 
         /// <summary>
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
-        public async Task PublishAsync(string message)
+        public void Publish(string message)
         {
-            var currentModelIndex = Interlocked.Increment(ref _currentModelIndex);
-
-            // Interlocked.Increment can overflow and return a negative currentModelIndex.
-            // Ensure that currentModelIndex is always in the range of [0, MaxChannelCount) by using this formula.
-            // https://stackoverflow.com/a/14997413/263003
-            currentModelIndex = (currentModelIndex % MaxChannelCount + MaxChannelCount) % MaxChannelCount;
-            var modelLock = _modelLocks[currentModelIndex];
-            await modelLock.WaitAsync(_closeToken);
+            IRabbitMQChannel channel = null;
             try
             {
-                var model = _models[currentModelIndex];
-                var properties = _properties[currentModelIndex];
-                if (model == null)
-                {
-                    var connection = await GetConnectionAsync();
-                    model = connection.CreateModel();
-                    _models[currentModelIndex] = model;
-
-                    properties = model.CreateBasicProperties();
-                    properties.DeliveryMode = (byte)_config.DeliveryMode; // persistence
-                    _properties[currentModelIndex] = properties;
-                }
-
-                // push message to exchange
-                model.BasicPublish(_publicationAddress, properties, System.Text.Encoding.UTF8.GetBytes(message));
+                channel = _modelObjectPool.Get();
+                channel.BasicPublish(_publicationAddress, System.Text.Encoding.UTF8.GetBytes(message));
             }
             finally
             {
-                modelLock.Release();
+                if (channel != null)
+                {
+                    _modelObjectPool.Return(channel);
+                }
             }
         }
 
+        /// <summary>
+        /// Close the connection and all channels to RabbitMq
+        /// </summary>
+        /// <exception cref="AggregateException"></exception>
         public void Close()
         {
-            IList<Exception> exceptions = new List<Exception>();
+            var exceptions = new List<Exception>();
+
             try
             {
                 _closeTokenSource.Cancel();
@@ -153,25 +109,9 @@ namespace Serilog.Sinks.RabbitMQ
                 exceptions.Add(ex);
             }
 
-            // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
-            // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
-            for (var i = 0; i < _models.Length; i++)
-            {
-                try
-                {
-                    _modelLocks[i].Wait(10);
-                    _models[i]?.Close();
-                }
-                catch (Exception ex)
-                {
-                    exceptions.Add(ex);
-                }
-            }
-
             try
             {
-                _connectionLock.Wait(10);
-                _connection?.Close();
+                _rabbitMQConnectionFactory.Close();
             }
             catch (Exception ex)
             {
@@ -180,7 +120,7 @@ namespace Serilog.Sinks.RabbitMQ
 
             if (exceptions.Count > 0)
             {
-                throw new AggregateException(exceptions);
+                throw new AggregateException($"Exceptions occurred while closing {nameof(RabbitMQClient)}", exceptions);
             }
         }
 
@@ -189,41 +129,12 @@ namespace Serilog.Sinks.RabbitMQ
         {
             _closeTokenSource.Dispose();
 
-            _connectionLock.Dispose();
-            foreach (var modelLock in _modelLocks)
+            if (_modelObjectPool is IDisposable disposable)
             {
-                modelLock.Dispose();
+                disposable.Dispose();
             }
 
-            foreach (var model in _models)
-            {
-                model?.Dispose();
-            }
-
-            _connection?.Dispose();
-        }
-
-        private async Task<IConnection> GetConnectionAsync()
-        {
-            if (_connection == null)
-            {
-                await _connectionLock.WaitAsync(_closeToken);
-                try
-                {
-                    if (_connection == null)
-                    {
-                        _connection = _config.Hostnames.Count == 0
-                            ? _connectionFactory.CreateConnection()
-                            : _connectionFactory.CreateConnection(_config.Hostnames);
-                    }
-                }
-                finally
-                {
-                    _connectionLock.Release();
-                }
-            }
-
-            return _connection;
+            _rabbitMQConnectionFactory.Dispose();
         }
     }
 }

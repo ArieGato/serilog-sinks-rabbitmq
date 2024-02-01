@@ -12,46 +12,78 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.IO;
+using Serilog.Core;
+using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ;
 using Serilog.Sinks.PeriodicBatching;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
     /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
     /// </summary>
-    public class RabbitMQSink : PeriodicBatchingSink
+    public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
     {
         private readonly ITextFormatter _formatter;
-        private readonly RabbitMQClient _client;
+        private readonly IRabbitMQClient _client;
 
+        private bool _disposedValue;
+
+        /// <summary>
+        /// Default constructor
+        /// </summary>
+        /// <param name="configuration"></param>
+        /// <param name="rabbitMQSinkConfiguration"></param>
         public RabbitMQSink(RabbitMQClientConfiguration configuration,
-            RabbitMQSinkConfiguration rabbitMQSinkConfiguration) : base(rabbitMQSinkConfiguration.BatchPostingLimit, rabbitMQSinkConfiguration.Period)
+            RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
         {
             _formatter = rabbitMQSinkConfiguration.TextFormatter;
             _client = new RabbitMQClient(configuration);
         }
 
-        protected override async Task EmitBatchAsync(IEnumerable<LogEvent> events)
+        /// <summary>
+        /// Constructor for testing purposes
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="textFormatter"></param>
+        internal RabbitMQSink(IRabbitMQClient client, ITextFormatter textFormatter)
         {
-            foreach (var logEvent in events)
+            _formatter = textFormatter;
+            _client = client;
+        }
+
+        /// <inheritdoc cref="ILogEventSink.Emit" />
+        public void Emit(LogEvent logEvent)
+        {
+            var sw = new StringWriter();
+            _formatter.Format(logEvent, sw);
+            _client.Publish(sw.ToString());
+        }
+
+        /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
+        public Task EmitBatchAsync(IEnumerable<LogEvent> batch)
+        {
+            foreach (var logEvent in batch)
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                await _client.PublishAsync(sw.ToString());
+                _client.Publish(sw.ToString());
             }
+
+            return Task.CompletedTask;
         }
 
-        protected override void Dispose(bool disposing)
+        /// <inheritdoc cref="IBatchedLogEventSink.OnEmptyBatchAsync" />
+        public Task OnEmptyBatchAsync()
         {
-            // base.Dispose must be called first, because it flushes all pending EmitBatchAsync.
-            // Closing the client first would have resulted in an infinite retry loop to flush.
-            base.Dispose(disposing);
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc cref="IDisposable.Dispose"/>
+        public void Dispose()
+        {
+            if (_disposedValue) return;
 
             try
             {
@@ -59,12 +91,15 @@ namespace Serilog.Sinks.RabbitMQ
                 // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
                 _client.Close();
             }
-            catch
+            catch (Exception exception)
             {
-                // ignore exceptions
+                // ignored
+                SelfLog.WriteLine("Exception occurred closing RabbitMQClient {0}", exception.Message);
             }
 
             _client.Dispose();
+
+            _disposedValue = true;
         }
     }
 }
