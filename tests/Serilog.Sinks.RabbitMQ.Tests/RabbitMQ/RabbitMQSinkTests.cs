@@ -6,6 +6,28 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
     public class RabbitMQSinkTests
     {
         [Fact]
+        public void Emit_ShouldPublishMessages()
+        {
+            // Arrange
+            var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), new List<LogEventProperty>());
+
+            var textFormatter = Substitute.For<ITextFormatter>();
+            textFormatter
+                .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
+                .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
+
+            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+
+            // Act
+            sut.Emit(logEvent);
+
+            // Assert
+            rabbitMQClient.Received(1).Publish(Arg.Is("some-message"));
+        }
+
+        [Fact]
         public async Task EmitBatchAsync_ShouldPublishMessages()
         {
             // Arrange
@@ -26,8 +48,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
             await sut.EmitBatchAsync(logEvents);
 
             // Assert
-            await rabbitMQClient.Received(1).PublishAsync(Arg.Is("some-message-1"));
-            await rabbitMQClient.Received(1).PublishAsync(Arg.Is("some-message-2"));
+            rabbitMQClient.Received(1).Publish(Arg.Is("some-message-1"));
+            rabbitMQClient.Received(1).Publish(Arg.Is("some-message-2"));
         }
 
         [Fact]
@@ -45,7 +67,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
             await sut.EmitBatchAsync(logEvents);
 
             // Assert
-            await rabbitMQClient.DidNotReceive().PublishAsync(Arg.Any<string>());
+            rabbitMQClient.DidNotReceive().Publish(Arg.Any<string>());
         }
 
         [Fact]
@@ -105,7 +127,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
             var textFormatter = Substitute.For<ITextFormatter>();
             var rabbitMQClient = Substitute.For<IRabbitMQClient>();
             rabbitMQClient.When(x => x.Close())
-                .Do(x => throw new Exception("some-message"));
+                .Do(_ => throw new Exception("some-message"));
 
             var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 

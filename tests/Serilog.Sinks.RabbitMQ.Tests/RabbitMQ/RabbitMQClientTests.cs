@@ -39,7 +39,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
             var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
             // Act
-            await sut.PublishAsync("some-message");
+            sut.Publish("some-message");
 
             // Assert
             rabbitMQChannelObjectPoolPolicy.Received(1).Create();
@@ -119,7 +119,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
             var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
             
             // Need to publish a message first to create the channel in the Pool
-            await sut.PublishAsync("some-message");
+            sut.Publish("some-message");
 
             // Act
             sut.Dispose();

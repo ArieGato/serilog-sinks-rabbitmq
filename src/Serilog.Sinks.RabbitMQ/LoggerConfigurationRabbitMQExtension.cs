@@ -273,7 +273,7 @@ namespace Serilog
 
             return
                 loggerAuditSinkConfiguration
-                    .Sink(new RabbitMQAuditSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
         }
 
         /// <summary>
@@ -319,7 +319,7 @@ namespace Serilog
 
             return
                 loggerAuditSinkConfiguration
-                    .Sink(new RabbitMQAuditSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
         }
 
         static LoggerConfiguration RegisterSink(LoggerSinkConfiguration loggerConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
@@ -346,7 +346,7 @@ namespace Serilog
 
             return
                 loggerAuditSinkConfiguration
-                    .Sink(new RabbitMQAuditSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+                    .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
         }
 
         private static LoggerConfiguration Sink(

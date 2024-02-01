@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
@@ -22,7 +23,7 @@ namespace Serilog.Sinks.RabbitMQ
     /// <summary>
     /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
     /// </summary>
-    public sealed class RabbitMQSink : IBatchedLogEventSink, IDisposable
+    public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
     {
         private readonly ITextFormatter _formatter;
         private readonly IRabbitMQClient _client;
@@ -52,26 +53,34 @@ namespace Serilog.Sinks.RabbitMQ
             _client = client;
         }
 
-        /// <inheritdoc cref="EmitBatchAsync" />
-        public async Task EmitBatchAsync(IEnumerable<LogEvent> batch)
+        /// <inheritdoc cref="ILogEventSink.Emit" />
+        public void Emit(LogEvent logEvent)
+        {
+            var sw = new StringWriter();
+            _formatter.Format(logEvent, sw);
+            _client.Publish(sw.ToString());
+        }
+
+        /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
+        public Task EmitBatchAsync(IEnumerable<LogEvent> batch)
         {
             foreach (var logEvent in batch)
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                await _client.PublishAsync(sw.ToString());
+                _client.Publish(sw.ToString());
             }
+
+            return Task.CompletedTask;
         }
 
-        /// <inheritdoc cref="OnEmptyBatchAsync" />
+        /// <inheritdoc cref="IBatchedLogEventSink.OnEmptyBatchAsync" />
         public Task OnEmptyBatchAsync()
         {
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-        /// </summary>
+        /// <inheritdoc cref="IDisposable.Dispose"/>
         public void Dispose()
         {
             if (_disposedValue) return;

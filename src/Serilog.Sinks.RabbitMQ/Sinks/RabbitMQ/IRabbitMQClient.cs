@@ -23,7 +23,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
-        Task PublishAsync(string message);
+        void Publish(string message);
 
         /// <summary>
         /// Close the connection and all channels to RabbitMq

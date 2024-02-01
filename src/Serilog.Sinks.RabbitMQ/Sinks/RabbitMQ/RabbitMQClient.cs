@@ -75,7 +75,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// Publishes a message to RabbitMq Exchange
         /// </summary>
         /// <param name="message"></param>
-        public Task PublishAsync(string message)
+        public void Publish(string message)
         {
             IRabbitMQChannel channel = null;
             try
@@ -90,8 +90,6 @@ namespace Serilog.Sinks.RabbitMQ
                     _modelObjectPool.Return(channel);
                 }
             }
-
-            return Task.CompletedTask;
         }
 
         /// <summary>

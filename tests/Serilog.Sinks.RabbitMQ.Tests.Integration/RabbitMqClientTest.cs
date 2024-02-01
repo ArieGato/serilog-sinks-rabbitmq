@@ -46,7 +46,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 async () =>
                 {
                     consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
-                    await _rabbitMQFixture.PublishAsync(message);
+                    _rabbitMQFixture.Publish(message);
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);
@@ -79,7 +79,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 
                     for (int i = 0; i < 100; i++)
                     {
-                        await _rabbitMQFixture.PublishAsync(message);
+                        _rabbitMQFixture.Publish(message);
                     }
 
                     // Wait for consumer to receive the message.
@@ -106,7 +106,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             };
 
             var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
-            await rabbitMQClient.PublishAsync("a message");
+            rabbitMQClient.Publish("a message");
             
             //// wait for message sent
             //await Task.Delay(1000);
@@ -143,7 +143,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             {
                 for (var i = 0; i < 1000; i++)
                 {
-                    await _rabbitMQFixture.PublishAsync(message);
+                    _rabbitMQFixture.Publish(message);
                 }
             });
 

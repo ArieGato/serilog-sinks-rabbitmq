@@ -95,9 +95,9 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             _rabbitMQClient.Dispose();
         }
 
-        public Task PublishAsync(string message)
+        public void Publish(string message)
         {
-            return _rabbitMQClient.PublishAsync(message);
+            _rabbitMQClient.Publish(message);
         }
 
         /// <summary>
