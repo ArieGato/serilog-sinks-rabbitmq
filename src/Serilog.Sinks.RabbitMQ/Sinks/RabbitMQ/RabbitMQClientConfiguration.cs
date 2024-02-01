@@ -19,7 +19,6 @@ namespace Serilog.Sinks.RabbitMQ
     /// <summary>
     /// Initialization options for <see cref="RabbitMQClient"/>.
     /// </summary>
-
     public class RabbitMQClientConfiguration
     {
         /// <summary>
@@ -97,7 +96,8 @@ namespace Serilog.Sinks.RabbitMQ
         /// </summary>
         /// <param name="config">The source options.</param>
         /// <returns>The created options.</returns>
-        public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config) {
+        public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config)
+        {
             Username = config.Username;
             Password = config.Password;
             Exchange = config.Exchange;
@@ -112,7 +112,8 @@ namespace Serilog.Sinks.RabbitMQ
             MaxChannels = config.MaxChannels;
             AmqpUri = config.AmqpUri;
 
-            foreach (string hostName in config.Hostnames) {
+            foreach (string hostName in config.Hostnames)
+            {
                 Hostnames.Add(hostName);
             }
 

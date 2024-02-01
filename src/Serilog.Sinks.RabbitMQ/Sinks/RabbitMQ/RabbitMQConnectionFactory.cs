@@ -13,10 +13,11 @@
 // limitations under the License.
 
 using RabbitMQ.Client;
+using Serilog.Debugging;
 
-namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ
 {
-    internal class RabbitMQConnectionFactory : IDisposable
+    internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     {
         private readonly RabbitMQClientConfiguration _config;
         private readonly CancellationTokenSource _cancellationTokenSource;
@@ -56,22 +57,7 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             {
                 _connection ??= _config.Hostnames.Count == 0
                     ? _connectionFactory.CreateConnection()
-                    : _connectionFactory.CreateConnection(_config.Hostnames.Select(h =>
-                    {
-                        var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(h);
-                        if (_connectionFactory.Port > 0) amqpTcpEndpoint.Port = _connectionFactory.Port;
-                        amqpTcpEndpoint.Ssl.Enabled = _connectionFactory.Ssl.Enabled;
-                        amqpTcpEndpoint.Ssl.Version = _connectionFactory.Ssl.Version;
-                        amqpTcpEndpoint.Ssl.AcceptablePolicyErrors =
-                            _connectionFactory.Ssl.AcceptablePolicyErrors;
-                        amqpTcpEndpoint.Ssl.CheckCertificateRevocation =
-                            _connectionFactory.Ssl.CheckCertificateRevocation;
-                        amqpTcpEndpoint.Ssl.ServerName =
-                            !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName)
-                                ? _connectionFactory.Ssl.ServerName
-                                : amqpTcpEndpoint.HostName;
-                        return amqpTcpEndpoint;
-                    }).ToList());
+                    : _connectionFactory.CreateConnection(GetAmqpTcpEndpoints());
             }
             finally
             {
@@ -79,6 +65,23 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             }
 
             return _connection;
+        }
+
+        private List<AmqpTcpEndpoint> GetAmqpTcpEndpoints()
+        {
+            return _config.Hostnames.Select(hostname =>
+            {
+                var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(hostname);
+                if (_connectionFactory.Port > 0) amqpTcpEndpoint.Port = _connectionFactory.Port;
+                amqpTcpEndpoint.Ssl.Enabled = _connectionFactory.Ssl.Enabled;
+                amqpTcpEndpoint.Ssl.Version = _connectionFactory.Ssl.Version;
+                amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _connectionFactory.Ssl.AcceptablePolicyErrors;
+                amqpTcpEndpoint.Ssl.CheckCertificateRevocation = _connectionFactory.Ssl.CheckCertificateRevocation;
+                amqpTcpEndpoint.Ssl.ServerName = !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName)
+                        ? _connectionFactory.Ssl.ServerName
+                        : amqpTcpEndpoint.HostName;
+                return amqpTcpEndpoint;
+            }).ToList();
         }
 
         private ConnectionFactory GetConnectionFactory()
@@ -127,38 +130,28 @@ namespace Serilog.Sinks.RabbitMQ.Sinks.RabbitMQ
             return connectionFactory;
         }
 
+        /// <summary>
+        /// Close the connection and all channels to RabbitMq
+        /// </summary>
+        /// <exception cref="AggregateException"></exception>
         public void Close()
         {
-            var exceptions = new List<Exception>();
-
-            try
-            {
-                _cancellationTokenSource.Cancel();
-            }
-            catch (Exception ex)
-            {
-                exceptions.Add(ex);
-            }
-
-            try
-            {
-                _connectionLock.Wait(10);
-                _connection?.Close();
-            }
-            catch (Exception ex)
-            {
-                exceptions.Add(ex);
-            }
-
-            if (exceptions.Count > 0)
-            {
-                throw new AggregateException(exceptions);
-            }
+            _connectionLock.Wait(10);
+            _connection?.Close();
         }
+
+        /// <inheritdoc />
         public void Dispose()
         {
-            _connectionLock?.Dispose();
-            _connection?.Dispose();
+            try
+            {
+                _connectionLock?.Dispose();
+                _connection?.Dispose();
+            }
+            catch(Exception exception)
+            {
+                SelfLog.WriteLine(exception.Message);
+            }
         }
     }
 }

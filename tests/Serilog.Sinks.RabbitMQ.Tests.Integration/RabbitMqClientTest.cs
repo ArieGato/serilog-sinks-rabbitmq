@@ -1,3 +1,17 @@
+// Copyright 2015-2022 Serilog Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
     /// <summary>
@@ -32,7 +46,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 async () =>
                 {
                     consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
-                    await _rabbitMQFixture.PublishAsync(message);
+                    _rabbitMQFixture.Publish(message);
 
                     // Wait for consumer to receive the message.
                     await Task.Delay(50);
@@ -65,7 +79,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 
                     for (int i = 0; i < 100; i++)
                     {
-                        await _rabbitMQFixture.PublishAsync(message);
+                        _rabbitMQFixture.Publish(message);
                     }
 
                     // Wait for consumer to receive the message.
@@ -92,8 +106,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             };
 
             var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
-            await rabbitMQClient.PublishAsync("a message");
-            
+            rabbitMQClient.Publish("a message");
+
             //// wait for message sent
             //await Task.Delay(1000);
 
@@ -110,7 +124,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             }
         }
 
-#if NET8_0_OR_GREATER
         /// <summary>
         /// Consumer should receive a message after calling Publish.
         /// </summary>
@@ -123,18 +136,17 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             var watch = System.Diagnostics.Stopwatch.StartNew();
             var message = Guid.NewGuid().ToString();
 
-            var parallelOptions = new ParallelOptions(){ MaxDegreeOfParallelism = 10 };
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
 
-            await Parallel.ForAsync(0, 10, parallelOptions, async (_, _) =>
+            Parallel.For(0, 10, parallelOptions, (_, _) =>
             {
                 for (var i = 0; i < 1000; i++)
                 {
-                    await _rabbitMQFixture.PublishAsync(message);
+                    _rabbitMQFixture.Publish(message);
                 }
             });
 
             watch.Stop();
         }
-#endif
     }
 }

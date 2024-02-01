@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Serilog.Core;
+using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Sinks.PeriodicBatching;
@@ -21,10 +23,10 @@ namespace Serilog.Sinks.RabbitMQ
     /// <summary>
     /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
     /// </summary>
-    public class RabbitMQSink : IBatchedLogEventSink, IDisposable
+    public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
     {
         private readonly ITextFormatter _formatter;
-        private readonly RabbitMQClient _client;
+        private readonly IRabbitMQClient _client;
 
         private bool _disposedValue;
 
@@ -40,58 +42,62 @@ namespace Serilog.Sinks.RabbitMQ
             _client = new RabbitMQClient(configuration);
         }
 
+        /// <summary>
+        /// Constructor for testing purposes
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="textFormatter"></param>
+        internal RabbitMQSink(IRabbitMQClient client, ITextFormatter textFormatter)
+        {
+            _formatter = textFormatter;
+            _client = client;
+        }
 
-        /// <inheritdoc cref="EmitBatchAsync" />
-        public async Task EmitBatchAsync(IEnumerable<LogEvent> batch)
+        /// <inheritdoc cref="ILogEventSink.Emit" />
+        public void Emit(LogEvent logEvent)
+        {
+            var sw = new StringWriter();
+            _formatter.Format(logEvent, sw);
+            _client.Publish(sw.ToString());
+        }
+
+        /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
+        public Task EmitBatchAsync(IEnumerable<LogEvent> batch)
         {
             foreach (var logEvent in batch)
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                await _client.PublishAsync(sw.ToString());
+                _client.Publish(sw.ToString());
             }
+
+            return Task.CompletedTask;
         }
 
-        /// <inheritdoc cref="OnEmptyBatchAsync" />
+        /// <inheritdoc cref="IBatchedLogEventSink.OnEmptyBatchAsync" />
         public Task OnEmptyBatchAsync()
         {
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-        /// </summary>
+        /// <inheritdoc cref="IDisposable.Dispose"/>
         public void Dispose()
-        {
-            Dispose(disposing: true);
-
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
-        /// Releases the unmanaged resources used by the Serilog.Sinks.RabbitMQSink and optionally
-        /// releases the managed resources.
-        /// </summary>
-        /// <param name="disposing">True to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
-        protected virtual void Dispose(bool disposing)
         {
             if (_disposedValue) return;
 
-            if (disposing)
+            try
             {
-                try
-                {
-                    // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
-                    // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
-                    _client.Close();
-                }
-                catch
-                {
-                    // ignore exceptions
-                }
-
-                _client.Dispose();
+                // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
+                // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
+                _client.Close();
             }
+            catch (Exception exception)
+            {
+                // ignored
+                SelfLog.WriteLine("Exception occurred closing RabbitMQClient {0}", exception.Message);
+            }
+
+            _client.Dispose();
 
             _disposedValue = true;
         }
