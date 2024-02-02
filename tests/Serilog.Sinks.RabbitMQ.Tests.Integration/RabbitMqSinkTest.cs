@@ -1,104 +1,129 @@
+// Copyright 2015-2022 Serilog Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+using System.Diagnostics;
+
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
-    using System;
-    using System.Text;
-    using System.Threading.Tasks;
-    using global::RabbitMQ.Client;
-    using global::RabbitMQ.Client.Events;
-    using global::RabbitMQ.Client.Exceptions;
-    using Newtonsoft.Json.Linq;
-    using Serilog.Core;
-    using Serilog.Formatting.Json;
-    using Xunit;
-
     /// <summary>
     ///   Tests for <see cref="RabbitMQSink" />.
     /// </summary>
     [Collection("Sequential")]
-    public sealed class RabbitMqSinkTest : IDisposable
+    public sealed class RabbitMqSinkTest : IClassFixture<RabbitMQFixture>
     {
-        private const string QUEUE_NAME = "serilog-sink-queue";
-        private const string HOST_NAME = "rabbitmq";
+        private readonly RabbitMQFixture _rabbitMQFixture;
 
-        private readonly Logger logger = new LoggerConfiguration()
-            .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
-            {
-                clientConfiguration.Port = 5672;
-                clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-                clientConfiguration.Exchange = "serilog-sink-exchange";
-                clientConfiguration.Username = "guest";
-                clientConfiguration.Password = "guest";
-                clientConfiguration.ExchangeType = "fanout";
-                clientConfiguration.Hostnames.Add(HOST_NAME);
-                sinkConfiguration.TextFormatter = new JsonFormatter();
-            })
-            .MinimumLevel.Verbose()
-            .CreateLogger();
-
-        private IConnection _connection;
-        private IModel channel;
+        public RabbitMqSinkTest(RabbitMQFixture rabbitMQFixture)
+        {
+            _rabbitMQFixture = rabbitMQFixture;
+        }
 
         /// <summary>
-        ///   Consumer should receive a message after calling Publish.
+        /// Consumer should receive a message after calling Publish.
         /// </summary>
         /// <returns>A task that represents the asynchronous operation.</returns>.
         [Fact]
         public async Task Error_LogWithExceptionAndProperties_ConsumerReceivesMessage()
         {
-            await InitializeAsync();
-            var messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
+            await _rabbitMQFixture.InitializeAsync();
 
+            var logger = new LoggerConfiguration()
+                .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
+                {
+                    clientConfiguration.Port = 5672;
+                    clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+                    clientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
+                    clientConfiguration.Username = RabbitMQFixture.UserName;
+                    clientConfiguration.Password = RabbitMQFixture.Password;
+                    clientConfiguration.ExchangeType = "fanout";
+                    clientConfiguration.Hostnames.Add(RabbitMQFixture.HostName);
+                    sinkConfiguration.TextFormatter = new JsonFormatter();
+                })
+                .MinimumLevel.Verbose()
+                .CreateLogger();
+
+            const string messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
+
+            var channel = await _rabbitMQFixture.GetConsumingModelAsync();
             var consumer = new EventingBasicConsumer(channel);
             var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
                 h => consumer.Received += h,
-                h => consumer.Received -= h,
-                async () =>
+                h => consumer.Received -= h, () =>
                 {
-                    channel.BasicConsume(QUEUE_NAME, autoAck: true, consumer);
+                    channel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
                     logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
 
                     // Wait for consumer to receive the message.
-                    await Task.Delay(50);
+                    return Task.Delay(100);
                 });
 
             var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray()));
+
             Assert.Equal("Error", receivedMessage["Level"]);
             Assert.Equal(messageTemplate, receivedMessage["MessageTemplate"]);
             Assert.NotNull(receivedMessage["Properties"]);
             Assert.Equal(1.0, receivedMessage["Properties"]["numerator"]);
             Assert.Equal(0.0, receivedMessage["Properties"]["denominator"]);
             Assert.Equal("System.DivideByZeroException: Attempted to divide by zero.", receivedMessage["Exception"]);
+
+            logger.Dispose();
         }
 
-        /// <inheritdoc />
-        public void Dispose()
+        [Fact]
+        public async Task Log_WhenInParallel_AllLogEventsArePublished()
         {
-            logger?.Dispose();
-            channel?.Dispose();
-            _connection?.Dispose();
-        }
+            await _rabbitMQFixture.InitializeAsync();
 
-        private async Task InitializeAsync()
-        {
-            if (_connection == null)
-            {
-                var factory = new ConnectionFactory { HostName = HOST_NAME };
-
-                // Wait for RabbitMQ docker container to start and retry connecting to it.
-                for (int i = 0; i < 10; ++i)
+            var logger = new LoggerConfiguration()
+                .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
                 {
-                    try
-                    {
-                        _connection = factory.CreateConnection();
-                        channel = _connection.CreateModel();
-                        break;
-                    }
-                    catch (BrokerUnreachableException)
-                    {
-                        await Task.Delay(1000);
-                    }
+                    clientConfiguration.Port = 5672;
+                    clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+                    clientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
+                    clientConfiguration.Username = RabbitMQFixture.UserName;
+                    clientConfiguration.Password = RabbitMQFixture.Password;
+                    clientConfiguration.ExchangeType = "fanout";
+                    clientConfiguration.Hostnames.Add(RabbitMQFixture.HostName);
+                    sinkConfiguration.TextFormatter = new JsonFormatter();
+                })
+                .MinimumLevel.Verbose()
+                .CreateLogger();
+
+            const string messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
+
+            var watch = Stopwatch.StartNew();
+
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
+            Parallel.For(0, 10, parallelOptions, (_, _) =>
+            {
+                for (var i = 0; i < 1000; i++)
+                {
+                    logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
                 }
+            });
+
+            var model = await _rabbitMQFixture.GetConsumingModelAsync();
+            while (model.MessageCount(RabbitMQFixture.SerilogSinkQueueName) < 10000)
+            {
+                if (watch.ElapsedMilliseconds > 10000)
+                {
+                    Assert.Fail("Timeout waiting for messages to be published. Maybe messages are lost");
+                }
+                await Task.Delay(20);
             }
+
+            watch.Stop();
         }
     }
 }

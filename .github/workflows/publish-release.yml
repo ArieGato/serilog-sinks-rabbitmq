@@ -1,0 +1,94 @@
+name: Publish release
+
+on:
+  release:
+    types:
+      - published
+
+env:
+  Configuration: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      rabbitmq:
+        image: bitnami/rabbitmq:latest
+        ports:
+          - 5672:5672
+        env:
+          RABBITMQ_USERNAME: serilog
+          RABBITMQ_PASSWORD: serilog
+          RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS: true
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # Determine new version
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0
+      with:
+        versionSpec: '5.x'
+
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v0
+      with:
+        useConfigFile: true
+        configFilePath: gitversion.yml
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore -c ${{ env.Configuration }} /p:Version=${{ steps.gitversion.outputs.FullSemVer }}
+
+    - name: Run tests
+      run: dotnet test --no-build --verbosity normal -c ${{ env.Configuration }}
+
+    - name: Create nuget packages
+      run: dotnet pack --no-build --verbosity normal -c ${{ env.Configuration }} -o dist/packages /p:PackageVersion=${{ steps.gitversion.outputs.FullSemVer }}
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: dist/packages
+
+  deploy-github:
+    runs-on: 'ubuntu-latest'
+    environment: 'github'
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: dist
+
+      - name: Publish Nuget to GitHub registry
+        run: dotnet nuget push ./dist/*.nupkg -k ${GITHUB_TOKEN} -s https://nuget.pkg.github.com/ArieGato/index.json --skip-duplicate --no-symbols
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-nuget:
+    runs-on: 'ubuntu-latest'
+    environment: 'nuget'
+    needs: deploy-github
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: dist
+
+      - name: Publish Nuget to nuget.org registry
+        run: dotnet nuget push ./dist/*.nupkg --api-key ${NUGET_API_KEY} --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
