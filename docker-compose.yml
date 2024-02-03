@@ -6,8 +6,9 @@ services:
     build:
       context: ./ 
       dockerfile: docker/integration-test/Dockerfile
-    depends_on: 
-      - rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
   rabbitmq:
     container_name: serilog.sinks.rabbitmq.server
     build:
