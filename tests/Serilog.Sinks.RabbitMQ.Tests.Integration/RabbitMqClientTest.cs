@@ -101,7 +101,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 Username = RabbitMQFixture.UserName,
                 Password = RabbitMQFixture.Password,
                 ExchangeType = "topic",
-                Hostnames = { RabbitMQFixture.HostName },
+                Hostnames = [RabbitMQFixture.HostName],
                 AutoCreateExchange = true
             };
 

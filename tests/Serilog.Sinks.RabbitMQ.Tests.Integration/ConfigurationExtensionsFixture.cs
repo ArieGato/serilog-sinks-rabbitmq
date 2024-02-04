@@ -28,35 +28,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             _rabbitMQFixture = rabbitMQFixture;
         }
 
-#if NET_FX
-        [Fact]
-        public void WriteWithUriByName()
-        {
-            const string nameOrUri = "NamedConnection";
-
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    amqpUri: nameOrUri,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
-        public void WriteAppSettingsWithReference()
-        {
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "R")
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
         [Fact]
         public async Task WriteAppSettings()
         {
@@ -88,23 +59,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         }
 
         [Fact]
-        public void AuditWithUriByName()
-        {
-            const string nameOrUri = "NamedConnection";
-
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                    amqpUri: nameOrUri,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
         public async Task AuditAppSettings()
         {
             var loggerConfiguration = new LoggerConfiguration();
@@ -114,43 +68,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
             cleanupModel.ExchangeDelete("serilog-settings-sink-audit-exchange");
             cleanupModel.Dispose();
-            
-            // should not throw
-            logger.Dispose();
-        }
-#endif
-
-        [Fact]
-        public void WriteWithUri()
-        {
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    amqpUri: RabbitMQFixture.AmqpUri,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
-        public async Task WriteWithUriAutoCreate()
-        {
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    amqpUri: RabbitMQFixture.AmqpUri,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable,
-                    autoCreateExchange: true)
-                .CreateLogger();
-
-            // Actually log something to trigger the exchange creation
-            logger.Information("Some text");
-
-            await Task.Delay(1000); // wait batch execution
 
             // should not throw
             logger.Dispose();
@@ -161,7 +78,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    hostname: RabbitMQFixture.HostName,
+                    hostnames: [RabbitMQFixture.HostName],
                     username: RabbitMQFixture.UserName,
                     password: RabbitMQFixture.Password,
                     exchange: RabbitMQFixture.SerilogSinkExchange,
@@ -174,26 +91,11 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         }
 
         [Fact]
-        public void AuditWithUri()
-        {
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                    amqpUri: RabbitMQFixture.AmqpUri,
-                    exchange: RabbitMQFixture.SerilogAuditSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogAuditSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
         public void AuditWithHostUserPwd()
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                    hostname: RabbitMQFixture.HostName,
+                    hostnames: [RabbitMQFixture.HostName],
                     username: RabbitMQFixture.UserName,
                     password: RabbitMQFixture.Password,
                     exchange: RabbitMQFixture.SerilogAuditSinkExchange,
@@ -210,37 +112,38 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
-                {
-                    rabbitMQClientConfiguration.Port = 5672;
-                    rabbitMQClientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-                    rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
-                    rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
-                    rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
-                    rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
-                    rabbitMQClientConfiguration.Hostnames.Add(RabbitMQFixture.HostName);
-                    rabbitMQClientConfiguration.MaxChannels = 32;
-                    rabbitMQClientConfiguration.AutoCreateExchange = true;
-                    rabbitMQClientConfiguration.Heartbeat = 21;
-                    rabbitMQClientConfiguration.SslOption = new SslOption
+                    (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
                     {
-                        AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
-                        Enabled = false,
-                        ServerName = "localhost",
-                        CertPassphrase = "secret",
-                        CertPath = "path",
-                        Version = SslProtocols.Tls12,
-                        CheckCertificateRevocation = true
-                    };
-                    rabbitMQClientConfiguration.RouteKey = "";
-                    rabbitMQClientConfiguration.VHost = "/";
-                    rabbitMQClientConfiguration.AmqpUri = new Uri(RabbitMQFixture.AmqpUri);
+                        rabbitMQClientConfiguration.AutoCreateExchange = true;
+                        rabbitMQClientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+                        rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
+                        rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
+                        rabbitMQClientConfiguration.Heartbeat = 21;
+                        rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"];
+                        rabbitMQClientConfiguration.MaxChannels = 32;
+                        rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
+                        rabbitMQClientConfiguration.Port = 5672;
+                        rabbitMQClientConfiguration.RouteKey = "";
+                        rabbitMQClientConfiguration.SslOption = new SslOption
+                        {
+                            AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
+                            Enabled = false,
+                            ServerName = "localhost",
+                            CertPassphrase = "secret",
+                            CertPath = "path",
+                            Version = SslProtocols.Tls12,
+                            CheckCertificateRevocation = true
+                        };
+                        rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
+                        rabbitMQClientConfiguration.VHost = "/";
 
-                    rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
-                    rabbitMQSinkConfiguration.BatchPostingLimit = 50;
-                    rabbitMQSinkConfiguration.Period = TimeSpan.FromSeconds(5);
-                    rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
-                })
+                        rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
+                        rabbitMQSinkConfiguration.BatchPostingLimit = 50;
+                        rabbitMQSinkConfiguration.Period = TimeSpan.FromSeconds(5);
+                        rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
+                        rabbitMQSinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink;
+                    },
+                    failureSinkConfiguration => failureSinkConfiguration.Console())
                 .CreateLogger();
 
             // Actually log something to trigger the exchange creation

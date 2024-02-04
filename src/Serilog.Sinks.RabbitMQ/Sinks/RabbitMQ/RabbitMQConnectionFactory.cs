@@ -55,7 +55,7 @@ namespace Serilog.Sinks.RabbitMQ
 
             try
             {
-                _connection ??= _config.Hostnames.Count == 0
+                _connection ??= !_config.Hostnames.Any()
                     ? _connectionFactory.CreateConnection()
                     : _connectionFactory.CreateConnection(GetAmqpTcpEndpoints());
             }
@@ -89,16 +89,14 @@ namespace Serilog.Sinks.RabbitMQ
             // prepare connection factory
             var connectionFactory = new ConnectionFactory();
 
-            if (_config.AmqpUri != null)
-            {
-                connectionFactory.Uri = _config.AmqpUri;
-            }
-
             // setup auto recovery
             connectionFactory.AutomaticRecoveryEnabled = true;
             connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
 
-            if (_config.SslOption != null) connectionFactory.Ssl = _config.SslOption;
+            if (_config.SslOption != null)
+            {
+                connectionFactory.Ssl = _config.SslOption;
+            }
 
             // setup heartbeat if needed
             if (_config.Heartbeat > 0)
@@ -125,6 +123,11 @@ namespace Serilog.Sinks.RabbitMQ
             if (!string.IsNullOrEmpty(_config.VHost))
             {
                 connectionFactory.VirtualHost = _config.VHost;
+            }
+
+            if (_config.Hostnames.Count == 1)
+            {
+                connectionFactory.HostName = _config.Hostnames[0];
             }
 
             return connectionFactory;

@@ -15,14 +15,14 @@
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
     /// <summary>
-    ///   Tests for <see cref="RabbitMqAuditSink" />.
+    ///   Tests for using <see cref="RabbitMQSink" /> as audit sink.
     /// </summary>
     [Collection("Sequential")]
-    public sealed class RabbitMqAuditSink : IClassFixture<RabbitMQFixture>
+    public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixture>
     {
         private readonly RabbitMQFixture _rabbitMQFixture;
 
-        public RabbitMqAuditSink(RabbitMQFixture rabbitMQFixture)
+        public AuditToRabbitMQSinkAuditTests(RabbitMQFixture rabbitMQFixture)
         {
             _rabbitMQFixture = rabbitMQFixture;
         }
@@ -41,7 +41,11 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             var logger = new LoggerConfiguration()
                 .AuditTo
                 .RabbitMQ(
-                    amqpUri: $"amqp://{RabbitMQFixture.UserName}:{RabbitMQFixture.Password}@{RabbitMQFixture.HostName}",
+                    username: RabbitMQFixture.UserName,
+                    password: RabbitMQFixture.Password,
+                    hostnames: [RabbitMQFixture.HostName],
+                    port: 5672,
+                    vHost: "/",
                     deliveryMode: RabbitMQDeliveryMode.Durable,
                     exchange: RabbitMQFixture.SerilogAuditSinkExchange,
                     exchangeType: RabbitMQFixture.SerilogAuditSinkExchangeType,

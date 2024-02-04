@@ -12,7 +12,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests
             // Arrange
             var original = new RabbitMQClientConfiguration()
             {
-                AmqpUri = new Uri("amqp://localhost:5672"),
                 Username = "guest",
                 Password = "guest",
                 VHost = "/",
@@ -24,7 +23,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests
                 Port = 5673,
                 AutoCreateExchange = true,
                 Heartbeat = 21,
-                Hostnames = { "localhost", "127.0.0.1" },
+                Hostnames = ["localhost", "127.0.0.1" ],
                 SslOption = new SslOption()
                 {
                     AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,

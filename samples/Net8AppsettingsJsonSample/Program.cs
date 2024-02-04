@@ -12,25 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using RabbitMQ.Client;
+using Microsoft.Extensions.Configuration;
+using Serilog;
+using Serilog.Debugging;
 
-namespace Serilog.Sinks.RabbitMQ
-{
-    /// <summary>
-    /// The RabbitMQ Channel interface
-    /// </summary>
-    internal interface IRabbitMQChannel : IDisposable
-    {
-        /// <summary>
-        /// Returns true when the channel is open
-        /// </summary>
-        bool IsOpen { get; }
+// Enable the SelfLog output
+SelfLog.Enable(Console.Error);
 
-        /// <summary>
-        /// Publishes a message to RabbitMq Exchange
-        /// </summary>
-        /// <param name="address"></param>
-        /// <param name="body"></param>
-        void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
-    }
-}
+IConfiguration configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", true, true)
+    .Build();
+
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(configuration)
+    .CreateLogger();
+
+Log.Information("Hello, world!");
+
+Log.CloseAndFlush();

@@ -34,6 +34,11 @@ namespace Serilog.Sinks.RabbitMQ
         public TimeSpan Period { get; set; }
 
         /// <summary>
+        /// The Batch queue limit.
+        /// </summary>
+        public int? QueueLimit { get; set; }
+
+        /// <summary>
         /// Controls the rendering of log events into text, for example to log JSON. 
         /// To control plain text formatting, use the overload that accepts an output template.
         /// </summary>
@@ -43,5 +48,10 @@ namespace Serilog.Sinks.RabbitMQ
         /// The minimum level for events passed through the sink.
         /// </summary>
         public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
+
+        /// <summary>
+        /// Specifies how failing emits should be handled.
+        /// </summary>
+        public EmitEventFailureHandling EmitEventFailure { get; set; }
     }
 }
