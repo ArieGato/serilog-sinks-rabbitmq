@@ -1,6 +1,5 @@
-﻿using System.Net.Security;
+using System.Net.Security;
 using System.Security.Authentication;
-using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ.Tests
 {

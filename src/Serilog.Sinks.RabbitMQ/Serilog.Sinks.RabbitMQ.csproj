@@ -1,13 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net6.0;net8.0</TargetFrameworks>
     <DebugType>portable</DebugType>
     <AssemblyOriginatorKeyFile>../../assets/Serilog.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
-    <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>   
-    <AssemblyName>Serilog.Sinks.RabbitMQ</AssemblyName>
-    <PackageId>Serilog.Sinks.RabbitMQ</PackageId>
+    <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <Copyright>Copyright © Serilog Contributors 2019-2024</Copyright>
     <PackageTags>serilog;logging;rabbitmq;error</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
@@ -17,9 +15,6 @@
     <Authors>Steffen Lyng, Jared Nance, Tsvetelin Tsonev, Jeow Li Huan, Andre Rocha, Shaparam, Meli0r, Johannes Egger, Dag H. Baardsen, Aaron Powell, Thomas Ardal, Juris Gekiss, Arjan Vermunt</Authors>
     <RepositoryUrl>https://github.com/ArieGato/serilog-sinks-rabbitmq</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <LangVersion>latest</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
