@@ -21,6 +21,104 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
     [Collection("Sequential")]
     public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
     {
+#if NET_FX
+        private readonly RabbitMQFixture _rabbitMQFixture;
+
+        public ConfigurationExtensionsFixture(RabbitMQFixture rabbitMQFixture)
+        {
+            _rabbitMQFixture = rabbitMQFixture;
+        }
+
+        [Fact]
+        public void WriteWithUriByName()
+        {
+            const string nameOrUri = "NamedConnection";
+
+            var loggerConfiguration = new LoggerConfiguration();
+            var logger = loggerConfiguration.WriteTo.RabbitMQ(
+                    amqpUri: nameOrUri,
+                    exchange: RabbitMQFixture.SerilogSinkExchange,
+                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
+                    deliveryMode: RabbitMQDeliveryMode.Durable)
+                .CreateLogger();
+
+            // should not throw
+            logger.Dispose();
+        }
+
+        [Fact]
+        public void WriteAppSettingsWithReference()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+            var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "R")
+                .CreateLogger();
+
+            // should not throw
+            logger.Dispose();
+        }
+
+        [Fact]
+        public async Task WriteAppSettings()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+            var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "W")
+                .CreateLogger();
+
+            var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
+            cleanupModel.ExchangeDelete("serilog-settings-sink-exchange");
+            cleanupModel.Dispose();
+
+            // should not throw
+            logger.Dispose();
+        }
+
+        [Fact]
+        public async Task WriteAppSettingsMultipleHosts()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+            var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "H")
+                .CreateLogger();
+
+            var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
+            cleanupModel.ExchangeDelete("serilog-settings-sink-exchange");
+            cleanupModel.Dispose();
+
+            // should not throw
+            logger.Dispose();
+        }
+
+        [Fact]
+        public void AuditWithUriByName()
+        {
+            const string nameOrUri = "NamedConnection";
+
+            var loggerConfiguration = new LoggerConfiguration();
+            var logger = loggerConfiguration.AuditTo.RabbitMQ(
+                    amqpUri: nameOrUri,
+                    exchange: RabbitMQFixture.SerilogSinkExchange,
+                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
+                    deliveryMode: RabbitMQDeliveryMode.Durable)
+                .CreateLogger();
+
+            // should not throw
+            logger.Dispose();
+        }
+
+        [Fact]
+        public async Task AuditAppSettings()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+            var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "A")
+                .CreateLogger();
+
+            var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
+            cleanupModel.ExchangeDelete("serilog-settings-sink-audit-exchange");
+            cleanupModel.Dispose();
+            
+            // should not throw
+            logger.Dispose();
+        }
+#endif
         [Fact]
         public void WriteWithUri()
         {
