@@ -83,3 +83,18 @@ jobs:
         run: dotnet nuget push ./dist/*.nupkg -k ${GITHUB_TOKEN} -s https://nuget.pkg.github.com/ArieGato/index.json --skip-duplicate --no-symbols
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-nuget:
+    runs-on: 'ubuntu-latest'
+    environment: 'nuget'
+    needs: deploy-github
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: dist
+
+      - name: Publish Nuget to nuget.org registry
+        run: dotnet nuget push ./dist/*.nupkg --api-key ${NUGET_API_KEY} --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

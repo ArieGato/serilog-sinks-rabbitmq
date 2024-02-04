@@ -30,14 +30,62 @@ Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
 Install-Package Serilog.Sinks.RabbitMQ
 ```
 
-### Topics
+## Release Notes
+
+### 7.0.0
+
+### Added support for Serilog 3.1.1
+
+Upgraded the Serilog package to fix the issue with the missing RawFormatter.
+
+### Failure sink support
+
+Failure sink(s) can be configured through appsettings.json or via Code.
+
+In this example the Console sink is used as failure sink. If the RabbitMQ sink fails
+to emit an event, it will write to the Console and File sinks.
+
+```json
+  "Serilog": {
+    "Using": [ "Serilog.Sinks.RabbitMQ", "Serilog.Sinks.Console" ],
+    "MinimumLevel": "Debug",
+    "WriteTo": [
+      {
+        "Name": "RabbitMQ",
+        "Args": {
+          "username": "serilog",
+          "password": "serilog",
+          "hostnames": [
+            "localhost"
+          ],
+          "emitEventFailure": "WriteToSelfLog,WriteToFailureSink",
+          "failureSinkConfiguration": [
+            {
+              "Name": "Console"
+            }
+          ]
+        }
+      }
+    ]
+  }
+```
+
+### Improved SSL support
+
+The SSL support has been improved. Now all properties are used when creating the connection.
+
+### Breaking changes:
+- Renamed hostname to hostnames in configuration
+- Default text formatter is CompactJsonFormatter. The RawFromatter was removed from Serilog.
+
+
+## Topics
 
 * [Sink Configuration Options](#sink-configuration-options)
 * [External configuration using Serilog.Settings.AppSettings](#external-configuration-using-serilogsettingsappsettings)
 * [External configuration using Serilog.Settings.Configuration](#external-configuration-using-serilogsettingsconfiguration)
 * [Audit Sink Configuration](#audit-sink-configuration)
 * [Multihost configuration](#multihost-configuration)
-* [Use protected configuration (ASP.NET)](#use-protected-configuration-aspnet)
 * [Configuration via code](#configuration-via-code)
 
 ### Sink Configuration Options
@@ -52,12 +100,13 @@ Use of named arguments is strongly recommended.
 * `hostnames`
 * `username`
 * `password`
-* `port`
-* `vHost`
 * `exchange`
 * `exchangeType`
 * `deliveryMode`
 * `routeKey`
+* `port`
+* `vHost`
+* `heartbeat`
 * `sslEnabled`
 * `sslServerName`
 * `sslVersion`
@@ -65,7 +114,11 @@ Use of named arguments is strongly recommended.
 * `sslCheckCertificateRevocation`
 * `batchPostingLimit`
 * `period`
+* `queueLimit`
 * `formatter`
+* `autoCreateExchange`
+* `maxChannels`
+* `levelSwitch`
 
 ### Arguments
 
@@ -158,18 +211,22 @@ The constructor accepts most of the same arguments, and like other Serilog audit
 * `hostnames`
 * `username`
 * `password`
-* `port`
-* `vHost`
 * `exchange`
 * `exchangeType`
 * `deliveryMode`
 * `routeKey`
+* `port`
+* `vHost`
+* `heartbeat`
 * `sslEnabled`
 * `sslServerName`
 * `sslVersion`
 * `sslAcceptablePolicyErrors`
 * `sslCheckCertificateRevocation`
 * `formatter`
+* `autoCreateExchange`
+* `maxChannels`
+* `levelSwitch`
 
 The _batchPostingLimit_ and _period_ parameters are not available because the audit sink writes log events immediately.
 

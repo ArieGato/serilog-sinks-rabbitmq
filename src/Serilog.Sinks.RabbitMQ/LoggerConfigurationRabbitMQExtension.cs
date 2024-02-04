@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace Serilog
     public static class LoggerConfigurationRabbitMqExtension
     {
         private const int DefaultBatchPostingLimit = 50;
-        private static readonly TimeSpan DefaultPeriod = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan _defaultPeriod = TimeSpan.FromSeconds(2);
 
         /// <summary>
         /// Adds a sink that lets you push log messages to RabbitMQ
@@ -59,10 +59,36 @@ namespace Serilog
         {
             return loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
         }
-        
+
         /// <summary>
-        /// Configures Serilog logger configuration with RabbitMQ
+        /// Configures Serilog logger sink configuration with RabbitMQ
         /// </summary>
+        /// <param name="loggerConfiguration">The logger sink configuration.</param>
+        /// <param name="hostnames">The hostnames of the RabbitMQ server to connect to.</param>
+        /// <param name="username">The username for authentication.</param>
+        /// <param name="password">The password for authentication.</param>
+        /// <param name="exchange">The exchange name.</param>
+        /// <param name="exchangeType">The exchange type.</param>
+        /// <param name="deliveryMode">The delivery mode.</param>
+        /// <param name="routeKey">The routing key.</param>
+        /// <param name="port">The port number.</param>
+        /// <param name="vHost">The virtual host.</param>
+        /// <param name="heartbeat">The heartbeat interval.</param>
+        /// <param name="sslEnabled">Indicates whether SSL is enabled.</param>
+        /// <param name="sslServerName">The SSL server name.</param>
+        /// <param name="sslVersion">The SSL version.</param>
+        /// <param name="sslAcceptablePolicyErrors">The acceptable SSL policy errors.</param>
+        /// <param name="sslCheckCertificateRevocation">Indicates whether to check certificate revocation.</param>
+        /// <param name="batchPostingLimit">The maximum number of events to include in a single batch.</param>
+        /// <param name="period">The time to wait between checking for event batches.</param>
+        /// <param name="queueLimit">The batch internal queue limit.</param>
+        /// <param name="formatter">The text formatter.</param>
+        /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
+        /// <param name="maxChannels">The maximum number of channels.</param>
+        /// <param name="levelSwitch">The minimal log event level switch.</param>
+        /// <param name="emitEventFailure">The handling of event failure.</param>
+        /// <param name="failureSinkConfiguration">The failure sink configuration.</param>
+        /// <returns>The logger configuration.</returns>
         public static LoggerConfiguration RabbitMQ(
             this LoggerSinkConfiguration loggerConfiguration,
             string[] hostnames,
@@ -122,7 +148,7 @@ namespace Serilog
             var sinkConfiguration = new RabbitMQSinkConfiguration
             {
                 BatchPostingLimit = batchPostingLimit == default ? DefaultBatchPostingLimit : batchPostingLimit,
-                Period = period == default ? DefaultPeriod : period,
+                Period = period == default ? _defaultPeriod : period,
                 QueueLimit = queueLimit,
                 EmitEventFailure = emitEventFailure,
                 RestrictedToMinimumLevel = levelSwitch
@@ -160,8 +186,29 @@ namespace Serilog
         }
 
         /// <summary>
-        /// Configures Serilog audit logger configuration with RabbitMQ
+        /// Configures Serilog audit sink logger configuration with RabbitMQ
         /// </summary>
+        /// <param name="loggerAuditSinkConfiguration">The logger audit sink configuration.</param>
+        /// <param name="hostnames">The hostnames of the RabbitMQ server to connect to.</param>
+        /// <param name="username">The username for authentication.</param>
+        /// <param name="password">The password for authentication.</param>
+        /// <param name="exchange">The exchange name.</param>
+        /// <param name="exchangeType">The exchange type.</param>
+        /// <param name="deliveryMode">The delivery mode.</param>
+        /// <param name="routeKey">The routing key.</param>
+        /// <param name="port">The port number.</param>
+        /// <param name="vHost">The virtual host.</param>
+        /// <param name="heartbeat">The heartbeat interval.</param>
+        /// <param name="sslEnabled">Indicates whether SSL is enabled.</param>
+        /// <param name="sslServerName">The SSL server name.</param>
+        /// <param name="sslVersion">The SSL version.</param>
+        /// <param name="sslAcceptablePolicyErrors">The acceptable SSL policy errors.</param>
+        /// <param name="sslCheckCertificateRevocation">Indicates whether to check certificate revocation.</param>
+        /// <param name="formatter">The text formatter.</param>
+        /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
+        /// <param name="maxChannels">The maximum number of channels.</param>
+        /// <param name="levelSwitch">The minimal log event level switch.</param>
+        /// <returns>The logger configuration.</returns>
         public static LoggerConfiguration RabbitMQ(
             this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
             string[] hostnames,
@@ -240,11 +287,22 @@ namespace Serilog
             sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default)
                 ? DefaultBatchPostingLimit
                 : sinkConfiguration.BatchPostingLimit;
-            sinkConfiguration.Period = (sinkConfiguration.Period == default) ? DefaultPeriod : sinkConfiguration.Period;
+            sinkConfiguration.Period = (sinkConfiguration.Period == default) ? _defaultPeriod : sinkConfiguration.Period;
 
             ValidateRabbitMQClientConfiguration(clientConfiguration);
 
-            return loggerSinkConfiguration.Sink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
+            if (failureSinkConfiguration == null)
+            {
+                var periodicBatchingSink = GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration);
+
+                return loggerSinkConfiguration.Sink(periodicBatchingSink, sinkConfiguration.RestrictedToMinimumLevel);
+            }
+
+            return LoggerSinkConfiguration.Wrap(
+                loggerSinkConfiguration,
+                failureSink => GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration, failureSink),
+                failureSinkConfiguration,
+                sinkConfiguration.RestrictedToMinimumLevel);
         }
 
         private static LoggerConfiguration RegisterAuditSink(
@@ -263,34 +321,6 @@ namespace Serilog
                 loggerAuditSinkConfiguration
                     .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration),
                         sinkConfiguration.RestrictedToMinimumLevel);
-        }
-
-        private static LoggerConfiguration Sink(
-            this LoggerSinkConfiguration loggerConfiguration,
-            RabbitMQClientConfiguration clientConfiguration,
-            RabbitMQSinkConfiguration sinkConfiguration,
-            Action<LoggerSinkConfiguration> failureSinkConfiguration)
-        {
-            if (failureSinkConfiguration == null)
-            {
-                return loggerConfiguration.Sink(clientConfiguration, sinkConfiguration);
-            }
-
-            return LoggerSinkConfiguration.Wrap(
-                loggerConfiguration,
-                failureSink => GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration, failureSink),
-                failureSinkConfiguration,
-                sinkConfiguration.RestrictedToMinimumLevel);
-        }
-
-        private static LoggerConfiguration Sink(
-            this LoggerSinkConfiguration loggerConfiguration,
-            RabbitMQClientConfiguration clientConfiguration,
-            RabbitMQSinkConfiguration sinkConfiguration)
-        {
-            var periodicBatchingSink = GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration);
-
-            return loggerConfiguration.Sink(periodicBatchingSink, sinkConfiguration.RestrictedToMinimumLevel);
         }
 
         private static PeriodicBatchingSink GetPeriodicBatchingSink(

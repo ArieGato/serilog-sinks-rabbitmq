@@ -9,6 +9,7 @@
     <Copyright>Copyright © Serilog Contributors 2019-2024</Copyright>
     <PackageTags>serilog;logging;rabbitmq;error</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/ArieGato/serilog-sinks-rabbitmq</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageDescription>Serilog.Sinks.RabbitMq is a Nuget package that extends Serilog to support logging to RabbitMq</PackageDescription>
@@ -39,6 +40,7 @@
 
   <ItemGroup>
     <None Include="..\..\assets\icon.png" Pack="true" Visible="false" PackagePath="" />
+    <None Include="../../README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
 </Project>

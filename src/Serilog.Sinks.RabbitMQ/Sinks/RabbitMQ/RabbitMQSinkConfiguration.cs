@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ namespace Serilog.Sinks.RabbitMQ
         public TimeSpan Period { get; set; }
 
         /// <summary>
-        /// The Batch queue limit.
+        /// The batched sink internal queue limit.
         /// </summary>
         public int? QueueLimit { get; set; }
 
