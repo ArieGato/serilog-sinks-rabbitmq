@@ -1,0 +1,20 @@
+<Project>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$(MSBuildProjectName.Contains('.Tests'))">
+    <Using Include="Xunit" />
+    <Using Include="System.Text" />
+    <Using Include="FluentAssertions" />
+    <Using Include="Newtonsoft.Json.Linq" />
+    <Using Include="Serilog.Formatting.Json" />
+    <Using Include="RabbitMQ.Client" />
+    <Using Include="RabbitMQ.Client.Events" />
+    <Using Include="RabbitMQ.Client.Exceptions" />
+  </ItemGroup>
+
+</Project>
