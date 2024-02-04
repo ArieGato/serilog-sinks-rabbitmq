@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
             cleanupModel.ExchangeDelete("serilog-settings-sink-audit-exchange");
             cleanupModel.Dispose();
-            
+
             // should not throw
             logger.Dispose();
         }
