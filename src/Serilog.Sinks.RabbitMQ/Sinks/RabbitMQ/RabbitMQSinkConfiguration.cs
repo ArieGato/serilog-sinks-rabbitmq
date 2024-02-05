@@ -50,7 +50,7 @@ namespace Serilog.Sinks.RabbitMQ
         public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
 
         /// <summary>
-        /// Specifies how failing emits should be handled.
+        /// Specifies how failed emits should be handled.
         /// </summary>
         public EmitEventFailureHandling EmitEventFailure { get; set; }
     }
