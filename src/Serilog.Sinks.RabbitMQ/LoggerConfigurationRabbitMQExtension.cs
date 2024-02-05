@@ -72,8 +72,8 @@ namespace Serilog
             ushort heartbeat = 0,
             bool sslEnabled = false,
             string sslServerName = null,
-            SslProtocols sslVersion = SslProtocols.None, 
-            SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None, 
+            SslProtocols sslVersion = SslProtocols.None,
+            SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None,
             bool sslCheckCertificateRevocation = false,
             int batchPostingLimit = 0,
             TimeSpan period = default,
@@ -150,7 +150,7 @@ namespace Serilog
             if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
             if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
 
-#if NETFRAMEWORK 
+#if NETFRAMEWORK
             amqpUri = ApplySystemConfiguration.GetUri(amqpUri);
 #endif
 
