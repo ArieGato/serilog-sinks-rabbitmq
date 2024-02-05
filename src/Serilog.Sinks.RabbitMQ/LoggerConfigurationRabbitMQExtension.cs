@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,8 +72,8 @@ public static class LoggerConfigurationRabbitMqExtension
         ushort heartbeat = 0,
         bool sslEnabled = false,
         string sslServerName = null,
-        SslProtocols sslVersion = SslProtocols.None, 
-        SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None, 
+        SslProtocols sslVersion = SslProtocols.None,
+        SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None,
         bool sslCheckCertificateRevocation = false,
         int batchPostingLimit = 0,
         TimeSpan period = default,
@@ -150,7 +150,7 @@ public static class LoggerConfigurationRabbitMqExtension
         if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
         if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
 
-#if NETFRAMEWORK 
+#if NETFRAMEWORK
         amqpUri = ApplySystemConfiguration.GetUri(amqpUri);
 #endif
 
@@ -175,7 +175,6 @@ public static class LoggerConfigurationRabbitMqExtension
         {
             sinkConfiguration.TextFormatter = formatter;
         }
-
 
         return loggerConfiguration.Sink(clientConfiguration, sinkConfiguration);
     }
@@ -202,7 +201,6 @@ public static class LoggerConfigurationRabbitMqExtension
 
         return RegisterAuditSink(loggerAuditSinkConfiguration, clientConfiguration, sinkConfiguration);
     }
-
 
     /// <summary>
     /// Configures Serilog audit logger configuration with RabbitMQ
