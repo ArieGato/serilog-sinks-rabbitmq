@@ -1,4 +1,4 @@
-﻿using Serilog.Events;
+using Serilog.Events;
 using Serilog.Formatting;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;

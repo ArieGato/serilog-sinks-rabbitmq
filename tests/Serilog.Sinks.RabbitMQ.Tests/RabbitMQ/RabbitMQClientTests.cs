@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ public class RabbitMQClientTests
         rabbitMQChannelObjectPoolPolicy.Return(Arg.Is(rabbitMQChannel)).Returns(true);
 
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
-        
+
         // Need to publish a message first to create the channel in the Pool
         sut.Publish("some-message");
 

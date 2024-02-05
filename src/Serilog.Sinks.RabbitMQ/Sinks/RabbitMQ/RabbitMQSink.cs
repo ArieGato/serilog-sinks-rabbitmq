@@ -1,4 +1,4 @@
-﻿// Copyright 2015 Serilog Contributors
+// Copyright 2015 Serilog Contributors
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,7 +83,8 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     /// <inheritdoc cref="IDisposable.Dispose"/>
     public void Dispose()
     {
-        if (_disposedValue) return;
+        if (_disposedValue)
+            return;
 
         try
         {

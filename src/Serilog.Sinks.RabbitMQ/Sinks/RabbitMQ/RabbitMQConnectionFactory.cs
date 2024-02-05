@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,7 +72,8 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         return _config.Hostnames.Select(hostname =>
         {
             var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(hostname);
-            if (_connectionFactory.Port > 0) amqpTcpEndpoint.Port = _connectionFactory.Port;
+            if (_connectionFactory.Port > 0)
+                amqpTcpEndpoint.Port = _connectionFactory.Port;
             amqpTcpEndpoint.Ssl.Enabled = _connectionFactory.Ssl.Enabled;
             amqpTcpEndpoint.Ssl.Version = _connectionFactory.Ssl.Version;
             amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _connectionFactory.Ssl.AcceptablePolicyErrors;
@@ -98,7 +99,8 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         connectionFactory.AutomaticRecoveryEnabled = true;
         connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
 
-        if (_config.SslOption != null) connectionFactory.Ssl = _config.SslOption;
+        if (_config.SslOption != null)
+            connectionFactory.Ssl = _config.SslOption;
 
         // setup heartbeat if needed
         if (_config.Heartbeat > 0)
@@ -148,7 +150,7 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
             _connectionLock?.Dispose();
             _connection?.Dispose();
         }
-        catch(Exception exception)
+        catch (Exception exception)
         {
             SelfLog.WriteLine(exception.Message);
         }

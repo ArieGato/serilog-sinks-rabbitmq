@@ -22,9 +22,12 @@ using Serilog.Debugging;
 
 namespace Serilog.Sinks.RabbitMQ;
 
-internal static class ApplySystemConfiguration {
-    internal static List<string> ParseHostName(string hostname) {
-        if (hostname == null) throw new ArgumentNullException(nameof(hostname));
+internal static class ApplySystemConfiguration
+{
+    internal static List<string> ParseHostName(string hostname)
+    {
+        if (hostname == null)
+            throw new ArgumentNullException(nameof(hostname));
 
         return hostname.Split(',').Select(m => m.Trim()).ToList();
     }
@@ -35,15 +38,19 @@ internal static class ApplySystemConfiguration {
     /// If it is, return the Uri item, if not, return string as supplied.
     /// </summary>
     /// <param name="nameOrUri">The name of the ConnectionStrings key or raw Uri.</param>
-    internal static string GetUri(string nameOrUri) {
+    internal static string GetUri(string nameOrUri)
+    {
         // If there is an `://`, we assume this is a raw Uri
         // If there are no `://`, attempt to pull the named value from config
-        if (nameOrUri != null && nameOrUri.IndexOf("://") < 0) {
+        if (nameOrUri != null && nameOrUri.IndexOf("://") < 0)
+        {
             var cs = ConfigurationManager.ConnectionStrings[nameOrUri];
-            if (cs != null) {
+            if (cs != null)
+            {
                 return cs.ConnectionString;
             }
-            else {
+            else
+            {
                 SelfLog.WriteLine("RabbitMQ sink configured value {0} is not found in ConnectionStrings settings and does not appear to be a raw connection string.", nameOrUri);
             }
         }
