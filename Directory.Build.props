@@ -10,10 +10,6 @@
     <AssemblyOriginatorKeyFile>../../assets/Serilog.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
-  <PropertyGroup  Condition="$(MSBuildProjectName.Contains('.Tests'))">
-
-  </PropertyGroup>
-
   <ItemGroup Condition="$(MSBuildProjectName.Contains('.Tests'))">
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.6.6" />
