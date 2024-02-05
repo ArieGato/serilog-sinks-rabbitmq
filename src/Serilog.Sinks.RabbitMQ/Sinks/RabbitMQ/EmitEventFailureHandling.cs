@@ -26,7 +26,7 @@ namespace Serilog.Sinks.RabbitMQ
         Ignore = 0,
 
         /// <summary>
-        /// Send the error to the SelfLog
+        /// Send the error to the SelfLog.
         /// </summary>
         WriteToSelfLog = 1,
 
