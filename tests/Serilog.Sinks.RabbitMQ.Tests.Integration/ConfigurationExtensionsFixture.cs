@@ -21,7 +21,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
     [Collection("Sequential")]
     public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
     {
-#if NET_FX
         private readonly RabbitMQFixture _rabbitMQFixture;
 
         public ConfigurationExtensionsFixture(RabbitMQFixture rabbitMQFixture)
@@ -29,6 +28,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             _rabbitMQFixture = rabbitMQFixture;
         }
 
+#if NET_FX
         [Fact]
         public void WriteWithUriByName()
         {
@@ -119,6 +119,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             logger.Dispose();
         }
 #endif
+
         [Fact]
         public void WriteWithUri()
         {

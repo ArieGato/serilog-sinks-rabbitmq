@@ -7,8 +7,9 @@
     <SignAssembly>true</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
   </PropertyGroup>
+
   <PropertyGroup Condition=" '$(TargetFramework)' == 'net472' ">
-        <DefineConstants>$(DefineConstants);NET_FX</DefineConstants>
+    <DefineConstants>$(DefineConstants);NET_FX</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
