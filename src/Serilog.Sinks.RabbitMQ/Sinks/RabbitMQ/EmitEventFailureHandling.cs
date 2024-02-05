@@ -21,7 +21,7 @@ namespace Serilog.Sinks.RabbitMQ
     public enum EmitEventFailureHandling
     {
         /// <summary>
-        /// Ignore the failure and continue
+        /// Ignore the failure and continue.
         /// </summary>
         Ignore = 0,
 
