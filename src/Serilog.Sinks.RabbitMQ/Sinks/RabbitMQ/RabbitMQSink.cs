@@ -18,88 +18,87 @@ using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Sinks.PeriodicBatching;
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
+/// </summary>
+public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
 {
+    private readonly ITextFormatter _formatter;
+    private readonly IRabbitMQClient _client;
+
+    private bool _disposedValue;
+
     /// <summary>
-    /// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
+    /// Default constructor
     /// </summary>
-    public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
+    /// <param name="configuration"></param>
+    /// <param name="rabbitMQSinkConfiguration"></param>
+    public RabbitMQSink(RabbitMQClientConfiguration configuration,
+        RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
     {
-        private readonly ITextFormatter _formatter;
-        private readonly IRabbitMQClient _client;
+        _formatter = rabbitMQSinkConfiguration.TextFormatter;
+        _client = new RabbitMQClient(configuration);
+    }
 
-        private bool _disposedValue;
+    /// <summary>
+    /// Constructor for testing purposes
+    /// </summary>
+    /// <param name="client"></param>
+    /// <param name="textFormatter"></param>
+    internal RabbitMQSink(IRabbitMQClient client, ITextFormatter textFormatter)
+    {
+        _formatter = textFormatter;
+        _client = client;
+    }
 
-        /// <summary>
-        /// Default constructor
-        /// </summary>
-        /// <param name="configuration"></param>
-        /// <param name="rabbitMQSinkConfiguration"></param>
-        public RabbitMQSink(RabbitMQClientConfiguration configuration,
-            RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
-        {
-            _formatter = rabbitMQSinkConfiguration.TextFormatter;
-            _client = new RabbitMQClient(configuration);
-        }
+    /// <inheritdoc cref="ILogEventSink.Emit" />
+    public void Emit(LogEvent logEvent)
+    {
+        var sw = new StringWriter();
+        _formatter.Format(logEvent, sw);
+        _client.Publish(sw.ToString());
+    }
 
-        /// <summary>
-        /// Constructor for testing purposes
-        /// </summary>
-        /// <param name="client"></param>
-        /// <param name="textFormatter"></param>
-        internal RabbitMQSink(IRabbitMQClient client, ITextFormatter textFormatter)
-        {
-            _formatter = textFormatter;
-            _client = client;
-        }
-
-        /// <inheritdoc cref="ILogEventSink.Emit" />
-        public void Emit(LogEvent logEvent)
+    /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
+    public Task EmitBatchAsync(IEnumerable<LogEvent> batch)
+    {
+        foreach (var logEvent in batch)
         {
             var sw = new StringWriter();
             _formatter.Format(logEvent, sw);
             _client.Publish(sw.ToString());
         }
 
-        /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
-        public Task EmitBatchAsync(IEnumerable<LogEvent> batch)
-        {
-            foreach (var logEvent in batch)
-            {
-                var sw = new StringWriter();
-                _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
-            }
+        return Task.CompletedTask;
+    }
 
-            return Task.CompletedTask;
+    /// <inheritdoc cref="IBatchedLogEventSink.OnEmptyBatchAsync" />
+    public Task OnEmptyBatchAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc cref="IDisposable.Dispose"/>
+    public void Dispose()
+    {
+        if (_disposedValue) return;
+
+        try
+        {
+            // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
+            // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
+            _client.Close();
+        }
+        catch (Exception exception)
+        {
+            // ignored
+            SelfLog.WriteLine("Exception occurred closing RabbitMQClient {0}", exception.Message);
         }
 
-        /// <inheritdoc cref="IBatchedLogEventSink.OnEmptyBatchAsync" />
-        public Task OnEmptyBatchAsync()
-        {
-            return Task.CompletedTask;
-        }
+        _client.Dispose();
 
-        /// <inheritdoc cref="IDisposable.Dispose"/>
-        public void Dispose()
-        {
-            if (_disposedValue) return;
-
-            try
-            {
-                // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
-                // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
-                _client.Close();
-            }
-            catch (Exception exception)
-            {
-                // ignored
-                SelfLog.WriteLine("Exception occurred closing RabbitMQClient {0}", exception.Message);
-            }
-
-            _client.Dispose();
-
-            _disposedValue = true;
-        }
+        _disposedValue = true;
     }
 }

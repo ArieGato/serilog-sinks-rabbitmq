@@ -14,22 +14,21 @@
 
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// The RabbitMQ connection factory interface
+/// </summary>
+public interface IRabbitMQConnectionFactory : IDisposable
 {
     /// <summary>
-    /// The RabbitMQ connection factory interface
+    /// Returns the connection. Creates a new connection if none exists.
     /// </summary>
-    public interface IRabbitMQConnectionFactory : IDisposable
-    {
-        /// <summary>
-        /// Returns the connection. Creates a new connection if none exists.
-        /// </summary>
-        /// <returns></returns>
-        IConnection GetConnection();
+    /// <returns></returns>
+    IConnection GetConnection();
 
-        /// <summary>
-        /// Close the underlying connection
-        /// </summary>
-        void Close();
-    }
+    /// <summary>
+    /// Close the underlying connection
+    /// </summary>
+    void Close();
 }

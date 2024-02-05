@@ -15,53 +15,52 @@
 using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// A wrapper class for <see cref="IModel"/> to be used in <see cref="ObjectPool{T}"/>.
+/// </summary>
+internal sealed class RabbitMQChannel : IRabbitMQChannel
 {
+    private readonly IBasicProperties _properties;
+
     /// <summary>
-    /// A wrapper class for <see cref="IModel"/> to be used in <see cref="ObjectPool{T}"/>.
+    /// The wrapped <see cref="IModel"/>.
     /// </summary>
-    internal sealed class RabbitMQChannel : IRabbitMQChannel
+    private readonly IModel _model;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RabbitMQChannel"/> class.
+    /// </summary>
+    /// <param name="model"></param>
+    public RabbitMQChannel(IModel model)
     {
-        private readonly IBasicProperties _properties;
+        _model = model;
 
-        /// <summary>
-        /// The wrapped <see cref="IModel"/>.
-        /// </summary>
-        private readonly IModel _model;
+        _properties = model.CreateBasicProperties();
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="RabbitMQChannel"/> class.
-        /// </summary>
-        /// <param name="model"></param>
-        public RabbitMQChannel(IModel model)
+    public bool IsOpen => _model.IsOpen;
+
+    public void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body)
+    {
+        _model.BasicPublish(address, _properties, body);
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        try
         {
-            _model = model;
-
-            _properties = model.CreateBasicProperties();
+            // Disposing channel and connection objects is not enough,
+            // they must be explicitly closed with the API methods.
+            _model.Close();
+        }
+        catch
+        {
+            // ignored
         }
 
-        public bool IsOpen => _model.IsOpen;
-
-        public void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body)
-        {
-            _model.BasicPublish(address, _properties, body);
-        }
-
-        /// <inheritdoc />
-        public void Dispose()
-        {
-            try
-            {
-                // Disposing channel and connection objects is not enough,
-                // they must be explicitly closed with the API methods.
-                _model.Close();
-            }
-            catch
-            {
-                // ignored
-            }
-
-            _model.Dispose();
-        }
+        _model.Dispose();
     }
 }

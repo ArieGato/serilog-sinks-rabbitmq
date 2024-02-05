@@ -12,21 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// Convenience enum providing compile-time names for persistent modes.
+/// </summary>
+public enum RabbitMQDeliveryMode : byte
 {
     /// <summary>
-    /// Convenience enum providing compile-time names for persistent modes.
+    /// Value for transient delivery mode (not durable).
     /// </summary>
-    public enum RabbitMQDeliveryMode : byte
-    {
-        /// <summary>
-        /// Value for transient delivery mode (not durable).
-        /// </summary>
-        NonDurable = 1,
+    NonDurable = 1,
 
-        /// <summary>
-        /// Value for persistent delivery mode (durable).
-        /// </summary>
-        Durable = 2
-    }
+    /// <summary>
+    /// Value for persistent delivery mode (durable).
+    /// </summary>
+    Durable = 2
 }

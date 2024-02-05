@@ -1,142 +1,141 @@
 ﻿using Serilog.Events;
 using Serilog.Formatting;
 
-namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
+
+public class RabbitMQSinkTests
 {
-    public class RabbitMQSinkTests
+    [Fact]
+    public void Emit_ShouldPublishMessages()
     {
-        [Fact]
-        public void Emit_ShouldPublishMessages()
-        {
-            // Arrange
-            var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), new List<LogEventProperty>());
+        // Arrange
+        var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), new List<LogEventProperty>());
 
-            var textFormatter = Substitute.For<ITextFormatter>();
-            textFormatter
-                .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
-                .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
+        var textFormatter = Substitute.For<ITextFormatter>();
+        textFormatter
+            .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
+            .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
-            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
-            // Act
-            sut.Emit(logEvent);
+        // Act
+        sut.Emit(logEvent);
 
-            // Assert
-            rabbitMQClient.Received(1).Publish(Arg.Is("some-message"));
-        }
+        // Assert
+        rabbitMQClient.Received(1).Publish(Arg.Is("some-message"));
+    }
 
-        [Fact]
-        public async Task EmitBatchAsync_ShouldPublishMessages()
-        {
-            // Arrange
-            IEnumerable<LogEvent> logEvents = [
-                new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-1", []), new List<LogEventProperty>()),
-                new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-2", []), new List<LogEventProperty>())];
+    [Fact]
+    public async Task EmitBatchAsync_ShouldPublishMessages()
+    {
+        // Arrange
+        IEnumerable<LogEvent> logEvents = [
+            new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-1", []), new List<LogEventProperty>()),
+            new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-2", []), new List<LogEventProperty>())];
 
-            var textFormatter = Substitute.For<ITextFormatter>();
-            textFormatter
-                .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
-                .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
+        var textFormatter = Substitute.For<ITextFormatter>();
+        textFormatter
+            .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
+            .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
-            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
-            // Act
-            await sut.EmitBatchAsync(logEvents);
+        // Act
+        await sut.EmitBatchAsync(logEvents);
 
-            // Assert
-            rabbitMQClient.Received(1).Publish(Arg.Is("some-message-1"));
-            rabbitMQClient.Received(1).Publish(Arg.Is("some-message-2"));
-        }
+        // Assert
+        rabbitMQClient.Received(1).Publish(Arg.Is("some-message-1"));
+        rabbitMQClient.Received(1).Publish(Arg.Is("some-message-2"));
+    }
 
-        [Fact]
-        public async Task EmitBatchAsync_ShouldDoNothing_WhenNoEventsAreEmitted()
-        {
-            // Arrange
-            IEnumerable<LogEvent> logEvents = [];
+    [Fact]
+    public async Task EmitBatchAsync_ShouldDoNothing_WhenNoEventsAreEmitted()
+    {
+        // Arrange
+        IEnumerable<LogEvent> logEvents = [];
 
-            var textFormatter = Substitute.For<ITextFormatter>();
-            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
-            // Act
-            await sut.EmitBatchAsync(logEvents);
+        // Act
+        await sut.EmitBatchAsync(logEvents);
 
-            // Assert
-            rabbitMQClient.DidNotReceive().Publish(Arg.Any<string>());
-        }
+        // Assert
+        rabbitMQClient.DidNotReceive().Publish(Arg.Any<string>());
+    }
 
-        [Fact]
-        public async Task OnEmptyBatchAsync_ShouldReturnTask()
-        {
-            // Arrange
-            var textFormatter = Substitute.For<ITextFormatter>();
-            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+    [Fact]
+    public async Task OnEmptyBatchAsync_ShouldReturnTask()
+    {
+        // Arrange
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
-            // Act
-            await sut.OnEmptyBatchAsync();
+        // Act
+        await sut.OnEmptyBatchAsync();
 
-            // should not throw exception
-        }
+        // should not throw exception
+    }
 
-        [Fact]
-        public void Dispose_ShouldCloseAndDisposeRabbitMQClient()
-        {
-            // Arrange
-            var textFormatter = Substitute.For<ITextFormatter>();
-            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+    [Fact]
+    public void Dispose_ShouldCloseAndDisposeRabbitMQClient()
+    {
+        // Arrange
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
-            // Act
-            sut.Dispose();
+        // Act
+        sut.Dispose();
 
-            // Assert
-            rabbitMQClient.Received(1).Close();
-            rabbitMQClient.Received(1).Dispose();
-        }
+        // Assert
+        rabbitMQClient.Received(1).Close();
+        rabbitMQClient.Received(1).Dispose();
+    }
 
-        [Fact]
-        public void Dispose_ShouldNotThrowException_WhenCalledTwice()
-        {
-            // Arrange
-            var textFormatter = Substitute.For<ITextFormatter>();
-            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+    [Fact]
+    public void Dispose_ShouldNotThrowException_WhenCalledTwice()
+    {
+        // Arrange
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
-            // Act
-            sut.Dispose();
-            sut.Dispose();
+        // Act
+        sut.Dispose();
+        sut.Dispose();
 
-            // Assert
-            rabbitMQClient.Received(1).Close();
-            rabbitMQClient.Received(1).Dispose();
-        }
+        // Assert
+        rabbitMQClient.Received(1).Close();
+        rabbitMQClient.Received(1).Dispose();
+    }
 
-        [Fact]
-        public void Dispose_ShouldNotThrowException_WhenRabbitMQClientCloseThrowsException()
-        {
-            // Arrange
-            var textFormatter = Substitute.For<ITextFormatter>();
-            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-            rabbitMQClient.When(x => x.Close())
-                .Do(_ => throw new Exception("some-message"));
+    [Fact]
+    public void Dispose_ShouldNotThrowException_WhenRabbitMQClientCloseThrowsException()
+    {
+        // Arrange
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.When(x => x.Close())
+            .Do(_ => throw new Exception("some-message"));
 
-            var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
-            // Act
-            sut.Dispose();
+        // Act
+        sut.Dispose();
 
-            // Assert
-            rabbitMQClient.Received(1).Close();
-            rabbitMQClient.Received(1).Dispose();
-        }
+        // Assert
+        rabbitMQClient.Received(1).Close();
+        rabbitMQClient.Received(1).Dispose();
     }
 }

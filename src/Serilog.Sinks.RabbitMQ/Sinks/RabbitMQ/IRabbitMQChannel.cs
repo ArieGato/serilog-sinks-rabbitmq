@@ -14,23 +14,22 @@
 
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// The RabbitMQ Channel interface
+/// </summary>
+public interface IRabbitMQChannel : IDisposable
 {
     /// <summary>
-    /// The RabbitMQ Channel interface
+    /// Returns true when the channel is open
     /// </summary>
-    public interface IRabbitMQChannel : IDisposable
-    {
-        /// <summary>
-        /// Returns true when the channel is open
-        /// </summary>
-        bool IsOpen { get; }
+    bool IsOpen { get; }
 
-        /// <summary>
-        /// Publishes a message to RabbitMq Exchange
-        /// </summary>
-        /// <param name="address"></param>
-        /// <param name="body"></param>
-        void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
-    }
+    /// <summary>
+    /// Publishes a message to RabbitMq Exchange
+    /// </summary>
+    /// <param name="address"></param>
+    /// <param name="body"></param>
+    void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
 }
