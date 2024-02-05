@@ -16,7 +16,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
     public class RabbitMQFixture : IDisposable
     {
-        public const string HostName = "localhost";
+        public static bool InDocker => Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+        public static readonly string HostName = InDocker ? "serilog.sinks.rabbitmq.server" : "localhost";
         public const string UserName = "serilog";
         public const string Password = "serilog";
         public const string SerilogAuditSinkExchange = "serilog-sink-audit-exchange";

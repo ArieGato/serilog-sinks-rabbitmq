@@ -11,8 +11,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests
             // Arrange
             var original = new RabbitMQClientConfiguration()
             {
-                Username = "guest",
-                Password = "guest",
+                Username = "serilog",
+                Password = "serilog",
                 VHost = "/",
                 Exchange = "logs",
                 ExchangeType = "direct",
@@ -23,7 +23,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests
                 AutoCreateExchange = true,
                 Heartbeat = 21,
                 Hostnames = ["localhost", "127.0.0.1" ],
-                SslOption = new SslOption()
+                SslOption = new SslOption
                 {
                     AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
                     Enabled = true,
