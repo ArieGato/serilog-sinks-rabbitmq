@@ -20,7 +20,7 @@ As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes
 |2.0.0|1.6.0|4.5.1|2.3.0|4.\*|
 |3.0.0|1.6.1|4.5.1|2.8.0|5.\*|
 |6.0.0|2.0.0|4.7.2|2.8.0|6.\*|
-|7.0.0|2.0.0|4.7.2|3.1.1|6.8.\*|
+|7.0.0|2.0.0|-|3.1.1|6.8.\*|
 
 ## Installation
 
@@ -30,14 +30,62 @@ Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
 Install-Package Serilog.Sinks.RabbitMQ
 ```
 
-### Topics
+## Release Notes
+
+### 7.0.0
+
+### Added support for Serilog 3.1.1
+
+Upgraded the Serilog package to fix the issue with the missing RawFormatter.
+
+### Failure sink support
+
+Failure sink(s) can be configured through appsettings.json or via Code.
+
+In this example the Console sink is used as failure sink. If the RabbitMQ sink fails
+to emit an event, it will write to the Console and File sinks.
+
+```json
+  "Serilog": {
+    "Using": [ "Serilog.Sinks.RabbitMQ", "Serilog.Sinks.Console" ],
+    "MinimumLevel": "Debug",
+    "WriteTo": [
+      {
+        "Name": "RabbitMQ",
+        "Args": {
+          "username": "serilog",
+          "password": "serilog",
+          "hostnames": [
+            "localhost"
+          ],
+          "emitEventFailure": "WriteToSelfLog,WriteToFailureSink",
+          "failureSinkConfiguration": [
+            {
+              "Name": "Console"
+            }
+          ]
+        }
+      }
+    ]
+  }
+```
+
+### Improved SSL support
+
+The SSL support has been improved. Now all properties are used when creating the connection.
+
+### Breaking changes:
+- Renamed hostname to hostnames in configuration
+- Default text formatter is `CompactJsonFormatter`. The `RawFromatter` was removed from Serilog.
+
+
+## Topics
 
 * [Sink Configuration Options](#sink-configuration-options)
 * [External configuration using Serilog.Settings.AppSettings](#external-configuration-using-serilogsettingsappsettings)
 * [External configuration using Serilog.Settings.Configuration](#external-configuration-using-serilogsettingsconfiguration)
 * [Audit Sink Configuration](#audit-sink-configuration)
 * [Multihost configuration](#multihost-configuration)
-* [Use protected configuration (ASP.NET)](#use-protected-configuration-aspnet)
 * [Configuration via code](#configuration-via-code)
 
 ### Sink Configuration Options
@@ -49,16 +97,16 @@ The sink is configured with a typical Serilog `WriteTo` configuration method (or
 All sink configuration methods accept the follwing arguments, though not necessarily in this order. 
 Use of named arguments is strongly recommended.
 
-* `amqpUri`
-* `hostname`
+* `hostnames`
 * `username`
 * `password`
-* `port`
-* `vHost`
 * `exchange`
 * `exchangeType`
 * `deliveryMode`
 * `routeKey`
+* `port`
+* `vHost`
+* `heartbeat`
 * `sslEnabled`
 * `sslServerName`
 * `sslVersion`
@@ -66,13 +114,13 @@ Use of named arguments is strongly recommended.
 * `sslCheckCertificateRevocation`
 * `batchPostingLimit`
 * `period`
+* `queueLimit`
 * `formatter`
+* `autoCreateExchange`
+* `maxChannels`
+* `levelSwitch`
 
 ### Arguments
-
-At minimum, `amqpUri`.  Refer to [RabbitMQ URI Specification](https://www.rabbitmq.com/uri-spec.html) for details about the _amqpUri_ arguments.
-If you are using an external configuration source such as an XML file, you can use a named reference to connection string instead of providing the full "raw" uri. 
-This is necessary in cases where in ASP.NET applications need to encrypt the connection settings for RabbitMQ.
 
 Parameters `exchange`, `exchangeType`, `deliveryMode`, `routeKey`, provide additional configuration when connecting to RabbitMQ.
 If `autoCreateExchange` is `true`, the sink will create the exchange if a exchange by that name doesn't exist.
@@ -89,8 +137,6 @@ You can change these through by setting the `batchPostingLimit` and `period` arg
 
 Refer to the [Formatter](https://github.com/serilog/serilog/wiki/Formatting-Output#formatting-json) for details about the _formatter_ arguments.
 
-For backward compatibility can use parameters `hostname`, `username`, `password`, `port` and `vHost`. 
-
 ### Code-Only (any .NET target)
 
 All sink features are configurable from code. Here is a typical example that works the same way for any .NET target.
@@ -99,7 +145,10 @@ All sink features are configurable from code. Here is a typical example that wor
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.RabbitMQ(
-        amqpUri: "amqp://user:pwd@host:5672/vhost",
+        username: "usr",
+        password: "pwd",
+        hostnames: new[] { "localhost" },
+        port: 5672,
         exchange = "LogExchange",
         formatter: new JsonFormatter()
     ).CreateLogger();
@@ -112,7 +161,9 @@ This is an example of setting some of the configuration parameters for this sink
 
 ```xml
 <add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
-<add key="serilog:write-to:RabbitMQ.amqpUri" value="amqp://user:pwd@localhost"/>
+<add key="serilog:write-to:RabbitMQ.username" value="user"/>
+<add key="serilog:write-to:RabbitMQ.password" value="pwd"/>
+<add key="serilog:write-to:RabbitMQ.hostnames" value="server1,server2"/>
 <add key="serilog:write-to:RabbitMQ.exchange" value="LogExchange"/>
 <add key="serilog:write-to:RabbitMQ.batchPostingLimit" value="1000"/>
 <add key="serilog:write-to:RabbitMQ.period" value="00:00:30"/>
@@ -132,7 +183,12 @@ Keys and values are not case-sensitive. This is an example of configuring the si
     "WriteTo": [
       { "Name": "RabbitMQ", 
         "Args": { 
-            "amqpUri": "amqp://user:pwd@localhost",
+            "username": "usr",
+            "password": "pwd",
+            "hostnames": [
+                "localhost"
+            ],
+            "port": 5672,
             "exchange": "LogExchange",
             "autoCreateExchange": true,
             "batchPostingLimit": 1000,
@@ -152,22 +208,25 @@ You should wrap audit logging output in a `try/catch` block. The usual example i
 
 The constructor accepts most of the same arguments, and like other Serilog audit sinks, you configure one by using `AuditTo` instead of `WriteTo`.
 
-* `amqpUri`
-* `hostname`
+* `hostnames`
 * `username`
 * `password`
-* `port`
-* `vHost`
 * `exchange`
 * `exchangeType`
 * `deliveryMode`
 * `routeKey`
+* `port`
+* `vHost`
+* `heartbeat`
 * `sslEnabled`
 * `sslServerName`
 * `sslVersion`
 * `sslAcceptablePolicyErrors`
 * `sslCheckCertificateRevocation`
 * `formatter`
+* `autoCreateExchange`
+* `maxChannels`
+* `levelSwitch`
 
 The _batchPostingLimit_ and _period_ parameters are not available because the audit sink writes log events immediately.
 
@@ -179,7 +238,7 @@ This is an example of configuring the multihost using _Serilog.Settings.AppSetti
 
 ```xml
 <add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
-<add key="serilog:write-to:RabbitMQ.hostname" value="host1,host2"/>
+<add key="serilog:write-to:RabbitMQ.hostnames" value="host1,host2"/>
 <add key="serilog:write-to:RabbitMQ.username" value="user"/>
 <add key="serilog:write-to:RabbitMQ.pasword" value="pwd"/>
 ```
@@ -187,32 +246,6 @@ This is an example of configuring the multihost using _Serilog.Settings.AppSetti
 ## Use protected configuration (ASP.NET)
 
 ASP.NET has the possibility to encrypt connection string in the web.config. 
-
-### Add connection string
-To protect RabbitMQ credentials `amqpUri` argument may specify in connection string section.
-
-```xml
-<appSettings>
-  <add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
-  <add key="serilog:write-to:RabbitMQ.amqpUri" value="AMQPConnection"/>
-</appSettings>
-<connectionStrings>  
-  <add name="AMQPConnection" connectionString="amqp://user:pwd@localhost" />  
-</connectionStrings>
-```
-### Encrypting connection string
-
-You will find aspnet_regiis.exe in the _C:\\Windows\\Microsoft.NET\\Framework\\version_ folder.
-The general synatax to encrypt a config section is as follows:
-```
-aspnet_regiis.exe -pef section physical_directory -prov provider
-```
-
-### Decrypting connection string
-Here is the syntax to decrypt a configuration file section:
-```
-aspnet_regiis.exe -pdf section physical_directory 
-```
 
 ## Configuration via code
 
@@ -230,7 +263,7 @@ Log.Logger = new LoggerConfiguration()
         clientConfiguration.RouteKey     = "Logs";
         clientConfiguration.Port         = 5672;
 
-        foreach (string hostname in _config["RABBITMQ_HOSTNAMES"]) {
+        foreach (string hostname in _config.GetSection("RABBITMQ_HOSTNAMES").Get<string[]>()) {
             clientConfiguration.Hostnames.Add(hostname);
         }
 

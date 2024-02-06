@@ -26,7 +26,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         public const string SerilogSinkExchange = "serilog-sink-exchange";
         public const string SerilogSinkExchangeType = "fanout";
         public const string SerilogSinkQueueName = "serilog-sink-queue";
-        public static readonly string AmqpUri = $"amqp://{UserName}:{Password}@{HostName}";
 
         private readonly RabbitMQClient _rabbitMQClient;
 
@@ -51,7 +50,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                 Username = UserName,
                 Password = Password,
                 ExchangeType = "fanout",
-                Hostnames = { HostName },
+                Hostnames = [HostName]
             };
         }
 

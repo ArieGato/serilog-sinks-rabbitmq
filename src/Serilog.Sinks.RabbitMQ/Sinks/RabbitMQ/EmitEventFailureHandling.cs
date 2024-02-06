@@ -1,4 +1,4 @@
-// Copyright 2015-2024 Serilog Contributors
+﻿// Copyright 2015-2024 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,20 +15,29 @@
 namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
-    /// RabbitMQ Client interface
+    /// Specifies options for handling failures when emitting the events to RabbitMQ. Can be a combination of options.
     /// </summary>
-    internal interface IRabbitMQClient : IDisposable
+    [Flags]
+    public enum EmitEventFailureHandling
     {
         /// <summary>
-        /// Publishes a message to RabbitMq Exchange
+        /// Ignore the failure and continue.
         /// </summary>
-        /// <param name="message"></param>
-        void Publish(string message);
+        Ignore = 0,
 
         /// <summary>
-        /// Close the connection and all channels to RabbitMq
+        /// Send the error to the SelfLog.
         /// </summary>
-        /// <exception cref="AggregateException"></exception>
-        void Close();
+        WriteToSelfLog = 1,
+
+        /// <summary>
+        /// Write the events to another sink. Make sure to configure this one.
+        /// </summary>
+        WriteToFailureSink = 2,
+
+        /// <summary>
+        /// Throw the exception to the caller.
+        /// </summary>
+        ThrowException = 4
     }
 }

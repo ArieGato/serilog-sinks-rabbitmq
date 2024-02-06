@@ -17,14 +17,14 @@ using System.Diagnostics;
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
     /// <summary>
-    ///   Tests for <see cref="RabbitMQSink" />.
+    ///   Tests for using <see cref="RabbitMQSink" /> as WriteTo sink.
     /// </summary>
     [Collection("Sequential")]
-    public sealed class RabbitMqSinkTest : IClassFixture<RabbitMQFixture>
+    public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
     {
         private readonly RabbitMQFixture _rabbitMQFixture;
 
-        public RabbitMqSinkTest(RabbitMQFixture rabbitMQFixture)
+        public WriteToRabbitMQSinkTest(RabbitMQFixture rabbitMQFixture)
         {
             _rabbitMQFixture = rabbitMQFixture;
         }
@@ -47,7 +47,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     clientConfiguration.Username = RabbitMQFixture.UserName;
                     clientConfiguration.Password = RabbitMQFixture.Password;
                     clientConfiguration.ExchangeType = "fanout";
-                    clientConfiguration.Hostnames.Add(RabbitMQFixture.HostName);
+                    clientConfiguration.Hostnames = [RabbitMQFixture.HostName];
                     sinkConfiguration.TextFormatter = new JsonFormatter();
                 })
                 .MinimumLevel.Verbose()
@@ -94,7 +94,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     clientConfiguration.Username = RabbitMQFixture.UserName;
                     clientConfiguration.Password = RabbitMQFixture.Password;
                     clientConfiguration.ExchangeType = "fanout";
-                    clientConfiguration.Hostnames.Add(RabbitMQFixture.HostName);
+                    clientConfiguration.Hostnames = [RabbitMQFixture.HostName];
                     sinkConfiguration.TextFormatter = new JsonFormatter();
                 })
                 .MinimumLevel.Verbose()
