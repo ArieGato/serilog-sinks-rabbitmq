@@ -30,7 +30,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests
                     ServerName = "localhost",
                     CertPassphrase = "secret",
                     CertPath = "path",
-                    Version = SslProtocols.Tls12,
+                    Version = SslProtocols.Tls13,
                     CheckCertificateRevocation = true
                 }
             };

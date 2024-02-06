@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,9 +55,7 @@ namespace Serilog.Sinks.RabbitMQ
 
             try
             {
-                _connection ??= !_config.Hostnames.Any()
-                    ? _connectionFactory.CreateConnection()
-                    : _connectionFactory.CreateConnection(GetAmqpTcpEndpoints());
+                _connection ??= _connectionFactory.CreateConnection(GetAmqpTcpEndpoints());
             }
             finally
             {
@@ -87,11 +85,12 @@ namespace Serilog.Sinks.RabbitMQ
         private ConnectionFactory GetConnectionFactory()
         {
             // prepare connection factory
-            var connectionFactory = new ConnectionFactory();
-
-            // setup auto recovery
-            connectionFactory.AutomaticRecoveryEnabled = true;
-            connectionFactory.NetworkRecoveryInterval = TimeSpan.FromSeconds(2);
+            var connectionFactory = new ConnectionFactory
+            {
+                // setup auto recovery
+                AutomaticRecoveryEnabled = true,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(2)
+            };
 
             if (_config.SslOption != null)
             {
@@ -104,16 +103,8 @@ namespace Serilog.Sinks.RabbitMQ
                 connectionFactory.RequestedHeartbeat = TimeSpan.FromMilliseconds(_config.Heartbeat);
             }
 
-            // only set values when set in configuration, otherwise leave default
-            if (!string.IsNullOrEmpty(_config.Username))
-            {
-                connectionFactory.UserName = _config.Username;
-            }
-
-            if (!string.IsNullOrEmpty(_config.Password))
-            {
-                connectionFactory.Password = _config.Password;
-            }
+            connectionFactory.UserName = _config.Username;
+            connectionFactory.Password = _config.Password;
 
             if (_config.Port > 0)
             {

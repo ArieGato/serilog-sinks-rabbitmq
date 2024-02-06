@@ -89,7 +89,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateNameMismatch,
                     sslServerName: "localhost",
                     sslCheckCertificateRevocation: false,
-                    sslVersion: SslProtocols.Tls12,
+                    sslVersion: SslProtocols.Tls13,
                     formatter: new RenderedCompactJsonFormatter())
                 .CreateLogger();
 
@@ -112,7 +112,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateNameMismatch,
                     sslServerName: "localhost",
                     sslCheckCertificateRevocation: false,
-                    sslVersion: SslProtocols.Tls12,
+                    sslVersion: SslProtocols.Tls13,
                     formatter: new RenderedCompactJsonFormatter())
                 .CreateLogger();
 
@@ -144,7 +144,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     ServerName = "localhost",
                     CertPassphrase = "secret",
                     CertPath = "path",
-                    Version = SslProtocols.Tls12,
+                    Version = SslProtocols.Tls13,
                     CheckCertificateRevocation = true
                 },
                 Username = RabbitMQFixture.UserName,
@@ -194,7 +194,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                     ServerName = "localhost",
                     CertPassphrase = "secret",
                     CertPath = "path",
-                    Version = SslProtocols.Tls12,
+                    Version = SslProtocols.Tls13,
                     CheckCertificateRevocation = true
                 },
                 Username = RabbitMQFixture.UserName,
@@ -238,7 +238,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                         ServerName = "localhost",
                         CertPassphrase = "secret",
                         CertPath = "path",
-                        Version = SslProtocols.Tls12,
+                        Version = SslProtocols.Tls13,
                         CheckCertificateRevocation = true
                     };
                     rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
@@ -277,7 +277,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
                             ServerName = "localhost",
                             CertPassphrase = "secret",
                             CertPath = "path",
-                            Version = SslProtocols.Tls12,
+                            Version = SslProtocols.Tls13,
                             CheckCertificateRevocation = true
                         };
                         rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
