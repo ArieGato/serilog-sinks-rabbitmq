@@ -13,10 +13,9 @@
 // limitations under the License.
 
 using PublicApiGenerator;
-using Serilog;
 using Shouldly;
 
-namespace Destructurama.Attributed.Tests;
+namespace Serilog.Sinks.RabbitMQ.Tests;
 
 /// <summary>Tests for checking changes to the public API.</summary>
 public class ApiApprovalTests
