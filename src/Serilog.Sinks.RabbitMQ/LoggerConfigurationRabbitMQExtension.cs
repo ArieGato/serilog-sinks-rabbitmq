@@ -27,8 +27,8 @@ namespace Serilog;
 /// </summary>
 public static class LoggerConfigurationRabbitMqExtension
 {
-    private const int DefaultBatchPostingLimit = 50;
-    private static readonly TimeSpan DefaultPeriod = TimeSpan.FromSeconds(2);
+    private const int DEFAULT_BATCH_POSTING_LIMIT = 50;
+    private static readonly TimeSpan _defaultPeriod = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Adds a sink that lets you push log messages to RabbitMQ
@@ -79,7 +79,8 @@ public static class LoggerConfigurationRabbitMqExtension
         TimeSpan period = default,
         ITextFormatter formatter = null,
         bool autoCreateExchange = false,
-        int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
+        int maxChannels = RabbitMQClient.DefaultMaxChannelCount)
+    {
         // guards
         if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
         if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
@@ -88,7 +89,8 @@ public static class LoggerConfigurationRabbitMqExtension
         if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port), "port must be in a valid range (1 and 65535 or 0 for default)");
 
         // setup configuration
-        var clientConfiguration = new RabbitMQClientConfiguration {
+        var clientConfiguration = new RabbitMQClientConfiguration
+        {
             Username = username,
             Password = password,
             Exchange = exchange ?? string.Empty,
@@ -103,12 +105,13 @@ public static class LoggerConfigurationRabbitMqExtension
         };
 
         var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
-        foreach (var item in hostnames) {
+        foreach (var item in hostnames)
             clientConfiguration.Hostnames.Add(item);
-        }
 
-        if (sslEnabled) {
-            clientConfiguration.SslOption = new SslOption() {
+        if (sslEnabled)
+        {
+            clientConfiguration.SslOption = new SslOption
+            {
                 Enabled = sslEnabled,
                 ServerName = sslServerName,
                 Version = sslVersion,
@@ -117,9 +120,10 @@ public static class LoggerConfigurationRabbitMqExtension
             };
         }
 
-        var sinkConfiguration = new RabbitMQSinkConfiguration {
-            BatchPostingLimit = batchPostingLimit == default ? DefaultBatchPostingLimit : batchPostingLimit,
-            Period = period == default ? DefaultPeriod : period
+        var sinkConfiguration = new RabbitMQSinkConfiguration
+        {
+            BatchPostingLimit = batchPostingLimit == default ? DEFAULT_BATCH_POSTING_LIMIT : batchPostingLimit,
+            Period = period == default ? _defaultPeriod : period
         };
         if (formatter != null)
         {
@@ -145,7 +149,8 @@ public static class LoggerConfigurationRabbitMqExtension
         TimeSpan period = default,
         ITextFormatter formatter = null,
         bool autoCreateExchange = false,
-        int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
+        int maxChannels = RabbitMQClient.DefaultMaxChannelCount)
+    {
         // guards
         if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
         if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null'. Enter a valid uri.");
@@ -155,7 +160,8 @@ public static class LoggerConfigurationRabbitMqExtension
 #endif
 
         // setup configuration
-        var clientConfiguration = new RabbitMQClientConfiguration {
+        var clientConfiguration = new RabbitMQClientConfiguration
+        {
             AmqpUri = new Uri(amqpUri),
             Exchange = exchange ?? string.Empty,
             ExchangeType = exchangeType ?? ExchangeType.Fanout,
@@ -168,8 +174,8 @@ public static class LoggerConfigurationRabbitMqExtension
 
         var sinkConfiguration = new RabbitMQSinkConfiguration
         {
-            BatchPostingLimit = batchPostingLimit == default ? DefaultBatchPostingLimit : batchPostingLimit,
-            Period = period == default ? DefaultPeriod : period,
+            BatchPostingLimit = batchPostingLimit == default ? DEFAULT_BATCH_POSTING_LIMIT : batchPostingLimit,
+            Period = period == default ? _defaultPeriod : period,
         };
         if (formatter != null)
         {
@@ -184,7 +190,8 @@ public static class LoggerConfigurationRabbitMqExtension
     /// </summary>
     public static LoggerConfiguration RabbitMQ(
         this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
-        Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure) {
+        Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure)
+    {
         var clientConfiguration = new RabbitMQClientConfiguration();
         var sinkConfiguration = new RabbitMQSinkConfiguration();
         configure(clientConfiguration, sinkConfiguration);
@@ -197,7 +204,8 @@ public static class LoggerConfigurationRabbitMqExtension
     /// </summary>
     public static LoggerConfiguration RabbitMQ(
         this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
-        RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
+        RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration)
+    {
 
         return RegisterAuditSink(loggerAuditSinkConfiguration, clientConfiguration, sinkConfiguration);
     }
@@ -225,7 +233,8 @@ public static class LoggerConfigurationRabbitMqExtension
         bool sslCheckCertificateRevocation = false,
         ITextFormatter formatter = null,
         bool autoCreateExchange = false,
-        int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
+        int maxChannels = RabbitMQClient.DefaultMaxChannelCount)
+    {
         // guards
         if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
         if (string.IsNullOrEmpty(hostname)) throw new ArgumentException("hostname cannot be 'null'. Enter a valid hostname.");
@@ -234,7 +243,8 @@ public static class LoggerConfigurationRabbitMqExtension
         if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port), "port must be in a valid range (1 and 65535 or 0 for default)");
 
         // setup configuration
-        var clientConfiguration = new RabbitMQClientConfiguration {
+        var clientConfiguration = new RabbitMQClientConfiguration
+        {
             Username = username,
             Password = password,
             Exchange = exchange ?? string.Empty,
@@ -249,12 +259,13 @@ public static class LoggerConfigurationRabbitMqExtension
         };
 
         var hostnames = ApplySystemConfiguration.ParseHostName(hostname);
-        foreach (var item in hostnames) {
+        foreach (var item in hostnames)
             clientConfiguration.Hostnames.Add(item);
-        }
 
-        if (sslEnabled) {
-            clientConfiguration.SslOption = new SslOption() {
+        if (sslEnabled)
+        {
+            clientConfiguration.SslOption = new SslOption
+            {
                 Enabled = sslEnabled,
                 ServerName = sslServerName,
                 Version = sslVersion,
@@ -288,7 +299,8 @@ public static class LoggerConfigurationRabbitMqExtension
         ushort heartbeat = 0,
         ITextFormatter formatter = null,
         bool autoCreateExchange = false,
-        int maxChannels = RabbitMQClient.DefaultMaxChannelCount) {
+        int maxChannels = RabbitMQClient.DefaultMaxChannelCount)
+    {
         // guards
         if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
         if (string.IsNullOrEmpty(amqpUri)) throw new ArgumentException("amqpUri cannot be 'null' or empty. Enter a valid uri.", nameof(amqpUri));
@@ -298,7 +310,8 @@ public static class LoggerConfigurationRabbitMqExtension
 #endif
 
         // setup configuration
-        var clientConfiguration = new RabbitMQClientConfiguration {
+        var clientConfiguration = new RabbitMQClientConfiguration
+        {
             AmqpUri = new Uri(amqpUri),
             Exchange = exchange ?? string.Empty,
             ExchangeType = exchangeType ?? ExchangeType.Fanout,
@@ -320,7 +333,8 @@ public static class LoggerConfigurationRabbitMqExtension
                 .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
     }
 
-    static LoggerConfiguration RegisterSink(LoggerSinkConfiguration loggerConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
+    static LoggerConfiguration RegisterSink(LoggerSinkConfiguration loggerConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration)
+    {
         // guards
         if (loggerConfiguration == null) throw new ArgumentNullException(nameof(loggerConfiguration));
         if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
@@ -328,13 +342,14 @@ public static class LoggerConfigurationRabbitMqExtension
         if (clientConfiguration.Password == null) throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
         if (clientConfiguration.Port < 0 || clientConfiguration.Port > 65535) throw new ArgumentOutOfRangeException("port", "port must be in a valid range (1 and 65535)");
 
-        sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default) ? DefaultBatchPostingLimit : sinkConfiguration.BatchPostingLimit;
-        sinkConfiguration.Period = (sinkConfiguration.Period == default) ? DefaultPeriod : sinkConfiguration.Period;
+        sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default) ? DEFAULT_BATCH_POSTING_LIMIT : sinkConfiguration.BatchPostingLimit;
+        sinkConfiguration.Period = (sinkConfiguration.Period == default) ? _defaultPeriod : sinkConfiguration.Period;
 
         return loggerConfiguration.Sink(clientConfiguration, sinkConfiguration);
     }
 
-    static LoggerConfiguration RegisterAuditSink(LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration) {
+    static LoggerConfiguration RegisterAuditSink(LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, RabbitMQClientConfiguration clientConfiguration, RabbitMQSinkConfiguration sinkConfiguration)
+    {
         // guards
         if (loggerAuditSinkConfiguration == null) throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
         if (clientConfiguration.Hostnames.Count == 0) throw new ArgumentException("hostnames cannot be empty, specify at least one hostname", "hostnames");
