@@ -24,7 +24,7 @@ namespace Serilog.Sinks.RabbitMQ
         /// <summary>
         /// List of hosts to use for the connection
         /// </summary>
-        public IList<string> Hostnames { get; } = new List<string>();
+        public IList<string> Hostnames { get; set; } = new List<string>();
 
         /// <summary>
         /// Username to use when authenticating to the server.
@@ -47,7 +47,7 @@ namespace Serilog.Sinks.RabbitMQ
         public string VHost { get; set; } = string.Empty;
 
         /// <summary>
-        /// Heartbeat timeout to use when negotiating with the server.
+        /// Heartbeat timeout in ms to use when negotiating with the server.
         /// </summary>
         public ushort Heartbeat { get; set; }
 
@@ -87,11 +87,6 @@ namespace Serilog.Sinks.RabbitMQ
         public int MaxChannels { get; set; } = RabbitMQClient.DefaultMaxChannelCount;
 
         /// <summary>
-        /// The Uri to use for the connection.
-        /// </summary>
-        internal Uri AmqpUri { get; set; }
-
-        /// <summary>
         /// Create options from other one
         /// </summary>
         /// <param name="config">The source options.</param>
@@ -110,12 +105,7 @@ namespace Serilog.Sinks.RabbitMQ
             SslOption = config.SslOption;
             AutoCreateExchange = config.AutoCreateExchange;
             MaxChannels = config.MaxChannels;
-            AmqpUri = config.AmqpUri;
-
-            foreach (string hostName in config.Hostnames)
-            {
-                Hostnames.Add(hostName);
-            }
+            Hostnames = config.Hostnames.ToArray();
 
             return this;
         }

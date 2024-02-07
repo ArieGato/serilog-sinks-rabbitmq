@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using Microsoft.Extensions.ObjectPool;
-using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
 {

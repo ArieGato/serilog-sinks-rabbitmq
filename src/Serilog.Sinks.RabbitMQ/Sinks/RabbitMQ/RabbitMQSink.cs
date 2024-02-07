@@ -27,7 +27,8 @@ namespace Serilog.Sinks.RabbitMQ
     {
         private readonly ITextFormatter _formatter;
         private readonly IRabbitMQClient _client;
-
+        private readonly ILogEventSink _failureSink;
+        private readonly EmitEventFailureHandling _emitEventFailureHandling;
         private bool _disposedValue;
 
         /// <summary>
@@ -35,11 +36,16 @@ namespace Serilog.Sinks.RabbitMQ
         /// </summary>
         /// <param name="configuration"></param>
         /// <param name="rabbitMQSinkConfiguration"></param>
-        public RabbitMQSink(RabbitMQClientConfiguration configuration,
-            RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
+        /// <param name="failureSink"></param>
+        internal RabbitMQSink(
+            RabbitMQClientConfiguration configuration,
+            RabbitMQSinkConfiguration rabbitMQSinkConfiguration,
+            ILogEventSink failureSink = null)
         {
             _formatter = rabbitMQSinkConfiguration.TextFormatter;
             _client = new RabbitMQClient(configuration);
+            _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
+            _failureSink = failureSink;
         }
 
         /// <summary>
@@ -47,10 +53,18 @@ namespace Serilog.Sinks.RabbitMQ
         /// </summary>
         /// <param name="client"></param>
         /// <param name="textFormatter"></param>
-        internal RabbitMQSink(IRabbitMQClient client, ITextFormatter textFormatter)
+        /// <param name="emitEventFailureHandling"></param>
+        /// <param name="failureSink"></param>
+        internal RabbitMQSink(
+            IRabbitMQClient client,
+            ITextFormatter textFormatter, 
+            EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
+            ILogEventSink failureSink = null)
         {
-            _formatter = textFormatter;
             _client = client;
+            _formatter = textFormatter;
+            _emitEventFailureHandling = emitEventFailureHandling;
+            _failureSink = failureSink;
         }
 
         /// <inheritdoc cref="ILogEventSink.Emit" />
@@ -64,11 +78,24 @@ namespace Serilog.Sinks.RabbitMQ
         /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
         public Task EmitBatchAsync(IEnumerable<LogEvent> batch)
         {
-            foreach (var logEvent in batch)
+            // make sure we have an array to avoid multiple enumeration
+            var logEvents = batch as LogEvent[] ?? batch.ToArray();
+
+            try
             {
-                var sw = new StringWriter();
-                _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                foreach (var logEvent in logEvents)
+                {
+                    var sw = new StringWriter();
+                    _formatter.Format(logEvent, sw);
+                    _client.Publish(sw.ToString());
+                }
+            }
+            catch (Exception exception)
+            {
+                if (!HandleException(exception, logEvents))
+                {
+                    throw;
+                }
             }
 
             return Task.CompletedTask;
@@ -97,9 +124,54 @@ namespace Serilog.Sinks.RabbitMQ
                 SelfLog.WriteLine("Exception occurred closing RabbitMQClient {0}", exception.Message);
             }
 
+            // Dispose the failure sink if it's disposable
+            if (_failureSink is IDisposable disposableFailureSink)
+            {
+                disposableFailureSink.Dispose();
+            }
+
             _client.Dispose();
 
             _disposedValue = true;
+        }
+
+        /// <summary>
+        /// Handles the exceptions.
+        /// </summary>
+        /// <param name="ex"></param>
+        /// <param name="events"></param>
+        /// <returns>true when exception has been handled</returns>
+        private bool HandleException(Exception ex, IEnumerable<LogEvent> events)
+        {
+            if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToSelfLog))
+            {
+                // RabbitMQ returns an error, output the error to the SelfLog
+                SelfLog.WriteLine("Caught exception while performing bulk operation to RabbitMQ: {0}", ex);
+            }
+
+            if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink) &&
+                _failureSink != null)
+            {
+                // Send to a failure sink
+                try
+                {
+                    foreach (var e in events)
+                    {
+                        _failureSink.Emit(e);
+                    }
+                }
+                catch (Exception exSink)
+                {
+                    // No exception is thrown to the caller
+                    SelfLog.WriteLine("Caught exception while emitting to failure sink {0}: {1}", _failureSink, exSink.Message);
+                    SelfLog.WriteLine("Failure sink exception: {0}", exSink);
+                    SelfLog.WriteLine("Original exception: {0}", ex);
+                }
+            }
+
+            // return true if the exception has been handled. e.g. when the exception doesn't
+            // need to be rethrown
+            return !_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.ThrowException);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,6 +34,11 @@ namespace Serilog.Sinks.RabbitMQ
         public TimeSpan Period { get; set; }
 
         /// <summary>
+        /// The batched sink internal queue limit.
+        /// </summary>
+        public int? QueueLimit { get; set; }
+
+        /// <summary>
         /// Controls the rendering of log events into text, for example to log JSON. 
         /// To control plain text formatting, use the overload that accepts an output template.
         /// </summary>
@@ -43,5 +48,10 @@ namespace Serilog.Sinks.RabbitMQ
         /// The minimum level for events passed through the sink.
         /// </summary>
         public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
+
+        /// <summary>
+        /// Specifies how failed emits should be handled.
+        /// </summary>
+        public EmitEventFailureHandling EmitEventFailure { get; set; }
     }
 }

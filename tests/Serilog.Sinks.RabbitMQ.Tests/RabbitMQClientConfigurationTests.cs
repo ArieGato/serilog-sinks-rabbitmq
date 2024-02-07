@@ -1,6 +1,5 @@
-﻿using System.Net.Security;
+using System.Net.Security;
 using System.Security.Authentication;
-using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ.Tests
 {
@@ -12,7 +11,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests
             // Arrange
             var original = new RabbitMQClientConfiguration()
             {
-                AmqpUri = new Uri("amqp://localhost:5672"),
                 Username = "serilog",
                 Password = "serilog",
                 VHost = "/",
@@ -24,7 +22,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests
                 Port = 5673,
                 AutoCreateExchange = true,
                 Heartbeat = 21,
-                Hostnames = { "localhost", "127.0.0.1" },
+                Hostnames = ["localhost", "127.0.0.1" ],
                 SslOption = new SslOption
                 {
                     AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
@@ -32,7 +30,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests
                     ServerName = "localhost",
                     CertPassphrase = "secret",
                     CertPath = "path",
-                    Version = SslProtocols.Tls12,
+                    Version = SslProtocols.Tls13,
                     CheckCertificateRevocation = true
                 }
             };

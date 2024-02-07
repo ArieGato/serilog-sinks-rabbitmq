@@ -15,6 +15,7 @@
 using System.Net.Security;
 using System.Security.Authentication;
 using Serilog.Events;
+using Serilog.Formatting.Compact;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 {
@@ -28,37 +29,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             _rabbitMQFixture = rabbitMQFixture;
         }
 
-#if NET_FX
         [Fact]
-        public void WriteWithUriByName()
-        {
-            const string nameOrUri = "NamedConnection";
-
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    amqpUri: nameOrUri,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
-        public void WriteAppSettingsWithReference()
-        {
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "R")
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
-        public async Task WriteAppSettings()
+        public async Task ReadFromAppSettings_ShouldNotThrow()
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "W")
@@ -73,7 +45,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         }
 
         [Fact]
-        public async Task WriteAppSettingsMultipleHosts()
+        public async Task ReadFromAppSettings_ShouldNotThrow_WhenMultipleHostsAreConfigured()
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "H")
@@ -88,24 +60,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         }
 
         [Fact]
-        public void AuditWithUriByName()
-        {
-            const string nameOrUri = "NamedConnection";
-
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                    amqpUri: nameOrUri,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
-        public async Task AuditAppSettings()
+        public async Task AuditFromAppSettings_ShouldNotThrow()
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "A")
@@ -118,55 +73,98 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
             // should not throw
             logger.Dispose();
         }
-#endif
 
         [Fact]
-        public void WriteWithUri()
+        public void WriteWithProperties_ShouldNotThrow()
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    amqpUri: RabbitMQFixture.AmqpUri,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
-                .CreateLogger();
-
-            // should not throw
-            logger.Dispose();
-        }
-
-        [Fact]
-        public async Task WriteWithUriAutoCreate()
-        {
-            var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    amqpUri: RabbitMQFixture.AmqpUri,
+                    hostnames: [RabbitMQFixture.HostName],
+                    username: RabbitMQFixture.UserName,
+                    password: RabbitMQFixture.Password,
                     exchange: RabbitMQFixture.SerilogSinkExchange,
                     exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
                     deliveryMode: RabbitMQDeliveryMode.Durable,
-                    autoCreateExchange: true)
+                    sslEnabled: true,
+                    sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateNameMismatch,
+                    sslServerName: "localhost",
+                    sslCheckCertificateRevocation: false,
+                    sslVersion: SslProtocols.Tls13,
+                    formatter: new RenderedCompactJsonFormatter())
                 .CreateLogger();
-
-            // Actually log something to trigger the exchange creation
-            logger.Information("Some text");
-
-            await Task.Delay(1000); // wait batch execution
 
             // should not throw
             logger.Dispose();
         }
 
         [Fact]
-        public void WriteWithHostUserPwd()
+        public void AuditWithProperties_ShouldNotThrow()
         {
             var loggerConfiguration = new LoggerConfiguration();
+            var logger = loggerConfiguration.AuditTo.RabbitMQ(
+                    hostnames: [RabbitMQFixture.HostName],
+                    username: RabbitMQFixture.UserName,
+                    password: RabbitMQFixture.Password,
+                    exchange: RabbitMQFixture.SerilogAuditSinkExchange,
+                    exchangeType: RabbitMQFixture.SerilogAuditSinkExchangeType,
+                    deliveryMode: RabbitMQDeliveryMode.Durable,
+                    sslEnabled: true,
+                    sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateNameMismatch,
+                    sslServerName: "localhost",
+                    sslCheckCertificateRevocation: false,
+                    sslVersion: SslProtocols.Tls13,
+                    formatter: new RenderedCompactJsonFormatter())
+                .CreateLogger();
+
+            // should not throw
+            logger.Dispose();
+        }
+
+        [Fact]
+        public void WriteToWithConfigurationObjects_ShouldNotThrow()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+
+            var rabbitMQClientConfiguration = new RabbitMQClientConfiguration
+            {
+                AutoCreateExchange = true,
+                DeliveryMode = RabbitMQDeliveryMode.Durable,
+                Exchange = RabbitMQFixture.SerilogSinkExchange,
+                ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
+                Heartbeat = 21,
+                Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"],
+                MaxChannels = 32,
+                Password = RabbitMQFixture.Password,
+                Port = 5672,
+                RouteKey = "",
+                SslOption = new SslOption
+                {
+                    AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
+                    Enabled = false,
+                    ServerName = "localhost",
+                    CertPassphrase = "secret",
+                    CertPath = "path",
+                    Version = SslProtocols.Tls13,
+                    CheckCertificateRevocation = true
+                },
+                Username = RabbitMQFixture.UserName,
+                VHost = "/",
+            };
+
+            var rabbitMQSinkConfiguration = new RabbitMQSinkConfiguration
+            {
+                BatchPostingLimit = 100,
+                Period = TimeSpan.FromSeconds(3),
+                QueueLimit = 1000,
+                EmitEventFailure = EmitEventFailureHandling.ThrowException,
+                TextFormatter = new JsonFormatter(),
+                RestrictedToMinimumLevel = LogEventLevel.Information
+            };
+
             var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                    hostname: RabbitMQFixture.HostName,
-                    username: RabbitMQFixture.UserName,
-                    password: RabbitMQFixture.Password,
-                    exchange: RabbitMQFixture.SerilogSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
+                    rabbitMQClientConfiguration,
+                    rabbitMQSinkConfiguration,
+                    configuration => configuration.Console())
                 .CreateLogger();
 
             // should not throw
@@ -174,14 +172,42 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         }
 
         [Fact]
-        public void AuditWithUri()
+        public void AuditWithConfigurationObjects_ShouldNotThrow()
         {
             var loggerConfiguration = new LoggerConfiguration();
-            var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                    amqpUri: RabbitMQFixture.AmqpUri,
-                    exchange: RabbitMQFixture.SerilogAuditSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogAuditSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
+
+            var rabbitMQClientConfiguration = new RabbitMQClientConfiguration
+            {
+                AutoCreateExchange = true, DeliveryMode = RabbitMQDeliveryMode.Durable,
+                Exchange = RabbitMQFixture.SerilogSinkExchange,
+                ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
+                Heartbeat = 21,
+                Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"],
+                MaxChannels = 32,
+                Password = RabbitMQFixture.Password,
+                Port = 5672,
+                RouteKey = "",
+                SslOption = new SslOption
+                {
+                    AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
+                    Enabled = false,
+                    ServerName = "localhost",
+                    CertPassphrase = "secret",
+                    CertPath = "path",
+                    Version = SslProtocols.Tls13,
+                    CheckCertificateRevocation = true
+                },
+                Username = RabbitMQFixture.UserName,
+                VHost = "/"
+            };
+
+            var rabbitMQSinkConfiguration = new RabbitMQSinkConfiguration
+            {
+                TextFormatter = new JsonFormatter(),
+                RestrictedToMinimumLevel = LogEventLevel.Information
+            };
+
+            var logger = loggerConfiguration.AuditTo.RabbitMQ(rabbitMQClientConfiguration, rabbitMQSinkConfiguration)
                 .CreateLogger();
 
             // should not throw
@@ -189,16 +215,38 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         }
 
         [Fact]
-        public void AuditWithHostUserPwd()
+        public void AuditToWithAction_ShouldNotThrow()
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                    hostname: RabbitMQFixture.HostName,
-                    username: RabbitMQFixture.UserName,
-                    password: RabbitMQFixture.Password,
-                    exchange: RabbitMQFixture.SerilogAuditSinkExchange,
-                    exchangeType: RabbitMQFixture.SerilogAuditSinkExchangeType,
-                    deliveryMode: RabbitMQDeliveryMode.Durable)
+                (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
+                {
+                    rabbitMQClientConfiguration.AutoCreateExchange = true;
+                    rabbitMQClientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+                    rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
+                    rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
+                    rabbitMQClientConfiguration.Heartbeat = 21;
+                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"];
+                    rabbitMQClientConfiguration.MaxChannels = 32;
+                    rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
+                    rabbitMQClientConfiguration.Port = 5672;
+                    rabbitMQClientConfiguration.RouteKey = "";
+                    rabbitMQClientConfiguration.SslOption = new SslOption
+                    {
+                        AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
+                        Enabled = false,
+                        ServerName = "localhost",
+                        CertPassphrase = "secret",
+                        CertPath = "path",
+                        Version = SslProtocols.Tls13,
+                        CheckCertificateRevocation = true
+                    };
+                    rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
+                    rabbitMQClientConfiguration.VHost = "/";
+
+                    rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
+                    rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
+                })
                 .CreateLogger();
 
             // should not throw
@@ -210,37 +258,38 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
         {
             var loggerConfiguration = new LoggerConfiguration();
             var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
-                {
-                    rabbitMQClientConfiguration.Port = 5672;
-                    rabbitMQClientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-                    rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
-                    rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
-                    rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
-                    rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
-                    rabbitMQClientConfiguration.Hostnames.Add(RabbitMQFixture.HostName);
-                    rabbitMQClientConfiguration.MaxChannels = 32;
-                    rabbitMQClientConfiguration.AutoCreateExchange = true;
-                    rabbitMQClientConfiguration.Heartbeat = 21;
-                    rabbitMQClientConfiguration.SslOption = new SslOption
+                    (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
                     {
-                        AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
-                        Enabled = false,
-                        ServerName = "localhost",
-                        CertPassphrase = "secret",
-                        CertPath = "path",
-                        Version = SslProtocols.Tls12,
-                        CheckCertificateRevocation = true
-                    };
-                    rabbitMQClientConfiguration.RouteKey = "";
-                    rabbitMQClientConfiguration.VHost = "/";
-                    rabbitMQClientConfiguration.AmqpUri = new Uri(RabbitMQFixture.AmqpUri);
+                        rabbitMQClientConfiguration.AutoCreateExchange = true;
+                        rabbitMQClientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+                        rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
+                        rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
+                        rabbitMQClientConfiguration.Heartbeat = 21;
+                        rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"];
+                        rabbitMQClientConfiguration.MaxChannels = 32;
+                        rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
+                        rabbitMQClientConfiguration.Port = 5672;
+                        rabbitMQClientConfiguration.RouteKey = "";
+                        rabbitMQClientConfiguration.SslOption = new SslOption
+                        {
+                            AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
+                            Enabled = false,
+                            ServerName = "localhost",
+                            CertPassphrase = "secret",
+                            CertPath = "path",
+                            Version = SslProtocols.Tls13,
+                            CheckCertificateRevocation = true
+                        };
+                        rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
+                        rabbitMQClientConfiguration.VHost = "/";
 
-                    rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
-                    rabbitMQSinkConfiguration.BatchPostingLimit = 50;
-                    rabbitMQSinkConfiguration.Period = TimeSpan.FromSeconds(5);
-                    rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
-                })
+                        rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
+                        rabbitMQSinkConfiguration.BatchPostingLimit = 50;
+                        rabbitMQSinkConfiguration.Period = TimeSpan.FromSeconds(5);
+                        rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
+                        rabbitMQSinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink;
+                    },
+                    failureSinkConfiguration => failureSinkConfiguration.Console())
                 .CreateLogger();
 
             // Actually log something to trigger the exchange creation
@@ -250,6 +299,81 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration
 
             // should not throw
             logger.Dispose();
+        }
+
+        [Fact]
+        public void WriteToRabbitMQ_ShouldThrowException_WhenHostNamesIsEmpty()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+
+            var act = () => loggerConfiguration.WriteTo.RabbitMQ(
+                hostnames: [],
+                username: "username",
+                password: "password",
+                port: 5672);
+
+            act.Should().Throw<ArgumentException>()
+                .WithMessage("hostnames cannot be empty, specify at least one hostname*");
+        }
+
+        [Fact]
+        public void WriteToRabbitMQ_ShouldThrowException_WhenUsernameIsEmpty()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+
+            var act = () => loggerConfiguration.WriteTo.RabbitMQ(
+                hostnames: ["localhost"],
+                username: null,
+                password: "password",
+                port: 5672);
+
+            act.Should().Throw<ArgumentException>()
+                .WithMessage("username cannot be 'null' or and empty string.*");
+        }
+
+        [Fact]
+        public void WriteToRabbitMQ_ShouldThrowException_WhenPasswordIsNull()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+
+            var act = () => loggerConfiguration.WriteTo.RabbitMQ(
+                hostnames: ["localhost"],
+                username: "username",
+                password: null,
+                port: 5672);
+
+            act.Should().Throw<ArgumentException>()
+                .WithMessage("password cannot be 'null'. Specify an empty string if password is empty.*");
+        }
+
+        [Fact]
+        public void WriteToRabbitMQ_ShouldThrowException_WhenPortNumberIsZero()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+
+            var act = () => loggerConfiguration.WriteTo.RabbitMQ(
+                hostnames: ["localhost"],
+                username: "username",
+                password: "password",
+                port: -1);
+
+            act.Should().Throw<ArgumentException>()
+                .WithMessage("port must be in a valid range (1 and 65535)*");
+        }
+
+        [Fact]
+        public void WriteToRabbitMQ_ShouldThrowException_WhenPortNumberIsGreaterThan65535()
+        {
+            var loggerConfiguration = new LoggerConfiguration();
+
+            var act = () => loggerConfiguration.WriteTo.RabbitMQ(
+                hostnames: ["localhost"],
+                username: "username",
+                password: "password",
+                port: 65536);
+
+            act.Should().Throw<ArgumentException>()
+                .WithMessage("port must be in a valid range (1 and 65535)*");
         }
     }
 }
