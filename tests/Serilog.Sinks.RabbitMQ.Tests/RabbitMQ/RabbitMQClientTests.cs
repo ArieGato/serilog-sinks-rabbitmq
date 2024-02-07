@@ -14,117 +14,118 @@
 
 using Microsoft.Extensions.ObjectPool;
 
-namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
-
-public class RabbitMQClientTests
+namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
 {
-    [Fact]
-    public void Publish_ShouldCreateAndReturnChannelToPool()
+    public class RabbitMQClientTests
     {
-        // Arrange
-        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        [Fact]
+        public void Publish_ShouldCreateAndReturnChannelToPool()
         {
-            Exchange = "some-exchange",
-            ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
-        };
-        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+            // Arrange
+            var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+            {
+                Exchange = "some-exchange",
+                ExchangeType = "some-exchange-type",
+                RouteKey = "some-route-key"
+            };
+            var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+            var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
 
-        var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
-        rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
-        rabbitMQChannelObjectPoolPolicy.Return(Arg.Is(rabbitMQChannel)).Returns(true);
+            var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
+            rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
+            rabbitMQChannelObjectPoolPolicy.Return(Arg.Is(rabbitMQChannel)).Returns(true);
 
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+            var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
-        // Act
-        sut.Publish("some-message");
+            // Act
+            sut.Publish("some-message");
 
-        // Assert
-        rabbitMQChannelObjectPoolPolicy.Received(1).Create();
-        rabbitMQChannelObjectPoolPolicy.Received(1).Return(Arg.Is(rabbitMQChannel));
+            // Assert
+            rabbitMQChannelObjectPoolPolicy.Received(1).Create();
+            rabbitMQChannelObjectPoolPolicy.Received(1).Return(Arg.Is(rabbitMQChannel));
 
-        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
-    }
+            rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        }
 
-    [Fact]
-    public void Close_ShouldCreateAndReturnChannelToPool()
-    {
-        // Arrange
-        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        [Fact]
+        public void Close_ShouldCreateAndReturnChannelToPool()
         {
-            Exchange = "some-exchange",
-            ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
-        };
-        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+            // Arrange
+            var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+            {
+                Exchange = "some-exchange",
+                ExchangeType = "some-exchange-type",
+                RouteKey = "some-route-key"
+            };
+            var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+            var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
 
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+            var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
-        // Act
-        sut.Close();
+            // Act
+            sut.Close();
 
-        // Assert
-        rabbitMQConnectionFactory.Received(1).Close();
-    }
+            // Assert
+            rabbitMQConnectionFactory.Received(1).Close();
+        }
 
-    [Fact]
-    public void Close_ShouldThrowAggregateException_WhenExceptionsOccur()
-    {
-        // Arrange
-        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        [Fact]
+        public void Close_ShouldThrowAggregateException_WhenExceptionsOccur()
         {
-            Exchange = "some-exchange",
-            ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
-        };
-        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        rabbitMQConnectionFactory.When(x => x.Close()).Do(_ => throw new InvalidOperationException("some-exception"));
+            // Arrange
+            var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+            {
+                Exchange = "some-exchange",
+                ExchangeType = "some-exchange-type",
+                RouteKey = "some-route-key"
+            };
+            var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+            rabbitMQConnectionFactory.When(x => x.Close()).Do(_ => throw new InvalidOperationException("some-exception"));
 
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+            var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
 
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+            var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
-        // Need to dispose the client, so the close will throw two exceptions
-        sut.Dispose();
+            // Need to dispose the client, so the close will throw two exceptions
+            sut.Dispose();
 
-        // Act
-        var act = () => sut.Close();
+            // Act
+            var act = () => sut.Close();
 
-        // Assert
-        act.Should().Throw<AggregateException>()
-            .WithMessage($"Exceptions occurred while closing {nameof(RabbitMQClient)}*")
-            .And.InnerExceptions.Should().HaveCount(2);
-    }
+            // Assert
+            act.Should().Throw<AggregateException>()
+                .WithMessage($"Exceptions occurred while closing {nameof(RabbitMQClient)}*")
+                .And.InnerExceptions.Should().HaveCount(2);
+        }
 
-    [Fact]
-    public void Dispose_ShouldDisposeConnectionAndChannel()
-    {
-        // Arrange
-        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        [Fact]
+        public void Dispose_ShouldDisposeConnectionAndChannel()
         {
-            Exchange = "some-exchange",
-            ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
-        };
-        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+            // Arrange
+            var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+            {
+                Exchange = "some-exchange",
+                ExchangeType = "some-exchange-type",
+                RouteKey = "some-route-key"
+            };
+            var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+            var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
 
-        var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
-        rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
-        rabbitMQChannelObjectPoolPolicy.Return(Arg.Is(rabbitMQChannel)).Returns(true);
+            var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
+            rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
+            rabbitMQChannelObjectPoolPolicy.Return(Arg.Is(rabbitMQChannel)).Returns(true);
 
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+            var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+            
+            // Need to publish a message first to create the channel in the Pool
+            sut.Publish("some-message");
 
-        // Need to publish a message first to create the channel in the Pool
-        sut.Publish("some-message");
+            // Act
+            sut.Dispose();
 
-        // Act
-        sut.Dispose();
-
-        // Assert
-        rabbitMQChannel.Received(1).Dispose();
-        rabbitMQConnectionFactory.Received(1).Dispose();
+            // Assert
+            rabbitMQChannel.Received(1).Dispose();
+            rabbitMQConnectionFactory.Received(1).Dispose();
+        }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2015-2022 Serilog Contributors
+﻿// Copyright 2015-2024 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,22 @@
 
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ;
-
-/// <summary>
-/// The RabbitMQ connection factory interface
-/// </summary>
-public interface IRabbitMQConnectionFactory : IDisposable
+namespace Serilog.Sinks.RabbitMQ
 {
     /// <summary>
-    /// Returns the connection. Creates a new connection if none exists.
+    /// The RabbitMQ connection factory interface
     /// </summary>
-    /// <returns></returns>
-    IConnection GetConnection();
+    internal interface IRabbitMQConnectionFactory : IDisposable
+    {
+        /// <summary>
+        /// Returns the connection. Creates a new connection if none exists.
+        /// </summary>
+        /// <returns></returns>
+        IConnection GetConnection();
 
-    /// <summary>
-    /// Close the underlying connection
-    /// </summary>
-    void Close();
+        /// <summary>
+        /// Close the underlying connection
+        /// </summary>
+        void Close();
+    }
 }

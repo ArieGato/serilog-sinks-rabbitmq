@@ -28,7 +28,7 @@ branches:
     pre-release-weight: 0
   main:
     mode: ContinuousDeployment
-    tag: ''
+    tag: 'pre'
     increment: Patch
     prevent-increment-of-merged-branch-version: true
     track-merge-target: false

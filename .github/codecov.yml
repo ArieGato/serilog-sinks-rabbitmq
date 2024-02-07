@@ -1,3 +1,7 @@
 # https://docs.codecov.com/docs/codecov-yaml
+
+ignore:
+  - "samples"
+
 comment:
   behavior: new
