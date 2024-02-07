@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2024 Serilog Contributors
+// Copyright 2015-2024 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,32 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// Specifies options for handling failures when emitting the events to RabbitMQ. Can be a combination of options.
+/// </summary>
+[Flags]
+public enum EmitEventFailureHandling
 {
     /// <summary>
-    /// Specifies options for handling failures when emitting the events to RabbitMQ. Can be a combination of options.
+    /// Ignore the failure and continue.
     /// </summary>
-    [Flags]
-    public enum EmitEventFailureHandling
-    {
-        /// <summary>
-        /// Ignore the failure and continue.
-        /// </summary>
-        Ignore = 0,
+    Ignore = 0,
 
-        /// <summary>
-        /// Send the error to the SelfLog.
-        /// </summary>
-        WriteToSelfLog = 1,
+    /// <summary>
+    /// Send the error to the SelfLog.
+    /// </summary>
+    WriteToSelfLog = 1,
 
-        /// <summary>
-        /// Write the events to another sink. Make sure to configure this one.
-        /// </summary>
-        WriteToFailureSink = 2,
+    /// <summary>
+    /// Write the events to another sink. Make sure to configure this one.
+    /// </summary>
+    WriteToFailureSink = 2,
 
-        /// <summary>
-        /// Throw the exception to the caller.
-        /// </summary>
-        ThrowException = 4
-    }
+    /// <summary>
+    /// Throw the exception to the caller.
+    /// </summary>
+    ThrowException = 4
 }

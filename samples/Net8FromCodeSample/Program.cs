@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2024 Serilog Contributors
+// Copyright 2015-2024 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ Log.Logger = new LoggerConfiguration()
             clientConfiguration.Password = "serilog";
             clientConfiguration.Username = "serilog";
         },
-        failureSinkConfiguration => { failureSinkConfiguration.File("./log/log.txt", LogEventLevel.Information); })
+        failureSinkConfiguration => failureSinkConfiguration.File("./log/log.txt", LogEventLevel.Information))
     .CreateLogger();
 
 Log.Information("Hello, world!");
