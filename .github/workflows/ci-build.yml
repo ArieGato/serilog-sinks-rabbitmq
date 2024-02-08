@@ -19,12 +19,12 @@ jobs:
           - 5671:5671
           - 5672:5672
         volumes:
-          - docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
-          - docker/rabbitmq/rabbitmq.config:/etc/rabbitmq/rabbitmq.conf:ro
-          - docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
-          - docker/rabbitmq/ca-cert.pem:/etc/ssl/ca-cert.pem:ro
-          - docker/rabbitmq/server-cert.pem:/etc/ssl/server-crt.pem:ro
-          - docker/rabbitmq/server-key.pem:/etc/ssl/server-key.pem:ro
+          - ${{ github.workspace }}/docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+          - ${{ github.workspace }}/docker/rabbitmq/rabbitmq.config:/etc/rabbitmq/rabbitmq.conf:ro
+          - ${{ github.workspace }}/docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+          - ${{ github.workspace }}/docker/rabbitmq/ca-cert.pem:/etc/ssl/ca-cert.pem:ro
+          - ${{ github.workspace }}/docker/rabbitmq/server-cert.pem:/etc/ssl/server-crt.pem:ro
+          - ${{ github.workspace }}/docker/rabbitmq/server-key.pem:/etc/ssl/server-key.pem:ro
         env:
           RABBITMQ_USERNAME: serilog
           RABBITMQ_PASSWORD: serilog
