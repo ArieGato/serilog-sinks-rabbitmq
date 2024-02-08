@@ -56,7 +56,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
 
         logger.Information(messageTemplate, 1.0);
 
-        var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         var consumer = new EventingBasicConsumer(channel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
@@ -76,6 +76,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         Assert.NotNull(receivedMessage["Properties"]);
         Assert.Equal(1.0, receivedMessage["Properties"]["value"]);
 
+        channel.Close();
         logger.Dispose();
     }
 }

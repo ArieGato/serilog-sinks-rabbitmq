@@ -1,5 +1,5 @@
 # serilog-sinks-rabbitmq
-![Build Status](https://ci.appveyor.com/api/projects/status/row7ob6fhgmvtqwb?svg=true)
+![Build status](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/ci-build.yml/badge.svg)
 <a href="https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/">
   <img src="https://img.shields.io/nuget/v/Serilog.Sinks.RabbitMQ.svg" />
 </a>

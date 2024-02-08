@@ -30,6 +30,13 @@
     <None Update="App.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="resources\client-cert.pfx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="resources\" />
   </ItemGroup>
 
   <!-- START: This is a buildtime work around for https://github.com/dotnet/corefx/issues/22101 -->

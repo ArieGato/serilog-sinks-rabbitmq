@@ -71,14 +71,18 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         {
             var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(hostname);
             if (_connectionFactory.Port > 0)
+            {
                 amqpTcpEndpoint.Port = _connectionFactory.Port;
-            amqpTcpEndpoint.Ssl.Enabled = _connectionFactory.Ssl.Enabled;
-            amqpTcpEndpoint.Ssl.Version = _connectionFactory.Ssl.Version;
-            amqpTcpEndpoint.Ssl.AcceptablePolicyErrors = _connectionFactory.Ssl.AcceptablePolicyErrors;
-            amqpTcpEndpoint.Ssl.CheckCertificateRevocation = _connectionFactory.Ssl.CheckCertificateRevocation;
-            amqpTcpEndpoint.Ssl.ServerName = !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName)
+            }
+
+            if (_connectionFactory.Ssl.Enabled)
+            {
+                amqpTcpEndpoint.Ssl = _connectionFactory.Ssl;
+                amqpTcpEndpoint.Ssl.ServerName = !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName)
                     ? _connectionFactory.Ssl.ServerName
                     : amqpTcpEndpoint.HostName;
+            }
+
             return amqpTcpEndpoint;
         }).ToList();
     }
@@ -96,6 +100,7 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         if (_config.SslOption != null)
         {
             connectionFactory.Ssl = _config.SslOption;
+            connectionFactory.AuthMechanisms = [new ExternalMechanismFactory()];
         }
 
         // setup heartbeat if needed

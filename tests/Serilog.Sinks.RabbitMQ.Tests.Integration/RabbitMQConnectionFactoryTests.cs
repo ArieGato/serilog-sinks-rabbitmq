@@ -40,4 +40,17 @@ public class RabbitMQConnectionFactoryTests
         var act = () => sut.GetConnection();
         act.Should().ThrowExactly<BrokerUnreachableException>();
     }
+
+    [Fact]
+    public void GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSsl()
+    {
+        var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQSslClientConfiguration(),
+            new CancellationTokenSource());
+
+        sut.GetConnection().IsOpen.Should().BeTrue();
+
+        sut.Close();
+
+        sut.Dispose();
+    }
 }

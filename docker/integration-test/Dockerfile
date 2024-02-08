@@ -33,8 +33,6 @@ WORKDIR /src
 
 COPY . .
 
-RUN dotnet restore tests/Serilog.Sinks.RabbitMQ.Tests.Integration/Serilog.Sinks.RabbitMQ.Tests.Integration.csproj
-
-WORKDIR tests/Serilog.Sinks.RabbitMQ.Tests.Integration
+RUN dotnet restore
 
 ENTRYPOINT ["dotnet", "test"]

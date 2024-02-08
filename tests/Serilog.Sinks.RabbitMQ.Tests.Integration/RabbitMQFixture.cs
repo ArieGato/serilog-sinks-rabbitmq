@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Net.Security;
+using System.Security.Authentication;
+
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
 public class RabbitMQFixture : IDisposable
@@ -37,7 +40,10 @@ public class RabbitMQFixture : IDisposable
         var rabbitMQClientConfiguration = GetRabbitMQClientConfiguration();
         _rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
 
-        _connectionFactory = new ConnectionFactory { HostName = HostName, UserName = UserName, Password = Password };
+        _connectionFactory = new ConnectionFactory
+        {
+            HostName = HostName, UserName = UserName, Password = Password, Port = 5672
+        };
     }
 
     public static RabbitMQClientConfiguration GetRabbitMQClientConfiguration()
@@ -54,10 +60,34 @@ public class RabbitMQFixture : IDisposable
         };
     }
 
-    public async Task InitializeAsync()
+    public static RabbitMQClientConfiguration GetRabbitMQSslClientConfiguration()
+    {
+        return new RabbitMQClientConfiguration
+        {
+            Port = 5671,
+            DeliveryMode = RabbitMQDeliveryMode.Durable,
+            Exchange = SerilogSinkExchange,
+            Username = UserName,
+            Password = Password,
+            ExchangeType = "fanout",
+            Hostnames = [HostName],
+            SslOption = new SslOption()
+            {
+                Enabled = true,
+                ServerName = HostName,
+                AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch |
+                                         SslPolicyErrors.RemoteCertificateChainErrors,
+                CertPath = "./resources/client-cert.pfx",
+                CertPassphrase = "RabbitMQClient",
+                Version = SslProtocols.Tls13,
+            }
+        };
+    }
+
+    public async Task InitializeAsync(string exchangeName = null)
     {
         // Initialize the exchanges and queues.
-        var model = await GetConsumingModelAsync();
+        using var model = await GetConsumingModelAsync();
 
         model.ExchangeDeclare(SerilogSinkExchange, SerilogSinkExchangeType, true);
         model.QueueDeclare(SerilogSinkQueueName, true, false, false);
@@ -67,29 +97,34 @@ public class RabbitMQFixture : IDisposable
         model.QueueDeclare(SerilogAuditSinkQueueName, true, false, false);
         model.QueueBind(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, "");
 
+        if (!string.IsNullOrEmpty(exchangeName))
+        {
+            model.ExchangeDeclare(exchangeName, SerilogSinkExchangeType, true);
+        }
+
         model.Close();
-        model.Dispose();
+
+        await Task.Delay(1000);
     }
 
     public void Dispose()
     {
-        // only cleanup when consuming connection has been used.
-        if (_consumingConnection != null)
-        {
-            var cleanupModel = _consumingConnection.CreateModel();
+        // Always cleanup the exchanges and queues.
+        _consumingConnection ??= _connectionFactory.CreateConnection();
 
-            cleanupModel.QueueDelete(SerilogSinkQueueName);
-            cleanupModel.ExchangeDelete(SerilogSinkExchange);
+        var cleanupModel = _consumingConnection.CreateModel();
 
-            cleanupModel.QueueDelete(SerilogAuditSinkQueueName);
-            cleanupModel.ExchangeDelete(SerilogAuditSinkExchange);
+        cleanupModel.QueueDelete(SerilogSinkQueueName);
+        cleanupModel.ExchangeDelete(SerilogSinkExchange);
 
-            cleanupModel.Close();
-            cleanupModel.Dispose();
+        cleanupModel.QueueDelete(SerilogAuditSinkQueueName);
+        cleanupModel.ExchangeDelete(SerilogAuditSinkExchange);
 
-            _consumingConnection?.Close();
-            _consumingConnection?.Dispose();
-        }
+        cleanupModel.Close();
+        cleanupModel.Dispose();
+
+        _consumingConnection?.Close();
+        _consumingConnection?.Dispose();
 
         _rabbitMQClient.Close();
         _rabbitMQClient.Dispose();
@@ -107,11 +142,11 @@ public class RabbitMQFixture : IDisposable
     /// <exception cref="Exception"></exception>
     public async Task<IModel> GetConsumingModelAsync()
     {
-        for (var i = 0; i < 10; ++i)
+        for (int i = 0; i < 10; ++i)
         {
             try
             {
-                _consumingConnection = _connectionFactory.CreateConnection();
+                _consumingConnection ??= _connectionFactory.CreateConnection();
 
                 return _consumingConnection.CreateModel();
             }
