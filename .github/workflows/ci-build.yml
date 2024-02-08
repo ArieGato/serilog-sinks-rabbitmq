@@ -12,20 +12,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    services:
-      rabbitmq:
-        image: rabbitmq:3.12.12-management
-        ports:
-          - 5671:5671
-          - 5672:5672
-        volumes:
-          - ${{ github.workspace }}/testrun/rabbitmq/conf/:/etc/rabbitmq/conf/
-          - ${{ github.workspace }}/testrun/rabbitmq/ssl/:/etc/rabbitmq/ssl/
-        env:
-          RABBITMQ_USERNAME: serilog
-          RABBITMQ_PASSWORD: serilog
-          RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS: true
-
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -34,13 +20,27 @@ jobs:
         path: 'src'
         fetch-depth: 0
 
-    - run: cp $GITHUB_WORKSPACE/src/docker/rabbitmq/conf/* $GITHUB_WORKSPACE/testrun/rabbitmq/conf/
-    - run: cp $GITHUB_WORKSPACE/src/docker/rabbitmq/ssl/* $GITHUB_WORKSPACE/testrun/rabbitmq/ssl/
+    - name: Get contents of files
+      shell: pwsh
+      run: |
+        docker-compose up -d
+        $val = 0
+        while(1 -eq 1) {
+            $status = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.server
+            if ($status -eq "healthy") {
+                Write-Host "RabbitMQ started"
+                break;
+            }
+            $val++
+            if ($val -ge 10)
+            {
+                Write-Host "RabbitMQ not started after 10 attempts"
+                break;
+            }
+            Write-Host "RabbitMQ status: $($status). Attempt $val. Retry in 1 second"
+            Start-Sleep -s 1
+        }
 
-    - run: docker exec rabbitmq rabbitmqctl stop_app
-    - run: docker exec rabbitmq rabbitmqctl start_app
-    - run: cd ./src
-    
     - name: Setup .NET 8
       uses: actions/setup-dotnet@v4
       with:

@@ -4,6 +4,11 @@ services:
   rabbitmq:
     container_name: serilog.sinks.rabbitmq.server
     image: rabbitmq:3.12.12-management
+    healthcheck:
+      test: rabbitmqctl status || exit 1
+      interval: 30s
+      timeout: 30s
+      retries: 3
     ports:
       - 4369:4369
       - 5671:5671
