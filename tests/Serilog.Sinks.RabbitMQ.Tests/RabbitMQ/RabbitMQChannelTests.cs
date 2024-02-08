@@ -12,62 +12,61 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
+
+public class RabbitMQChannelTests
 {
-    public class RabbitMQChannelTests
+    [Fact]
+    public void Dispose_ShouldNotThrowException_WhenIModelCloseThrowsException()
     {
-        [Fact]
-        public void Dispose_ShouldNotThrowException_WhenIModelCloseThrowsException()
-        {
-            // Arrange
-            var model = Substitute.For<IModel>();
-            model.When(x => x.Close())
-                .Do(_ => throw new Exception("some-message"));
+        // Arrange
+        var model = Substitute.For<IModel>();
+        model.When(x => x.Close())
+            .Do(_ => throw new Exception("some-message"));
 
-            var sut = new RabbitMQChannel(model);
+        var sut = new RabbitMQChannel(model);
 
-            // Act
-            sut.Dispose();
+        // Act
+        sut.Dispose();
 
-            // Assert
-            model.Received(1).Close();
-            model.Received(1).Dispose();
-        }
+        // Assert
+        model.Received(1).Close();
+        model.Received(1).Dispose();
+    }
 
-        [Fact]
-        public void IsOpen_ShouldReturnTrue_WhenModelIsOpen()
-        {
-            // Arrange
-            var model = Substitute.For<IModel>();
-            model.IsOpen.Returns(true);
+    [Fact]
+    public void IsOpen_ShouldReturnTrue_WhenModelIsOpen()
+    {
+        // Arrange
+        var model = Substitute.For<IModel>();
+        model.IsOpen.Returns(true);
 
-            var sut = new RabbitMQChannel(model);
+        var sut = new RabbitMQChannel(model);
 
-            // Act
-            var isOpen = sut.IsOpen;
+        // Act
+        var isOpen = sut.IsOpen;
 
-            // Assert
-            isOpen.Should().BeTrue();
-        }
+        // Assert
+        isOpen.Should().BeTrue();
+    }
 
-        [Fact]
-        public void BasicPublish_ShouldCallModelBasicPublish_WithCorrectParameters()
-        {
-            // Arrange
-            var model = Substitute.For<IModel>();
-            var basicProperties = Substitute.For<IBasicProperties>();
-            model.CreateBasicProperties().Returns(basicProperties);
+    [Fact]
+    public void BasicPublish_ShouldCallModelBasicPublish_WithCorrectParameters()
+    {
+        // Arrange
+        var model = Substitute.For<IModel>();
+        var basicProperties = Substitute.For<IBasicProperties>();
+        model.CreateBasicProperties().Returns(basicProperties);
 
-            var address = new PublicationAddress("exchangeType", "exchangeName", "routingKey");
-            var body = new ReadOnlyMemory<byte>([1, 2, 3]);
+        var address = new PublicationAddress("exchangeType", "exchangeName", "routingKey");
+        var body = new ReadOnlyMemory<byte>([1, 2, 3]);
 
-            var sut = new RabbitMQChannel(model);
+        var sut = new RabbitMQChannel(model);
 
-            // Act
-            sut.BasicPublish(address, body);
+        // Act
+        sut.BasicPublish(address, body);
 
-            // Assert
-            model.Received(1).BasicPublish(address, Arg.Is(basicProperties), body);
-        }
+        // Assert
+        model.Received(1).BasicPublish(address, Arg.Is(basicProperties), body);
     }
 }

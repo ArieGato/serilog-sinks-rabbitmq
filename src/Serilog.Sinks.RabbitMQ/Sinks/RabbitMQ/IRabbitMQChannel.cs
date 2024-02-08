@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2024 Serilog Contributors
+// Copyright 2015-2024 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,23 +14,22 @@
 
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// The RabbitMQ Channel interface.
+/// </summary>
+internal interface IRabbitMQChannel : IDisposable
 {
     /// <summary>
-    /// The RabbitMQ Channel interface
+    /// Returns true when the channel is open.
     /// </summary>
-    internal interface IRabbitMQChannel : IDisposable
-    {
-        /// <summary>
-        /// Returns true when the channel is open
-        /// </summary>
-        bool IsOpen { get; }
+    bool IsOpen { get; }
 
-        /// <summary>
-        /// Publishes a message to RabbitMq Exchange
-        /// </summary>
-        /// <param name="address"></param>
-        /// <param name="body"></param>
-        void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
-    }
+    /// <summary>
+    /// Publishes a message to RabbitMq Exchange.
+    /// </summary>
+    /// <param name="address"></param>
+    /// <param name="body"></param>
+    void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
 }

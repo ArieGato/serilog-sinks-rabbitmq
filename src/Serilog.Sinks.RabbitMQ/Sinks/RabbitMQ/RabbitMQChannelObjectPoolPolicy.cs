@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2024 Serilog Contributors
+// Copyright 2015-2024 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,55 +15,54 @@
 using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <inheritdoc />
+internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRabbitMQChannel>
 {
-    /// <inheritdoc />
-    internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRabbitMQChannel>
+    private readonly RabbitMQClientConfiguration _config;
+    private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
+
+    private bool _exchangeCreated;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RabbitMQChannelObjectPoolPolicy"/> class.
+    /// </summary>
+    /// <param name="rabbitMQConfiguration"></param>
+    /// <param name="rabbitMQConnectionFactory"></param>
+    public RabbitMQChannelObjectPoolPolicy(
+        RabbitMQClientConfiguration rabbitMQConfiguration,
+        IRabbitMQConnectionFactory rabbitMQConnectionFactory)
     {
-        private readonly RabbitMQClientConfiguration _config;
-        private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
+        _config = rabbitMQConfiguration;
+        _rabbitMQConnectionFactory = rabbitMQConnectionFactory;
+    }
 
-        private bool _exchangeCreated;
+    /// <inheritdoc />
+    public IRabbitMQChannel Create()
+    {
+        var connection = _rabbitMQConnectionFactory.GetConnection();
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="RabbitMQChannelObjectPoolPolicy"/> class.
-        /// </summary>
-        /// <param name="rabbitMQConfiguration"></param>
-        /// <param name="rabbitMQConnectionFactory"></param>
-        public RabbitMQChannelObjectPoolPolicy(
-            RabbitMQClientConfiguration rabbitMQConfiguration,
-            IRabbitMQConnectionFactory rabbitMQConnectionFactory)
+        var model = connection.CreateModel();
+
+        CreateExchange(model);
+
+        return new RabbitMQChannel(model);
+    }
+
+    /// <inheritdoc />
+    public bool Return(IRabbitMQChannel obj)
+    {
+        return obj.IsOpen;
+    }
+
+    private void CreateExchange(IModel model)
+    {
+        if (!_exchangeCreated && _config.AutoCreateExchange)
         {
-            _config = rabbitMQConfiguration;
-            _rabbitMQConnectionFactory = rabbitMQConnectionFactory;
-        }
-
-        /// <inheritdoc />
-        public IRabbitMQChannel Create()
-        {
-            var connection = _rabbitMQConnectionFactory.GetConnection();
-
-            var model = connection.CreateModel();
-
-            CreateExchange(model);
-
-            return new RabbitMQChannel(model);
-        }
-
-        /// <inheritdoc />
-        public bool Return(IRabbitMQChannel obj)
-        {
-            return obj.IsOpen;
-        }
-
-        private void CreateExchange(IModel model)
-        {
-            if (!_exchangeCreated && _config.AutoCreateExchange)
-            {
-                model.ExchangeDeclare(_config.Exchange, _config.ExchangeType,
-                    _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
-                _exchangeCreated = true;
-            }
+            model.ExchangeDeclare(_config.Exchange, _config.ExchangeType,
+                _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+            _exchangeCreated = true;
         }
     }
 }

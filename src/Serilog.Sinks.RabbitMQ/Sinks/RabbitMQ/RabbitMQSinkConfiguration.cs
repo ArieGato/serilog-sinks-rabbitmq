@@ -16,42 +16,41 @@ using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Compact;
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// Initialization options for <see cref="RabbitMQSink"/>.
+/// </summary>
+public class RabbitMQSinkConfiguration
 {
     /// <summary>
-    /// Initialization options for <see cref="RabbitMQSink"/>.
+    /// The maximum number of events to include in a single batch.
     /// </summary>
-    public class RabbitMQSinkConfiguration
-    {
-        /// <summary>
-        /// The maximum number of events to include in a single batch.
-        /// </summary>
-        public int BatchPostingLimit { get; set; }
+    public int BatchPostingLimit { get; set; }
 
-        /// <summary>
-        /// The time to wait between checking for event batches.
-        /// </summary>
-        public TimeSpan Period { get; set; }
+    /// <summary>
+    /// The time to wait between checking for event batches.
+    /// </summary>
+    public TimeSpan Period { get; set; }
 
-        /// <summary>
-        /// The batched sink internal queue limit.
-        /// </summary>
-        public int? QueueLimit { get; set; }
+    /// <summary>
+    /// The batched sink internal queue limit.
+    /// </summary>
+    public int? QueueLimit { get; set; }
 
-        /// <summary>
-        /// Controls the rendering of log events into text, for example to log JSON. 
-        /// To control plain text formatting, use the overload that accepts an output template.
-        /// </summary>
-        public ITextFormatter TextFormatter { get; set; } = new CompactJsonFormatter();
+    /// <summary>
+    /// Controls the rendering of log events into text, for example to log JSON. 
+    /// To control plain text formatting, use the overload that accepts an output template.
+    /// </summary>
+    public ITextFormatter TextFormatter { get; set; } = new CompactJsonFormatter();
 
-        /// <summary>
-        /// The minimum level for events passed through the sink.
-        /// </summary>
-        public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
+    /// <summary>
+    /// The minimum level for events passed through the sink.
+    /// </summary>
+    public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
 
-        /// <summary>
-        /// Specifies how failed emits should be handled.
-        /// </summary>
-        public EmitEventFailureHandling EmitEventFailure { get; set; }
-    }
+    /// <summary>
+    /// Specifies how failed emits should be handled.
+    /// </summary>
+    public EmitEventFailureHandling EmitEventFailure { get; set; }
 }

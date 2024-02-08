@@ -12,23 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Serilog.Sinks.RabbitMQ
+namespace Serilog.Sinks.RabbitMQ;
+
+/// <summary>
+/// RabbitMQ Client interface
+/// </summary>
+internal interface IRabbitMQClient : IDisposable
 {
     /// <summary>
-    /// RabbitMQ Client interface
+    /// Publishes a message to RabbitMq Exchange
     /// </summary>
-    internal interface IRabbitMQClient : IDisposable
-    {
-        /// <summary>
-        /// Publishes a message to RabbitMq Exchange
-        /// </summary>
-        /// <param name="message"></param>
-        void Publish(string message);
+    /// <param name="message"></param>
+    void Publish(string message);
 
-        /// <summary>
-        /// Close the connection and all channels to RabbitMq
-        /// </summary>
-        /// <exception cref="AggregateException"></exception>
-        void Close();
-    }
+    /// <summary>
+    /// Close the connection and all channels to RabbitMq
+    /// </summary>
+    /// <exception cref="AggregateException"></exception>
+    void Close();
 }
