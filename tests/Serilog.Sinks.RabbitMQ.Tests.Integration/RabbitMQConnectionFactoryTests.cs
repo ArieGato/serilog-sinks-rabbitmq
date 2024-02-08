@@ -1,4 +1,4 @@
-﻿// Copyright 2015-2022 Serilog Contributors
+// Copyright 2015-2022 Serilog Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,33 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Serilog.Sinks.RabbitMQ.Tests.Integration
+namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
+
+public class RabbitMQConnectionFactoryTests
 {
-    public class RabbitMQConnectionFactoryTests
+    [Fact]
+    public void GetConnection_ShouldReturnOpenConnection()
     {
-        [Fact]
-        public void GetConnection_ShouldReturnOpenConnection()
-        {
-            var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQClientConfiguration(),
-                new CancellationTokenSource());
+        var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQClientConfiguration(),
+            new CancellationTokenSource());
 
-            sut.GetConnection().IsOpen.Should().BeTrue();
+        sut.GetConnection().IsOpen.Should().BeTrue();
 
-            sut.Close();
+        sut.Close();
 
-            sut.Dispose();
-        }
+        sut.Dispose();
+    }
 
-        [Fact]
-        public void GetConnection_ShouldReturnNull_WhenBrokerCannotBeReached()
-        {
-            var rabbitMQClientConfiguration = RabbitMQFixture.GetRabbitMQClientConfiguration();
-            rabbitMQClientConfiguration.Port = 5673;
+    [Fact]
+    public void GetConnection_ShouldReturnNull_WhenBrokerCannotBeReached()
+    {
+        var rabbitMQClientConfiguration = RabbitMQFixture.GetRabbitMQClientConfiguration();
+        rabbitMQClientConfiguration.Port = 5673;
 
-            using var sut = new RabbitMQConnectionFactory(rabbitMQClientConfiguration, new CancellationTokenSource());
+        using var sut = new RabbitMQConnectionFactory(rabbitMQClientConfiguration, new CancellationTokenSource());
 
-            var act = () => sut.GetConnection();
-            act.Should().ThrowExactly<BrokerUnreachableException>();
-        }
+        var act = () => sut.GetConnection();
+        act.Should().ThrowExactly<BrokerUnreachableException>();
     }
 }
