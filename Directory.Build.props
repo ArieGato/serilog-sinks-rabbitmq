@@ -25,11 +25,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FluentAssertions" Version="6.12.0" />
+    <PackageReference Include="Shouldly" Version="4.2.1" />
 
     <Using Include="Xunit" />
     <Using Include="System.Text" />
-    <Using Include="FluentAssertions" />
+    <Using Include="Shouldly" />
     <Using Include="Newtonsoft.Json.Linq" />
     <Using Include="Serilog.Formatting.Json" />
     <Using Include="RabbitMQ.Client" />
