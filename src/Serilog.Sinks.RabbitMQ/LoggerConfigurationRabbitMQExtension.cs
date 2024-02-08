@@ -29,7 +29,7 @@ namespace Serilog;
 /// </summary>
 public static class LoggerConfigurationRabbitMqExtension
 {
-    private const int DefaultBatchPostingLimit = 50;
+    private const int DEFAULT_BATCH_POSTING_LIMIT = 50;
     private static readonly TimeSpan _defaultPeriod = TimeSpan.FromSeconds(2);
 
     /// <summary>
@@ -147,7 +147,7 @@ public static class LoggerConfigurationRabbitMqExtension
 
         var sinkConfiguration = new RabbitMQSinkConfiguration
         {
-            BatchPostingLimit = batchPostingLimit == default ? DefaultBatchPostingLimit : batchPostingLimit,
+            BatchPostingLimit = batchPostingLimit == default ? DEFAULT_BATCH_POSTING_LIMIT : batchPostingLimit,
             Period = period == default ? _defaultPeriod : period,
             QueueLimit = queueLimit,
             EmitEventFailure = emitEventFailure,
@@ -285,7 +285,7 @@ public static class LoggerConfigurationRabbitMqExtension
         }
 
         sinkConfiguration.BatchPostingLimit = (sinkConfiguration.BatchPostingLimit == default)
-            ? DefaultBatchPostingLimit
+            ? DEFAULT_BATCH_POSTING_LIMIT
             : sinkConfiguration.BatchPostingLimit;
         sinkConfiguration.Period = (sinkConfiguration.Period == default) ? _defaultPeriod : sinkConfiguration.Period;
 
