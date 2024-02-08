@@ -19,8 +19,8 @@ jobs:
           - 5671:5671
           - 5672:5672
         volumes:
-          - ${{ github.workspace }}/docker/rabbitmq/conf/:/etc/rabbitmq/conf/:ro
-          - ${{ github.workspace }}/docker/rabbitmq/ssl/:/etc/rabbitmq/ssl/:ro
+          - ${{ runner.workspace }}/testrun/rabbitmq/conf/:/etc/rabbitmq/conf/
+          - ${{ runner.workspace }}/testrun/rabbitmq/ssl/:/etc/rabbitmq/ssl/
         env:
           RABBITMQ_USERNAME: serilog
           RABBITMQ_PASSWORD: serilog
@@ -32,6 +32,12 @@ jobs:
       with:
         ref: ${{ github.ref }}
         fetch-depth: 0
+
+    - run: cp $GITHUB_WORKSPACE/docker/rabbitmq/conf/* $RUNNER_WORKSPACE/testrun/rabbitmq/conf/
+    - run: cp $GITHUB_WORKSPACE/docker/rabbitmq/ssl/* $RUNNER_WORKSPACE/testrun/rabbitmq/ssl/
+
+    - run: docker exec rabbitmq rabbitmqctl stop_app
+    - run: docker exec rabbitmq rabbitmqctl start_app
 
     - name: Setup .NET 8
       uses: actions/setup-dotnet@v4
