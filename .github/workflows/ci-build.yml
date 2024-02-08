@@ -65,7 +65,7 @@ jobs:
       run: dotnet build --no-restore -c ${{ env.Configuration }} /p:Version=${{ steps.gitversion.outputs.FullSemVer }}
 
     - name: Run tests
-      run: dotnet test --verbosity normal -c Debug -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+      run: dotnet test --no-build --verbosity normal -c ${{ env.Configuration }} -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4
