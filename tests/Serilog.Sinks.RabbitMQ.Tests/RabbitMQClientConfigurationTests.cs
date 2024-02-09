@@ -39,6 +39,6 @@ public class RabbitMQClientConfigurationTests
         var copy = new RabbitMQClientConfiguration().From(original);
 
         // Assert
-        copy.Should().BeEquivalentTo(original);
+        copy.ShouldBeEquivalentTo(original);
     }
 }

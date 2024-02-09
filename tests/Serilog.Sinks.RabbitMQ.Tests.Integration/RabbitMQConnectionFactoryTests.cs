@@ -25,7 +25,7 @@ public class RabbitMQConnectionFactoryTests
         var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQClientConfiguration(),
             new CancellationTokenSource());
 
-        sut.GetConnection().IsOpen.Should().BeTrue();
+        sut.GetConnection().IsOpen.ShouldBeTrue();
 
         sut.Close();
 
@@ -41,7 +41,7 @@ public class RabbitMQConnectionFactoryTests
         using var sut = new RabbitMQConnectionFactory(rabbitMQClientConfiguration, new CancellationTokenSource());
 
         var act = () => sut.GetConnection();
-        act.Should().ThrowExactly<BrokerUnreachableException>();
+        Should.Throw<BrokerUnreachableException>(act).GetType().ShouldBe(typeof(BrokerUnreachableException));
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class RabbitMQConnectionFactoryTests
         var connection = sut.GetConnection();
 
         // assert
-        connection.IsOpen.Should().BeTrue();
+        connection.IsOpen.ShouldBeTrue();
 
         sut.Close();
 
@@ -92,7 +92,7 @@ public class RabbitMQConnectionFactoryTests
         var connection = sut.GetConnection();
 
         // assert
-        connection.IsOpen.Should().BeTrue();
+        connection.IsOpen.ShouldBeTrue();
 
         sut.Close();
         sut.Dispose();

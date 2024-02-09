@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System.Diagnostics;
+using Newtonsoft.Json.Linq;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 

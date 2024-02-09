@@ -7,17 +7,12 @@
 
   <ItemGroup>
     <PackageReference Include="NSubstitute" Version="5.1.0" />
-	  <PackageReference Include="PublicApiGenerator" Version="11.1.0" />
-	  <PackageReference Include="Shouldly" Version="4.2.1" />
+    <PackageReference Include="PublicApiGenerator" Version="11.1.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Serilog.Sinks.RabbitMQ\Serilog.Sinks.RabbitMQ.csproj" />
     <Using Include="NSubstitute" />
-  </ItemGroup>
-
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net48' ">
-    <Using Remove="Newtonsoft.Json.Linq" />
   </ItemGroup>
 
 </Project>

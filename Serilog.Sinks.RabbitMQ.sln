@@ -29,6 +29,19 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Net8FromCodeSample", "sampl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetFrameworkAppSettingsConfigSample", "samples\NetFrameworkAppSettingsConfigSample\NetFrameworkAppSettingsConfigSample.csproj", "{5E222A9E-EAC6-4073-884D-EC3B441C37B8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{E462C9C7-12FE-4291-AF00-892D98AA9D15}"
+	ProjectSection(SolutionItems) = preProject
+		.github\codecov.yml = .github\codecov.yml
+		.github\CODEOWNERS = .github\CODEOWNERS
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{D9046050-14F3-4815-979E-80BC1D4657A2}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\ci-build.yml = .github\workflows\ci-build.yml
+		.github\workflows\publish-prerelease.yml = .github\workflows\publish-prerelease.yml
+		.github\workflows\publish-release.yml = .github\workflows\publish-release.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -70,6 +83,7 @@ Global
 		{5830FD45-263D-43C9-8F2B-86C04A360D28} = {95E85532-D0BC-4D86-8C0E-BB1DBBC41601}
 		{25F5C825-6A4E-4D19-A55E-3616A23E9969} = {95E85532-D0BC-4D86-8C0E-BB1DBBC41601}
 		{5E222A9E-EAC6-4073-884D-EC3B441C37B8} = {95E85532-D0BC-4D86-8C0E-BB1DBBC41601}
+		{D9046050-14F3-4815-979E-80BC1D4657A2} = {E462C9C7-12FE-4291-AF00-892D98AA9D15}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {154911B7-34EE-428C-834D-6AF57B44532A}
