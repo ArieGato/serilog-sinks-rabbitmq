@@ -314,7 +314,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             port: 5672);
 
         var ex = Should.Throw<ArgumentException>(act);
-        ex.Message.ShouldBe("hostnames cannot be empty, specify at least one hostname*");
+        ex.Message.ShouldBe("hostnames cannot be empty, specify at least one hostname");
     }
 
     [Fact]
@@ -329,7 +329,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             port: 5672);
 
         var ex = Should.Throw<ArgumentException>(act);
-        ex.Message.ShouldBe("username cannot be 'null' or and empty string.*");
+        ex.Message.ShouldBe("username cannot be 'null' or and empty string.");
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             port: 5672);
 
         var ex = Should.Throw<ArgumentException>(act);
-        ex.Message.ShouldBe("password cannot be 'null'. Specify an empty string if password is empty.*");
+        ex.Message.ShouldBe("password cannot be 'null'. Specify an empty string if password is empty.");
     }
 
     [Fact]
@@ -359,7 +359,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             port: -1);
 
         var ex = Should.Throw<ArgumentException>(act);
-        ex.Message.ShouldBe("port must be in a valid range (1 and 65535)*");
+        ex.Message.ShouldBe("port must be in a valid range (1 and 65535)");
     }
 
     [Fact]
@@ -374,6 +374,6 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             port: 65536);
 
         var ex = Should.Throw<ArgumentException>(act);
-        ex.Message.ShouldBe("port must be in a valid range (1 and 65535)*");
+        ex.Message.ShouldBe("port must be in a valid range (1 and 65535)");
     }
 }
