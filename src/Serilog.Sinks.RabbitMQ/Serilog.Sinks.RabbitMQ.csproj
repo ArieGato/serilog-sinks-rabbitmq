@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net6.0;net8.0</TargetFrameworks>
-    <DebugType>embedded</DebugType>
     <PackageTags>serilog;logging;rabbitmq;error</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -10,8 +9,6 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageDescription>Serilog.Sinks.RabbitMq is a Nuget package that extends Serilog to support logging to RabbitMq</PackageDescription>
     <Authors>Steffen Lyng, Jared Nance, Tsvetelin Tsonev, Jeow Li Huan, Andre Rocha, Shaparam, Meli0r, Johannes Egger, Dag H. Baardsen, Aaron Powell, Thomas Ardal, Juris Gekiss, Arjan Vermunt</Authors>
-    <RepositoryUrl>https://github.com/ArieGato/serilog-sinks-rabbitmq</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
