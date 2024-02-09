@@ -94,7 +94,7 @@ public class RabbitMQClientTests
 
         // Assert
         var ex = Should.Throw<AggregateException>(act);
-        ex.Message.ShouldBe($"Exceptions occurred while closing {nameof(RabbitMQClient)}*");
+        ex.Message.ShouldStartWith($"Exceptions occurred while closing {nameof(RabbitMQClient)}");
         ex.InnerExceptions.Count.ShouldBe(2);
     }
 

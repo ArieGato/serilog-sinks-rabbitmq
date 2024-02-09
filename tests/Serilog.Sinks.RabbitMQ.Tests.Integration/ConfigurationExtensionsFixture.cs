@@ -374,6 +374,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             port: 65536);
 
         var ex = Should.Throw<ArgumentException>(act);
-        ex.Message.ShouldBe("port must be in a valid range (1 and 65535)");
+        ex.Message.ShouldStartWith("port must be in a valid range (1 and 65535)");
+        ex.ParamName.ShouldBe("Port");
     }
 }
