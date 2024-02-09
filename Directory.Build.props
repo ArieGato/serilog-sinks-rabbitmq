@@ -2,7 +2,14 @@
 
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RepositoryType>git</RepositoryType>
+    <DebugType>embedded</DebugType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables -->
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">True</ContinuousIntegrationBuild>
     <Copyright>Copyright © Serilog Contributors 2019-2024</Copyright>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <SignAssembly>true</SignAssembly>
@@ -25,11 +32,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FluentAssertions" Version="6.12.0" />
+    <PackageReference Include="Shouldly" Version="4.2.1" />
 
     <Using Include="Xunit" />
     <Using Include="System.Text" />
-    <Using Include="FluentAssertions" />
+    <Using Include="Shouldly" />
     <Using Include="Newtonsoft.Json.Linq" />
     <Using Include="Serilog.Formatting.Json" />
     <Using Include="RabbitMQ.Client" />

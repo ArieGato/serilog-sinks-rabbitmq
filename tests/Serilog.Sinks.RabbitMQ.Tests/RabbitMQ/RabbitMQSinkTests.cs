@@ -185,7 +185,7 @@ public class RabbitMQSinkTests
         await sut.EmitBatchAsync([logEvent1, logEvent2]);
 
         // Assert
-        selfLogStringBuilder.Length.Should().BeGreaterThan(0);
+        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
         failureSink.Received(0).Emit(Arg.Any<LogEvent>());
     }
 
@@ -213,9 +213,9 @@ public class RabbitMQSinkTests
         await sut.EmitBatchAsync([logEvent1]);
 
         // Assert
-        selfLogStringBuilder.Length.Should().BeGreaterThan(0);
-        selfLogStringBuilder.ToString().Should().Contain("some-message");
-        selfLogStringBuilder.ToString().Should().Contain("failure-sink-message");
+        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
+        selfLogStringBuilder.ToString().ShouldContain("some-message");
+        selfLogStringBuilder.ToString().ShouldContain("failure-sink-message");
         failureSink.Received(1).Emit(Arg.Is(logEvent1));
     }
 
@@ -237,7 +237,8 @@ public class RabbitMQSinkTests
         var act = () => sut.EmitBatchAsync([logEvent1, logEvent2]);
 
         // Assert
-        await act.Should().ThrowAsync<Exception>().WithMessage("some-message");
+        var ex = await Should.ThrowAsync<Exception>(act);
+        ex.Message.ShouldBe("some-message");
     }
 
     [Fact]
@@ -257,6 +258,6 @@ public class RabbitMQSinkTests
         var act = () => sut.EmitBatchAsync([logEvent1]);
 
         // Assert
-        await act.Should().NotThrowAsync<Exception>();
+        await Should.NotThrowAsync(act);
     }
 }

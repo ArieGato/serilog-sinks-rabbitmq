@@ -313,8 +313,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             password: "password",
             port: 5672);
 
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("hostnames cannot be empty, specify at least one hostname*");
+        var ex = Should.Throw<ArgumentException>(act);
+        ex.Message.ShouldBe("hostnames cannot be empty, specify at least one hostname");
     }
 
     [Fact]
@@ -328,8 +328,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             password: "password",
             port: 5672);
 
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("username cannot be 'null' or and empty string.*");
+        var ex = Should.Throw<ArgumentException>(act);
+        ex.Message.ShouldBe("username cannot be 'null' or and empty string.");
     }
 
     [Fact]
@@ -343,8 +343,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             password: null,
             port: 5672);
 
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("password cannot be 'null'. Specify an empty string if password is empty.*");
+        var ex = Should.Throw<ArgumentException>(act);
+        ex.Message.ShouldBe("password cannot be 'null'. Specify an empty string if password is empty.");
     }
 
     [Fact]
@@ -358,8 +358,9 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             password: "password",
             port: -1);
 
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("port must be in a valid range (1 and 65535)*");
+        var ex = Should.Throw<ArgumentException>(act);
+        ex.Message.ShouldStartWith("port must be in a valid range (1 and 65535)");
+        ex.ParamName.ShouldBe("Port");
     }
 
     [Fact]
@@ -373,7 +374,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             password: "password",
             port: 65536);
 
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("port must be in a valid range (1 and 65535)*");
+        var ex = Should.Throw<ArgumentException>(act);
+        ex.Message.ShouldStartWith("port must be in a valid range (1 and 65535)");
+        ex.ParamName.ShouldBe("Port");
     }
 }
