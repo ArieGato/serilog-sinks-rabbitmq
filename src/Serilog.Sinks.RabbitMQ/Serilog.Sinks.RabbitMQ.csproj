@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net6.0;net8.0</TargetFrameworks>
-    <DebugType>portable</DebugType>
+    <DebugType>embedded</DebugType>
     <PackageTags>serilog;logging;rabbitmq;error</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
