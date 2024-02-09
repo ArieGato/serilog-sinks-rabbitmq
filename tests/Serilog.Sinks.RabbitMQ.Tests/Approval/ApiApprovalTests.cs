@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if NET8_0
+
 using PublicApiGenerator;
 
 namespace Serilog.Sinks.RabbitMQ.Tests;
@@ -31,9 +33,8 @@ public class ApiApprovalTests
             AllowNamespacePrefixes = ["System", "Microsoft.Extensions.DependencyInjection"],
             ExcludeAttributes = ["System.Diagnostics.DebuggerDisplayAttribute"],
         });
-        Console.WriteLine("==============");
-        Console.WriteLine(publicApi);
-        Console.WriteLine("==============");
         publicApi.ShouldMatchApproved(options => options.NoDiff().WithFilenameGenerator((testMethodInfo, discriminator, fileType, fileExtension) => $"{type.Assembly.GetName().Name!}.{fileType}.{fileExtension}"));
     }
 }
+
+#endif
