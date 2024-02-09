@@ -105,7 +105,7 @@ public class RabbitMQClientConfiguration
         SslOption = config.SslOption;
         AutoCreateExchange = config.AutoCreateExchange;
         MaxChannels = config.MaxChannels;
-        Hostnames = config.Hostnames.ToArray();
+        Hostnames = config.Hostnames.ToList();
 
         return this;
     }
