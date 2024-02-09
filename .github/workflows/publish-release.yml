@@ -32,9 +32,9 @@ jobs:
                 break;
             }
             $val++
-            if ($val -ge 15)
+            if ($val -ge 20)
             {
-                Write-Host "RabbitMQ services not started after 15 attempts"
+                Write-Host "RabbitMQ services not started after 20 attempts"
                 break;
             }
             Write-Host "RabbitMQ services status: ssl-plain: $($status_ssl_plain) - ssl-cert: $($status_ssl_cert). Attempt $val. Retry in 1 second"
