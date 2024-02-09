@@ -27,7 +27,7 @@ jobs:
         while(1 -eq 1) {
             $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
             $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
-            if (status_ssl_plain -eq "healthy" -and $status_ssl_cert -eq "healthy") {
+            if ($status_ssl_plain -eq "healthy" -and $status_ssl_cert -eq "healthy") {
                 Write-Host "RabbitMQ services started"
                 break;
             }
