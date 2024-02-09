@@ -17,13 +17,13 @@ using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ;
 
-/// <inheritdoc />
+/// <inheritdoc cref="IPooledObjectPolicy{T}" />
 internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRabbitMQChannel>
 {
     private readonly RabbitMQClientConfiguration _config;
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
-    private bool _exchangeCreated;
+    private volatile bool _exchangeCreated;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQChannelObjectPoolPolicy"/> class.
@@ -38,7 +38,7 @@ internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRabbitMQCh
         _rabbitMQConnectionFactory = rabbitMQConnectionFactory;
     }
 
-    /// <inheritdoc />
+    /// <inheritdoc cref="IPooledObjectPolicy{T}.Create" />
     public IRabbitMQChannel Create()
     {
         var connection = _rabbitMQConnectionFactory.GetConnection();
@@ -50,11 +50,8 @@ internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRabbitMQCh
         return new RabbitMQChannel(model);
     }
 
-    /// <inheritdoc />
-    public bool Return(IRabbitMQChannel obj)
-    {
-        return obj.IsOpen;
-    }
+    /// <inheritdoc cref="IPooledObjectPolicy{T}.Return" />
+    public bool Return(IRabbitMQChannel obj) => obj.IsOpen;
 
     private void CreateExchange(IModel model)
     {

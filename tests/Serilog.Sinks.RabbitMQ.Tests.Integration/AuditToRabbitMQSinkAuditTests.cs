@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Newtonsoft.Json.Linq;
+
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
 /// <summary>
@@ -43,7 +45,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
             .RabbitMQ(
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
-                hostnames: [RabbitMQFixture.HostName],
+                hostnames: [RabbitMQFixture.SslCertHostName],
                 port: 5672,
                 vHost: "/",
                 deliveryMode: RabbitMQDeliveryMode.Durable,
@@ -56,7 +58,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
 
         logger.Information(messageTemplate, 1.0);
 
-        var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         var consumer = new EventingBasicConsumer(channel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
@@ -76,6 +78,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         Assert.NotNull(receivedMessage["Properties"]);
         Assert.Equal(1.0, receivedMessage["Properties"]["value"]);
 
+        channel.Close();
         logger.Dispose();
     }
 }

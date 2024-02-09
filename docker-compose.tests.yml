@@ -1,6 +1,17 @@
 version: "3.2"
 
 services:
+  integration-test:
+    container_name: serilog.sinks.rabbitmq.tests.integration
+    build:
+      context: ./ 
+      dockerfile: docker/integration-test/Dockerfile
+    depends_on:
+      rabbitmq-cert:
+        condition: service_healthy
+      rabbitmq-plain:
+        condition: service_healthy
+
   rabbitmq-cert:
     container_name: serilog.sinks.rabbitmq.ssl-cert
     image: rabbitmq:3.12.12-management

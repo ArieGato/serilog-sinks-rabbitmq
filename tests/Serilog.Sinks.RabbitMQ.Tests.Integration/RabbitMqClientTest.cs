@@ -42,18 +42,19 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
         var consumer = new EventingBasicConsumer(consumingChannel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
             h => consumer.Received += h,
-            h => consumer.Received -= h,
-            async () =>
+            h => consumer.Received -= h, () =>
             {
                 consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
                 _rabbitMQFixture.Publish(message);
 
                 // Wait for consumer to receive the message.
-                await Task.Delay(50);
+                return Task.Delay(50);
             });
 
-        var receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+        string receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
         Assert.Equal(message, receivedMessage);
+
+        consumingChannel.Close();
     }
 
     /// <summary>
@@ -71,8 +72,7 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
         var consumer = new EventingBasicConsumer(consumingChannel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
             h => consumer.Received += h,
-            h => consumer.Received -= h,
-            async () =>
+            h => consumer.Received -= h, () =>
             {
                 // start consuming queue
                 consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
@@ -83,11 +83,13 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
                 }
 
                 // Wait for consumer to receive the message.
-                await Task.Delay(1000);
+                return Task.Delay(1000);
             });
 
-        var receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+        string receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
         Assert.Equal(message, receivedMessage);
+
+        consumingChannel.Close();
     }
 
     [Fact]
@@ -101,11 +103,11 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
             Username = RabbitMQFixture.UserName,
             Password = RabbitMQFixture.Password,
             ExchangeType = "topic",
-            Hostnames = [RabbitMQFixture.HostName],
+            Hostnames = [RabbitMQFixture.SslCertHostName],
             AutoCreateExchange = true
         };
 
-        var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
+        using var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
         rabbitMQClient.Publish("a message");
 
         //// wait for message sent
@@ -122,6 +124,9 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
         {
             consumingChannel.ExchangeDelete("auto-created-exchange-name");
         }
+
+        consumingChannel.Close();
+        rabbitMQClient.Close();
     }
 
     /// <summary>
@@ -131,21 +136,34 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Publish_ParallelMessages_AllMessagesArePublished()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        var config = new RabbitMQClientConfiguration
+        {
+            Port = 5672,
+            DeliveryMode = RabbitMQDeliveryMode.Durable,
+            Exchange = "parallel-message-exchange",
+            ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
+            AutoCreateExchange = true,
+            Username = RabbitMQFixture.UserName,
+            Password = RabbitMQFixture.Password,
+            Hostnames = [RabbitMQFixture.SslCertHostName]
+        };
+        using var rabbitMQClient = new RabbitMQClient(config);
 
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        var message = Guid.NewGuid().ToString();
+        string message = Guid.NewGuid().ToString();
 
         var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
 
         Parallel.For(0, 10, parallelOptions, (_, _) =>
         {
-            for (var i = 0; i < 1000; i++)
+            for (int i = 0; i < 1000; i++)
             {
-                _rabbitMQFixture.Publish(message);
+                rabbitMQClient.Publish(message);
             }
         });
 
-        watch.Stop();
+        // Add some delay to ensure all messages are published before the exchange is deleted
+        await Task.Delay(1000);
+
+        rabbitMQClient.Close();
     }
 }

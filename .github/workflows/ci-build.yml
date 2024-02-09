@@ -15,22 +15,34 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    services:
-      rabbitmq:
-        image: bitnami/rabbitmq:latest
-        ports:
-          - 5672:5672
-        env:
-          RABBITMQ_USERNAME: serilog
-          RABBITMQ_PASSWORD: serilog
-          RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS: true
-
     steps:
     - name: Checkout
       uses: actions/checkout@v4
       with:
         ref: ${{ github.ref }}
         fetch-depth: 0
+
+    - name: Start RabbitMQ services
+      shell: pwsh
+      run: |
+        docker-compose up -d
+        $val = 0
+        while(1 -eq 1) {
+            $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
+            $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
+            if ($status_ssl_plain -eq "healthy" -and $status_ssl_cert -eq "healthy") {
+                Write-Host "RabbitMQ services started"
+                break;
+            }
+            $val++
+            if ($val -ge 20)
+            {
+                Write-Host "RabbitMQ services not started after 20 attempts"
+                break;
+            }
+            Write-Host "RabbitMQ services status: ssl-plain: $($status_ssl_plain) - ssl-cert: $($status_ssl_cert). Attempt $val. Retry in 1 second"
+            Start-Sleep -s 1
+        }
 
     - name: Setup .NET 8
       uses: actions/setup-dotnet@v4

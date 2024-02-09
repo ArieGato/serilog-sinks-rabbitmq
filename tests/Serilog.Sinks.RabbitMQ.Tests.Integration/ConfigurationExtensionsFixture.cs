@@ -36,9 +36,9 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "W")
             .CreateLogger();
 
-        var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
+        using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
         cleanupModel.ExchangeDelete("serilog-settings-sink-exchange");
-        cleanupModel.Dispose();
+        cleanupModel.Close();
 
         // should not throw
         logger.Dispose();
@@ -51,9 +51,9 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "H")
             .CreateLogger();
 
-        var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
+        using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
         cleanupModel.ExchangeDelete("serilog-settings-sink-exchange");
-        cleanupModel.Dispose();
+        cleanupModel.Close();
 
         // should not throw
         logger.Dispose();
@@ -66,9 +66,9 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "A")
             .CreateLogger();
 
-        var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
+        using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
         cleanupModel.ExchangeDelete("serilog-settings-sink-audit-exchange");
-        cleanupModel.Dispose();
+        cleanupModel.Close();
 
         // should not throw
         logger.Dispose();
@@ -79,7 +79,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
     {
         var loggerConfiguration = new LoggerConfiguration();
         var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                hostnames: [RabbitMQFixture.HostName],
+                hostnames: [RabbitMQFixture.SslCertHostName],
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
                 exchange: RabbitMQFixture.SerilogSinkExchange,
@@ -102,7 +102,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
     {
         var loggerConfiguration = new LoggerConfiguration();
         var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                hostnames: [RabbitMQFixture.HostName],
+                hostnames: [RabbitMQFixture.SslCertHostName],
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
                 exchange: RabbitMQFixture.SerilogAuditSinkExchange,
@@ -132,7 +132,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             Exchange = RabbitMQFixture.SerilogSinkExchange,
             ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             Heartbeat = 21,
-            Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"],
+            Hostnames = [RabbitMQFixture.SslCertHostName],
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
@@ -183,7 +183,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             Exchange = RabbitMQFixture.SerilogSinkExchange,
             ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             Heartbeat = 21,
-            Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"],
+            Hostnames = [RabbitMQFixture.SslCertHostName],
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
@@ -204,8 +204,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
 
         var rabbitMQSinkConfiguration = new RabbitMQSinkConfiguration
         {
-            TextFormatter = new JsonFormatter(),
-            RestrictedToMinimumLevel = LogEventLevel.Information
+            TextFormatter = new JsonFormatter(), RestrictedToMinimumLevel = LogEventLevel.Information
         };
 
         var logger = loggerConfiguration.AuditTo.RabbitMQ(rabbitMQClientConfiguration, rabbitMQSinkConfiguration)
@@ -220,45 +219,6 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
     {
         var loggerConfiguration = new LoggerConfiguration();
         var logger = loggerConfiguration.AuditTo.RabbitMQ(
-            (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
-            {
-                rabbitMQClientConfiguration.AutoCreateExchange = true;
-                rabbitMQClientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-                rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
-                rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
-                rabbitMQClientConfiguration.Heartbeat = 21;
-                rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"];
-                rabbitMQClientConfiguration.MaxChannels = 32;
-                rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
-                rabbitMQClientConfiguration.Port = 5672;
-                rabbitMQClientConfiguration.RouteKey = "";
-                rabbitMQClientConfiguration.SslOption = new SslOption
-                {
-                    AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
-                    Enabled = false,
-                    ServerName = "localhost",
-                    CertPassphrase = "secret",
-                    CertPath = "path",
-                    Version = SslProtocols.Tls13,
-                    CheckCertificateRevocation = true
-                };
-                rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
-                rabbitMQClientConfiguration.VHost = "/";
-
-                rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
-                rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
-            })
-            .CreateLogger();
-
-        // should not throw
-        logger.Dispose();
-    }
-
-    [Fact]
-    public async Task WriteTo_ShouldNotThrow()
-    {
-        var loggerConfiguration = new LoggerConfiguration();
-        var logger = loggerConfiguration.WriteTo.RabbitMQ(
                 (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
                 {
                     rabbitMQClientConfiguration.AutoCreateExchange = true;
@@ -266,7 +226,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
                     rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
                     rabbitMQClientConfiguration.Heartbeat = 21;
-                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.HostName, "127.0.0.1"];
+                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
                     rabbitMQClientConfiguration.MaxChannels = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
@@ -285,10 +245,40 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.VHost = "/";
 
                     rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
+                    rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
+                })
+            .CreateLogger();
+
+        // should not throw
+        logger.Dispose();
+    }
+
+    [Fact]
+    public async Task WriteTo_ShouldNotThrow()
+    {
+        var loggerConfiguration = new LoggerConfiguration();
+        var logger = loggerConfiguration.WriteTo.RabbitMQ(
+                (rabbitMQClientConfiguration, rabbitMQSinkConfiguration) =>
+                {
+                    rabbitMQClientConfiguration.AutoCreateExchange = true;
+                    rabbitMQClientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+                    rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
+                    rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
+                    rabbitMQClientConfiguration.Heartbeat = 21;
+                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
+                    rabbitMQClientConfiguration.MaxChannels = 32;
+                    rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
+                    rabbitMQClientConfiguration.Port = 5672;
+                    rabbitMQClientConfiguration.RouteKey = "";
+                    rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
+                    rabbitMQClientConfiguration.VHost = "/";
+
+                    rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
                     rabbitMQSinkConfiguration.BatchPostingLimit = 50;
                     rabbitMQSinkConfiguration.Period = TimeSpan.FromSeconds(5);
                     rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
-                    rabbitMQSinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink;
+                    rabbitMQSinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink |
+                                                                 EmitEventFailureHandling.ThrowException;
                 },
                 failureSinkConfiguration => failureSinkConfiguration.Console())
             .CreateLogger();

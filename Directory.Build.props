@@ -37,7 +37,6 @@
     <Using Include="Xunit" />
     <Using Include="System.Text" />
     <Using Include="Shouldly" />
-    <Using Include="Newtonsoft.Json.Linq" />
     <Using Include="Serilog.Formatting.Json" />
     <Using Include="RabbitMQ.Client" />
     <Using Include="RabbitMQ.Client.Events" />
