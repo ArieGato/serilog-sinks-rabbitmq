@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Net.Security;
+using System.Security.Authentication;
+
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
 public class RabbitMQConnectionFactoryTests
@@ -42,15 +45,57 @@ public class RabbitMQConnectionFactoryTests
     }
 
     [Fact]
-    public void GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSsl()
+    public void GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSslCert()
     {
+        // arrange
         var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQSslClientConfiguration(),
             new CancellationTokenSource());
 
-        sut.GetConnection().IsOpen.Should().BeTrue();
+        // act
+        var connection = sut.GetConnection();
+
+        // assert
+        connection.IsOpen.Should().BeTrue();
 
         sut.Close();
 
         sut.Dispose();
     }
+
+    [Fact]
+    public void GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSslPlain()
+    {
+        // arrange
+        var configuration = new RabbitMQClientConfiguration
+        {
+            Port = 6671,
+            DeliveryMode = RabbitMQDeliveryMode.Durable,
+            Exchange = RabbitMQFixture.SerilogSinkExchange,
+            Username = RabbitMQFixture.UserName,
+            Password = RabbitMQFixture.Password,
+            ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
+            Hostnames = [RabbitMQFixture.SslPlainHostName],
+            SslOption = new SslOption
+            {
+                
+                Enabled = true,
+                ServerName = RabbitMQFixture.SslCertHostName,
+                AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch |
+                                         SslPolicyErrors.RemoteCertificateChainErrors,
+                Version = SslProtocols.Tls13
+            }
+        };
+
+        var sut = new RabbitMQConnectionFactory(configuration, new CancellationTokenSource());
+
+        // act
+        var connection = sut.GetConnection();
+
+        // assert
+        connection.IsOpen.Should().BeTrue();
+
+        sut.Close();
+        sut.Dispose();
+    }
+
 }

@@ -19,24 +19,25 @@ jobs:
         ref: ${{ github.ref }}
         fetch-depth: 0
 
-    - name: Get contents of files
+    - name: Start RabbitMQ services
       shell: pwsh
       run: |
         docker-compose up -d
         $val = 0
         while(1 -eq 1) {
-            $status = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.server
-            if ($status -eq "healthy") {
-                Write-Host "RabbitMQ started"
+            $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
+            $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
+            if (status_ssl_plain -eq "healthy" -and $status_ssl_cert -eq "healthy") {
+                Write-Host "RabbitMQ services started"
                 break;
             }
             $val++
             if ($val -ge 10)
             {
-                Write-Host "RabbitMQ not started after 10 attempts"
+                Write-Host "RabbitMQ services not started after 10 attempts"
                 break;
             }
-            Write-Host "RabbitMQ status: $($status). Attempt $val. Retry in 1 second"
+            Write-Host "RabbitMQ services status: ssl-plain: $($status_ssl_plain) - ssl-cert: $($status_ssl_cert). Attempt $val. Retry in 1 second"
             Start-Sleep -s 1
         }
 

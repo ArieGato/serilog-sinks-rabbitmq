@@ -20,7 +20,8 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 public class RabbitMQFixture : IDisposable
 {
     public static bool InDocker => Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
-    public static readonly string HostName = InDocker ? "serilog.sinks.rabbitmq.server" : "localhost";
+    public static readonly string SslCertHostName = InDocker ? "serilog.sinks.rabbitmq.ssl-cert" : "localhost";
+    public static readonly string SslPlainHostName = InDocker ? "serilog.sinks.rabbitmq.ssl-plain" : "localhost";
     public const string UserName = "serilog";
     public const string Password = "serilog";
     public const string SerilogAuditSinkExchange = "serilog-sink-audit-exchange";
@@ -42,7 +43,7 @@ public class RabbitMQFixture : IDisposable
 
         _connectionFactory = new ConnectionFactory
         {
-            HostName = HostName, UserName = UserName, Password = Password, Port = 5672
+            HostName = SslCertHostName, UserName = UserName, Password = Password, Port = 5672
         };
     }
 
@@ -55,8 +56,8 @@ public class RabbitMQFixture : IDisposable
             Exchange = SerilogSinkExchange,
             Username = UserName,
             Password = Password,
-            ExchangeType = "fanout",
-            Hostnames = [HostName]
+            ExchangeType = SerilogSinkExchangeType,
+            Hostnames = [SslCertHostName]
         };
     }
 
@@ -69,12 +70,12 @@ public class RabbitMQFixture : IDisposable
             Exchange = SerilogSinkExchange,
             Username = UserName,
             Password = Password,
-            ExchangeType = "fanout",
-            Hostnames = [HostName],
+            ExchangeType = SerilogSinkExchangeType,
+            Hostnames = [SslCertHostName],
             SslOption = new SslOption()
             {
                 Enabled = true,
-                ServerName = HostName,
+                ServerName = SslCertHostName,
                 AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch |
                                          SslPolicyErrors.RemoteCertificateChainErrors,
                 CertPath = "./resources/client-cert.pfx",

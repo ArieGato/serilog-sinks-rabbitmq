@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if !NETFRAMEWORK
+
 using PublicApiGenerator;
 using Shouldly;
 
@@ -22,7 +24,7 @@ public class ApiApprovalTests
 {
     /// <summary>Check for changes to the public APIs.</summary>
     /// <param name="type">The type used as a marker for the assembly whose public API change you want to check.</param>
-    [Theory(Skip="Not working in ci build")]
+    [Theory]
     [InlineData(typeof(LoggerConfigurationRabbitMqExtension))]
     public void PublicApi_Should_Not_Change_Unintentionally(Type type)
     {
@@ -36,3 +38,4 @@ public class ApiApprovalTests
         publicApi.ShouldMatchApproved(options => options.NoDiff().WithFilenameGenerator((testMethodInfo, discriminator, fileType, fileExtension) => $"{type.Assembly.GetName().Name!}.{fileType}.{fileExtension}"));
     }
 }
+#endif

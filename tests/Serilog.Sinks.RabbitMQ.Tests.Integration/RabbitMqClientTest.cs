@@ -103,7 +103,7 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
             Username = RabbitMQFixture.UserName,
             Password = RabbitMQFixture.Password,
             ExchangeType = "topic",
-            Hostnames = [RabbitMQFixture.HostName],
+            Hostnames = [RabbitMQFixture.SslCertHostName],
             AutoCreateExchange = true
         };
 
@@ -141,11 +141,11 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
             Port = 5672,
             DeliveryMode = RabbitMQDeliveryMode.Durable,
             Exchange = "parallel-message-exchange",
-            ExchangeType = "fanout",
+            ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             AutoCreateExchange = true,
             Username = RabbitMQFixture.UserName,
             Password = RabbitMQFixture.Password,
-            Hostnames = [RabbitMQFixture.HostName]
+            Hostnames = [RabbitMQFixture.SslCertHostName]
         };
         using var rabbitMQClient = new RabbitMQClient(config);
 

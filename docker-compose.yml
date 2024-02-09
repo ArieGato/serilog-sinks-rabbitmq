@@ -1,8 +1,8 @@
 version: "3.2"
 
 services:
-  rabbitmq:
-    container_name: serilog.sinks.rabbitmq.server
+  rabbitmq-cert:
+    container_name: serilog.sinks.rabbitmq.ssl-cert
     image: rabbitmq:3.12.12-management
     healthcheck:
       test: rabbitmqctl status || exit 1
@@ -10,16 +10,33 @@ services:
       timeout: 30s
       retries: 3
     ports:
-      - 4369:4369
       - 5671:5671
       - 5672:5672
-      - 25672:25672
-      - 15671:15671
       - 15672:15672
     volumes:
-      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
-      - ./docker/rabbitmq/rabbitmq.config:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./docker/rabbitmq/ssl-cert/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./docker/rabbitmq/ssl-cert/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./docker/rabbitmq/ssl-cert/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./docker/rabbitmq/ca-cert.pem:/etc/ssl/ca-cert.pem:ro
+      - ./docker/rabbitmq/server-cert.pem:/etc/ssl/server-crt.pem:ro
+      - ./docker/rabbitmq/server-key.pem:/etc/ssl/server-key.pem:ro
+
+  rabbitmq-plain:
+    container_name: serilog.sinks.rabbitmq.ssl-plain
+    image: rabbitmq:3.12.12-management
+    healthcheck:
+      test: rabbitmqctl status || exit 1
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    ports:
+      - 6671:6671
+      - 6672:6672
+      - 16672:16672
+    volumes:
+      - ./docker/rabbitmq/ssl-plain/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./docker/rabbitmq/ssl-plain/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./docker/rabbitmq/ssl-plain/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./docker/rabbitmq/ca-cert.pem:/etc/ssl/ca-cert.pem:ro
       - ./docker/rabbitmq/server-cert.pem:/etc/ssl/server-crt.pem:ro
       - ./docker/rabbitmq/server-key.pem:/etc/ssl/server-key.pem:ro

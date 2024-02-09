@@ -43,7 +43,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
             .RabbitMQ(
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
-                hostnames: [RabbitMQFixture.HostName],
+                hostnames: [RabbitMQFixture.SslCertHostName],
                 port: 5672,
                 vHost: "/",
                 deliveryMode: RabbitMQDeliveryMode.Durable,

@@ -79,7 +79,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
     {
         var loggerConfiguration = new LoggerConfiguration();
         var logger = loggerConfiguration.WriteTo.RabbitMQ(
-                hostnames: [RabbitMQFixture.HostName],
+                hostnames: [RabbitMQFixture.SslCertHostName],
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
                 exchange: RabbitMQFixture.SerilogSinkExchange,
@@ -102,7 +102,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
     {
         var loggerConfiguration = new LoggerConfiguration();
         var logger = loggerConfiguration.AuditTo.RabbitMQ(
-                hostnames: [RabbitMQFixture.HostName],
+                hostnames: [RabbitMQFixture.SslCertHostName],
                 username: RabbitMQFixture.UserName,
                 password: RabbitMQFixture.Password,
                 exchange: RabbitMQFixture.SerilogAuditSinkExchange,
@@ -132,7 +132,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             Exchange = RabbitMQFixture.SerilogSinkExchange,
             ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             Heartbeat = 21,
-            Hostnames = [RabbitMQFixture.HostName],
+            Hostnames = [RabbitMQFixture.SslCertHostName],
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
@@ -183,7 +183,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             Exchange = RabbitMQFixture.SerilogSinkExchange,
             ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             Heartbeat = 21,
-            Hostnames = [RabbitMQFixture.HostName],
+            Hostnames = [RabbitMQFixture.SslCertHostName],
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
@@ -226,7 +226,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
                     rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
                     rabbitMQClientConfiguration.Heartbeat = 21;
-                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.HostName];
+                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
                     rabbitMQClientConfiguration.MaxChannels = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
@@ -265,7 +265,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
                     rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
                     rabbitMQClientConfiguration.Heartbeat = 21;
-                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.HostName];
+                    rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
                     rabbitMQClientConfiguration.MaxChannels = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;

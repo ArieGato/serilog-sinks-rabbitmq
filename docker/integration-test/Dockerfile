@@ -35,4 +35,4 @@ COPY . .
 
 RUN dotnet restore
 
-ENTRYPOINT ["dotnet", "test"]
+ENTRYPOINT ["dotnet", "test", "-c", "Release"]

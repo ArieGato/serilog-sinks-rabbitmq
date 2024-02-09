@@ -46,8 +46,8 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
                 clientConfiguration.Exchange = RabbitMQFixture.SerilogSinkExchange;
                 clientConfiguration.Username = RabbitMQFixture.UserName;
                 clientConfiguration.Password = RabbitMQFixture.Password;
-                clientConfiguration.ExchangeType = "fanout";
-                clientConfiguration.Hostnames = [RabbitMQFixture.HostName];
+                clientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
+                clientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
                 sinkConfiguration.TextFormatter = new JsonFormatter();
             })
             .MinimumLevel.Verbose()
@@ -100,7 +100,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
 
         using var model = await _rabbitMQFixture.GetConsumingModelAsync();
 
-        model.ExchangeDeclare(logParallelMessageExchange, "fanout", true);
+        model.ExchangeDeclare(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true);
         model.QueueDeclare(logParallelMessageQueue, true, false, false);
         model.QueueBind(logParallelMessageQueue, logParallelMessageExchange, "");
 
@@ -109,15 +109,15 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
             Port = 5672,
             DeliveryMode = RabbitMQDeliveryMode.Durable,
             Exchange = logParallelMessageExchange,
-            ExchangeType = "fanout",
+            ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             AutoCreateExchange = true,
             Username = RabbitMQFixture.UserName,
             Password = RabbitMQFixture.Password,
-            Hostnames = [RabbitMQFixture.HostName]
+            Hostnames = [RabbitMQFixture.SslCertHostName]
         };
         using var rabbitMQClient = new RabbitMQClient(config);
 
-        var logger = new LoggerConfiguration()
+        using var logger = new LoggerConfiguration()
             .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
             {
                 clientConfiguration.Port = 5672;
@@ -125,8 +125,8 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
                 clientConfiguration.Exchange = logParallelMessageExchange;
                 clientConfiguration.Username = RabbitMQFixture.UserName;
                 clientConfiguration.Password = RabbitMQFixture.Password;
-                clientConfiguration.ExchangeType = "fanout";
-                clientConfiguration.Hostnames = [RabbitMQFixture.HostName];
+                clientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
+                clientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
                 sinkConfiguration.TextFormatter = new JsonFormatter();
             })
             .MinimumLevel.Verbose()
@@ -158,7 +158,5 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         watch.Stop();
 
         model.Close();
-
-        logger.Dispose();
     }
 }

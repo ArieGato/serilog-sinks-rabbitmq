@@ -100,7 +100,12 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         if (_config.SslOption != null)
         {
             connectionFactory.Ssl = _config.SslOption;
-            connectionFactory.AuthMechanisms = [new ExternalMechanismFactory()];
+
+            // Assume External authentication mechanism when a certificate path is provided
+            if (!string.IsNullOrEmpty(_config.SslOption.CertPath))
+            {
+                connectionFactory.AuthMechanisms = [new ExternalMechanismFactory()];
+            }
         }
 
         // setup heartbeat if needed
