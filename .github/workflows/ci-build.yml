@@ -10,7 +10,7 @@ on:
       - '!master'   # excludes master
 
 env:
-  Configuration: Release
+  Configuration: Debug
 
 jobs:
   build:
