@@ -140,20 +140,22 @@ public class RabbitMQFixture : IDisposable
     /// <exception cref="Exception"></exception>
     public async Task<IModel> GetConsumingModelAsync()
     {
-        for (int i = 0; i < 10; i++)
+        int counter = 0;
+        while (true)
         {
             try
             {
                 _consumingConnection ??= _connectionFactory.CreateConnection();
-
                 return _consumingConnection.CreateModel();
             }
             catch (BrokerUnreachableException)
             {
+                if (counter++ > 10)
+                {
+                    throw new Exception("Failed to connect to RabbitMQ.");
+                }
                 await Task.Delay(1000);
             }
         }
-
-        throw new Exception("Failed to connect to RabbitMQ.");
     }
 }
