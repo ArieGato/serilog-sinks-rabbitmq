@@ -15,11 +15,20 @@
     <SignAssembly>true</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <AssemblyOriginatorKeyFile>../../assets/Serilog.snk</AssemblyOriginatorKeyFile>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);SA1600;SA1611;SA1614;SA1615;SA1616;SA1627</NoWarn> <!--TODO: write documentation and remove this line-->
   </PropertyGroup>
 
   <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests'))">
-    <NoWarn>1701;1702;1591</NoWarn>
+    <NoWarn>$(NoWarn);1701;1702;1591;SA1600;IDE1006</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
   <ItemGroup Condition="$(MSBuildProjectName.Contains('.Tests'))">
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />

@@ -1,7 +1,7 @@
 # Generating
 
 ## **Do not use these certificates in a production environment!!!**
-Be carefull when using self signed certificates, they are less secure
+Be careful when using self signed certificates, they are less secure
 and should not be used in a production environment.
 
 ## CA Certificate

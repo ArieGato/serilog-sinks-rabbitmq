@@ -24,7 +24,7 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     private readonly ConnectionFactory _connectionFactory;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
 
-    private IConnection _connection;
+    private IConnection? _connection;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQConnectionFactory"/> class.
@@ -59,7 +59,7 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         }
         finally
         {
-            _connectionLock.Release();
+            _ = _connectionLock.Release();
         }
 
         return _connection;
@@ -94,7 +94,7 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         {
             // setup auto recovery
             AutomaticRecoveryEnabled = true,
-            NetworkRecoveryInterval = TimeSpan.FromSeconds(2)
+            NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
         };
 
         if (_config.SslOption != null)
@@ -136,7 +136,7 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     }
 
     /// <summary>
-    /// Close the connection and all channels to RabbitMq
+    /// Close the connection and all channels to RabbitMq.
     /// </summary>
     /// <exception cref="AggregateException"></exception>
     public void Close()

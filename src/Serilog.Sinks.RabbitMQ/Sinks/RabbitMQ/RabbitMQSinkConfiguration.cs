@@ -39,7 +39,7 @@ public class RabbitMQSinkConfiguration
     public int? QueueLimit { get; set; }
 
     /// <summary>
-    /// Controls the rendering of log events into text, for example to log JSON. 
+    /// Controls the rendering of log events into text, for example to log JSON.
     /// To control plain text formatting, use the overload that accepts an output template.
     /// </summary>
     public ITextFormatter TextFormatter { get; set; } = new CompactJsonFormatter();

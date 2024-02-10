@@ -44,7 +44,7 @@ public class RabbitMQChannelTests
         var sut = new RabbitMQChannel(model);
 
         // Act
-        var isOpen = sut.IsOpen;
+        bool isOpen = sut.IsOpen;
 
         // Assert
         isOpen.ShouldBeTrue();

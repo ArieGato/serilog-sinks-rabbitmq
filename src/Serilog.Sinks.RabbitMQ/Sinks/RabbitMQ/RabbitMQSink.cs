@@ -21,18 +21,18 @@ using Serilog.Sinks.PeriodicBatching;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog
+/// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog.
 /// </summary>
 public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
 {
     private readonly ITextFormatter _formatter;
     private readonly IRabbitMQClient _client;
-    private readonly ILogEventSink _failureSink;
+    private readonly ILogEventSink? _failureSink;
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
     private bool _disposedValue;
 
     /// <summary>
-    /// Default constructor
+    /// Default constructor.
     /// </summary>
     /// <param name="configuration"></param>
     /// <param name="rabbitMQSinkConfiguration"></param>
@@ -40,7 +40,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     internal RabbitMQSink(
         RabbitMQClientConfiguration configuration,
         RabbitMQSinkConfiguration rabbitMQSinkConfiguration,
-        ILogEventSink failureSink = null)
+        ILogEventSink? failureSink = null)
     {
         _formatter = rabbitMQSinkConfiguration.TextFormatter;
         _client = new RabbitMQClient(configuration);
@@ -49,7 +49,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <summary>
-    /// Constructor for testing purposes
+    /// Constructor for testing purposes.
     /// </summary>
     /// <param name="client"></param>
     /// <param name="textFormatter"></param>
@@ -59,7 +59,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         IRabbitMQClient client,
         ITextFormatter textFormatter,
         EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
-        ILogEventSink failureSink = null)
+        ILogEventSink? failureSink = null)
     {
         _client = client;
         _formatter = textFormatter;
@@ -141,7 +141,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     /// </summary>
     /// <param name="ex"></param>
     /// <param name="events"></param>
-    /// <returns>true when exception has been handled</returns>
+    /// <returns>true when exception has been handled.</returns>
     private bool HandleException(Exception ex, IEnumerable<LogEvent> events)
     {
         if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToSelfLog))

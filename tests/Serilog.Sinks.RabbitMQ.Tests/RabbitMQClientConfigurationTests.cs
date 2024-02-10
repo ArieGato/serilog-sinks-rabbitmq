@@ -31,8 +31,8 @@ public class RabbitMQClientConfigurationTests
                 CertPassphrase = "secret",
                 CertPath = "path",
                 Version = SslProtocols.Tls13,
-                CheckCertificateRevocation = true
-            }
+                CheckCertificateRevocation = true,
+            },
         };
 
         // Act

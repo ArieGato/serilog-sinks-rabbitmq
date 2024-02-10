@@ -22,19 +22,19 @@ namespace Serilog.Sinks.RabbitMQ;
 public class RabbitMQClientConfiguration
 {
     /// <summary>
-    /// List of hosts to use for the connection
+    /// List of hosts to use for the connection.
     /// </summary>
     public IList<string> Hostnames { get; set; } = new List<string>();
 
     /// <summary>
     /// Username to use when authenticating to the server.
     /// </summary>
-    public string Username { get; set; } = string.Empty;
+    public string? Username { get; set; } = string.Empty;
 
     /// <summary>
     /// Password to use when authenticating to the server.
     /// </summary>
-    public string Password { get; set; } = string.Empty;
+    public string? Password { get; set; } = string.Empty;
 
     /// <summary>
     /// The port to connect on.
@@ -54,7 +54,7 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// TLS options for the connection.
     /// </summary>
-    public SslOption SslOption { get; set; }
+    public SslOption? SslOption { get; set; }
 
     /// <summary>
     /// The exchange name.
@@ -84,10 +84,10 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// Maximum number of channels in the channel pool. Default is 64.
     /// </summary>
-    public int MaxChannels { get; set; } = RabbitMQClient.DefaultMaxChannelCount;
+    public int MaxChannels { get; set; } = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT;
 
     /// <summary>
-    /// Create options from other one
+    /// Create options from other one.
     /// </summary>
     /// <param name="config">The source options.</param>
     /// <returns>The created options.</returns>
