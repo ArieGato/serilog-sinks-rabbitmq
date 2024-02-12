@@ -63,7 +63,8 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         var consumer = new EventingBasicConsumer(channel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
             h => consumer.Received += h,
-            h => consumer.Received -= h, () =>
+            h => consumer.Received -= h,
+            () =>
             {
                 channel.BasicConsume(RabbitMQFixture.SerilogAuditSinkQueueName, autoAck: true, consumer);
                 logger.Information(messageTemplate, 1.0);
@@ -76,7 +77,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         Assert.Equal("Information", receivedMessage["Level"]);
         Assert.Equal(messageTemplate, receivedMessage["MessageTemplate"]);
         Assert.NotNull(receivedMessage["Properties"]);
-        Assert.Equal(1.0, receivedMessage["Properties"]["value"]);
+        Assert.Equal(1.0, receivedMessage["Properties"]!["value"]);
 
         channel.Close();
         logger.Dispose();

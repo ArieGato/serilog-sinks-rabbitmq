@@ -27,5 +27,5 @@ public enum RabbitMQDeliveryMode : byte
     /// <summary>
     /// Value for persistent delivery mode (durable).
     /// </summary>
-    Durable = 2
+    Durable = 2,
 }

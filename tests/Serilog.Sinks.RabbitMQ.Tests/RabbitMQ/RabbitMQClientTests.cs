@@ -26,7 +26,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
+            RouteKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
@@ -55,7 +55,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
+            RouteKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
@@ -77,7 +77,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
+            RouteKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         rabbitMQConnectionFactory.When(x => x.Close()).Do(_ => throw new InvalidOperationException("some-exception"));
@@ -106,7 +106,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key"
+            RouteKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();

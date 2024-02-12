@@ -4,55 +4,55 @@ namespace Serilog
     {
         public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, System.Action<Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration> configure) { }
         public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration clientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration sinkConfiguration) { }
-        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, System.Action<Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration> configure, System.Action<Serilog.Configuration.LoggerSinkConfiguration> failureSinkConfiguration = null) { }
-        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration clientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration sinkConfiguration, System.Action<Serilog.Configuration.LoggerSinkConfiguration> failureSinkConfiguration = null) { }
+        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, System.Action<Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration> configure, System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null) { }
+        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration clientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration sinkConfiguration, System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null) { }
         public static Serilog.LoggerConfiguration RabbitMQ(
                     this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
                     string[] hostnames,
                     string username,
                     string password,
-                    string exchange = null,
-                    string exchangeType = null,
+                    string? exchange = null,
+                    string? exchangeType = null,
                     Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode deliveryMode = 1,
-                    string routeKey = null,
+                    string? routeKey = null,
                     int port = 0,
-                    string vHost = null,
+                    string? vHost = null,
                     ushort heartbeat = 0,
                     bool sslEnabled = false,
-                    string sslServerName = null,
+                    string? sslServerName = null,
                     System.Security.Authentication.SslProtocols sslVersion = 0,
                     System.Net.Security.SslPolicyErrors sslAcceptablePolicyErrors = 0,
                     bool sslCheckCertificateRevocation = false,
-                    Serilog.Formatting.ITextFormatter formatter = null,
+                    Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int maxChannels = 64,
                     Serilog.Events.LogEventLevel levelSwitch = 2) { }
         public static Serilog.LoggerConfiguration RabbitMQ(
                     this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration,
                     string[] hostnames,
-                    string username,
-                    string password,
-                    string exchange = null,
-                    string exchangeType = null,
+                    string? username,
+                    string? password,
+                    string? exchange = null,
+                    string? exchangeType = null,
                     Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode deliveryMode = 1,
-                    string routeKey = null,
+                    string? routeKey = null,
                     int port = 0,
-                    string vHost = null,
+                    string? vHost = null,
                     ushort heartbeat = 0,
                     bool sslEnabled = false,
-                    string sslServerName = null,
+                    string? sslServerName = null,
                     System.Security.Authentication.SslProtocols sslVersion = 0,
                     System.Net.Security.SslPolicyErrors sslAcceptablePolicyErrors = 0,
                     bool sslCheckCertificateRevocation = false,
                     int batchPostingLimit = 0,
                     System.TimeSpan period = default,
                     int? queueLimit = default,
-                    Serilog.Formatting.ITextFormatter formatter = null,
+                    Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int maxChannels = 64,
                     Serilog.Events.LogEventLevel levelSwitch = 2,
                     Serilog.Sinks.RabbitMQ.EmitEventFailureHandling emitEventFailure = 1,
-                    System.Action<Serilog.Configuration.LoggerSinkConfiguration> failureSinkConfiguration = null) { }
+                    System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null) { }
     }
 }
 namespace Serilog.Sinks.RabbitMQ
@@ -75,11 +75,11 @@ namespace Serilog.Sinks.RabbitMQ
         public ushort Heartbeat { get; set; }
         public System.Collections.Generic.IList<string> Hostnames { get; set; }
         public int MaxChannels { get; set; }
-        public string Password { get; set; }
+        public string? Password { get; set; }
         public int Port { get; set; }
         public string RouteKey { get; set; }
-        public RabbitMQ.Client.SslOption SslOption { get; set; }
-        public string Username { get; set; }
+        public RabbitMQ.Client.SslOption? SslOption { get; set; }
+        public string? Username { get; set; }
         public string VHost { get; set; }
         public Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration From(Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration config) { }
     }

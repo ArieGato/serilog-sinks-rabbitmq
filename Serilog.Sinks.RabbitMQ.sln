@@ -13,9 +13,16 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Serilog.Sinks.RabbitMQ.Test
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{44AA2E4A-8423-4E12-A0A2-D46E64E24300}"
 	ProjectSection(SolutionItems) = preProject
+		.dockerignore = .dockerignore
 		.editorconfig = .editorconfig
+		.gitignore = .gitignore
+		CODE_OF_CONDUCT.md = CODE_OF_CONDUCT.md
+		CONTRIBUTING.md = CONTRIBUTING.md
 		Directory.Build.props = Directory.Build.props
+		docker-compose.tests.yml = docker-compose.tests.yml
 		docker-compose.yml = docker-compose.yml
+		gitversion.yml = gitversion.yml
+		LICENSE = LICENSE
 		README.md = README.md
 	EndProjectSection
 EndProject
@@ -40,6 +47,54 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{
 		.github\workflows\ci-build.yml = .github\workflows\ci-build.yml
 		.github\workflows\publish-prerelease.yml = .github\workflows\publish-prerelease.yml
 		.github\workflows\publish-release.yml = .github\workflows\publish-release.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ISSUE_TEMPLATE", "ISSUE_TEMPLATE", "{4B16CC98-8D0D-463A-B123-6DCB9B24ADBE}"
+	ProjectSection(SolutionItems) = preProject
+		.github\ISSUE_TEMPLATE\bug_report.md = .github\ISSUE_TEMPLATE\bug_report.md
+		.github\ISSUE_TEMPLATE\feature_request.md = .github\ISSUE_TEMPLATE\feature_request.md
+		.github\ISSUE_TEMPLATE\question.md = .github\ISSUE_TEMPLATE\question.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "assets", "assets", "{D60FD6DA-480F-4813-885B-F1AF3046D946}"
+	ProjectSection(SolutionItems) = preProject
+		assets\icon.png = assets\icon.png
+		assets\Serilog.snk = assets\Serilog.snk
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docker", "docker", "{F1A5446E-EE29-4254-8CC0-4AB09FA4AC82}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "integration-test", "integration-test", "{017F3B02-A59E-4D60-8A3E-8A4F196A1E16}"
+	ProjectSection(SolutionItems) = preProject
+		docker\integration-test\Dockerfile = docker\integration-test\Dockerfile
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "rabbitmq", "rabbitmq", "{50CAB3AA-1439-43D8-87F1-E7FC78B10F6B}"
+	ProjectSection(SolutionItems) = preProject
+		docker\rabbitmq\ca-cert.pem = docker\rabbitmq\ca-cert.pem
+		docker\rabbitmq\ca-key.pem = docker\rabbitmq\ca-key.pem
+		docker\rabbitmq\client-cert.pem = docker\rabbitmq\client-cert.pem
+		docker\rabbitmq\client-cert.pfx = docker\rabbitmq\client-cert.pfx
+		docker\rabbitmq\client-key.pem = docker\rabbitmq\client-key.pem
+		docker\rabbitmq\client-req.pem = docker\rabbitmq\client-req.pem
+		docker\rabbitmq\README.md = docker\rabbitmq\README.md
+		docker\rabbitmq\server-cert.pem = docker\rabbitmq\server-cert.pem
+		docker\rabbitmq\server-key.pem = docker\rabbitmq\server-key.pem
+		docker\rabbitmq\server-req.pem = docker\rabbitmq\server-req.pem
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ssl-cert", "ssl-cert", "{8AF38E90-EDBD-497A-A319-796D96EA493B}"
+	ProjectSection(SolutionItems) = preProject
+		docker\rabbitmq\ssl-cert\definitions.json = docker\rabbitmq\ssl-cert\definitions.json
+		docker\rabbitmq\ssl-cert\enabled_plugins = docker\rabbitmq\ssl-cert\enabled_plugins
+		docker\rabbitmq\ssl-cert\rabbitmq.conf = docker\rabbitmq\ssl-cert\rabbitmq.conf
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ssl-plain", "ssl-plain", "{927FA5CB-B524-454E-800D-55ADF013A1AB}"
+	ProjectSection(SolutionItems) = preProject
+		docker\rabbitmq\ssl-plain\definitions.json = docker\rabbitmq\ssl-plain\definitions.json
+		docker\rabbitmq\ssl-plain\enabled_plugins = docker\rabbitmq\ssl-plain\enabled_plugins
+		docker\rabbitmq\ssl-plain\rabbitmq.conf = docker\rabbitmq\ssl-plain\rabbitmq.conf
 	EndProjectSection
 EndProject
 Global
@@ -84,6 +139,11 @@ Global
 		{25F5C825-6A4E-4D19-A55E-3616A23E9969} = {95E85532-D0BC-4D86-8C0E-BB1DBBC41601}
 		{5E222A9E-EAC6-4073-884D-EC3B441C37B8} = {95E85532-D0BC-4D86-8C0E-BB1DBBC41601}
 		{D9046050-14F3-4815-979E-80BC1D4657A2} = {E462C9C7-12FE-4291-AF00-892D98AA9D15}
+		{4B16CC98-8D0D-463A-B123-6DCB9B24ADBE} = {E462C9C7-12FE-4291-AF00-892D98AA9D15}
+		{017F3B02-A59E-4D60-8A3E-8A4F196A1E16} = {F1A5446E-EE29-4254-8CC0-4AB09FA4AC82}
+		{50CAB3AA-1439-43D8-87F1-E7FC78B10F6B} = {F1A5446E-EE29-4254-8CC0-4AB09FA4AC82}
+		{8AF38E90-EDBD-497A-A319-796D96EA493B} = {50CAB3AA-1439-43D8-87F1-E7FC78B10F6B}
+		{927FA5CB-B524-454E-800D-55ADF013A1AB} = {50CAB3AA-1439-43D8-87F1-E7FC78B10F6B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {154911B7-34EE-428C-834D-6AF57B44532A}

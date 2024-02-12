@@ -36,13 +36,14 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
     {
         await _rabbitMQFixture.InitializeAsync();
 
-        var message = Guid.NewGuid().ToString();
+        string message = Guid.NewGuid().ToString();
 
         using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
         var consumer = new EventingBasicConsumer(consumingChannel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
             h => consumer.Received += h,
-            h => consumer.Received -= h, () =>
+            h => consumer.Received -= h,
+            () =>
             {
                 consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
                 _rabbitMQFixture.Publish(message);
@@ -66,13 +67,14 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
     {
         await _rabbitMQFixture.InitializeAsync();
 
-        var message = Guid.NewGuid().ToString();
+        string message = Guid.NewGuid().ToString();
 
         using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
         var consumer = new EventingBasicConsumer(consumingChannel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
             h => consumer.Received += h,
-            h => consumer.Received -= h, () =>
+            h => consumer.Received -= h,
+            () =>
             {
                 // start consuming queue
                 consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
@@ -104,15 +106,14 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
             Password = RabbitMQFixture.Password,
             ExchangeType = "topic",
             Hostnames = [RabbitMQFixture.SslCertHostName],
-            AutoCreateExchange = true
+            AutoCreateExchange = true,
         };
 
         using var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
         rabbitMQClient.Publish("a message");
 
         //// wait for message sent
-        //await Task.Delay(1000);
-
+        // await Task.Delay(1000);
         using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         try
@@ -145,7 +146,7 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
             AutoCreateExchange = true,
             Username = RabbitMQFixture.UserName,
             Password = RabbitMQFixture.Password,
-            Hostnames = [RabbitMQFixture.SslCertHostName]
+            Hostnames = [RabbitMQFixture.SslCertHostName],
         };
         using var rabbitMQClient = new RabbitMQClient(config);
 

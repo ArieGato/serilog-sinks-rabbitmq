@@ -5,11 +5,12 @@ namespace Serilog.Sinks.RabbitMQ.Tests;
 
 internal class LogEventBuilder
 {
+    private readonly List<MessageTemplateToken> _messageTemplateTokens;
+    private readonly List<LogEventProperty> _properties;
+
     private DateTimeOffset _timestamp;
     private LogEventLevel _level;
     private Exception? _exception;
-    private readonly List<MessageTemplateToken> _messageTemplateTokens;
-    private readonly List<LogEventProperty> _properties;
     private string _message;
 
     private LogEventBuilder()

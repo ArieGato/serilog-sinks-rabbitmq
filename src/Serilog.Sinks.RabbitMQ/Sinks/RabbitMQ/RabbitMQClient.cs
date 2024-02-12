@@ -18,13 +18,13 @@ using RabbitMQ.Client;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq
+/// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq.
 /// </summary>
 internal class RabbitMQClient : IRabbitMQClient
 {
     private readonly ObjectPool<IRabbitMQChannel> _modelObjectPool;
 
-    public const int DefaultMaxChannelCount = 64;
+    public const int DEFAULT_MAX_CHANNEL_COUNT = 64;
     private readonly CancellationTokenSource _closeTokenSource = new();
 
     // configuration member
@@ -32,9 +32,9 @@ internal class RabbitMQClient : IRabbitMQClient
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
     /// <summary>
-    /// Constructor for RabbitMqClient
+    /// Constructor for RabbitMqClient.
     /// </summary>
-    /// <param name="configuration">mandatory</param>
+    /// <param name="configuration">mandatory.</param>
     public RabbitMQClient(RabbitMQClientConfiguration configuration)
     {
         _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
@@ -42,7 +42,7 @@ internal class RabbitMQClient : IRabbitMQClient
         var pooledObjectPolicy = new RabbitMQChannelObjectPoolPolicy(configuration, _rabbitMQConnectionFactory);
         var defaultObjectPoolProvider = new DefaultObjectPoolProvider
         {
-            MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DefaultMaxChannelCount
+            MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DEFAULT_MAX_CHANNEL_COUNT,
         };
         _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
@@ -50,11 +50,11 @@ internal class RabbitMQClient : IRabbitMQClient
     }
 
     /// <summary>
-    /// Internal constructor for testing
+    /// Internal constructor for testing.
     /// </summary>
-    /// <param name="configuration">The RabbitMQ configuration</param>
-    /// <param name="connectionFactory">The RabbitMQ connection factory</param>
-    /// <param name="pooledObjectPolicy">The pooled object policy for creating channels</param>
+    /// <param name="configuration">The RabbitMQ configuration.</param>
+    /// <param name="connectionFactory">The RabbitMQ connection factory.</param>
+    /// <param name="pooledObjectPolicy">The pooled object policy for creating channels.</param>
     internal RabbitMQClient(
         RabbitMQClientConfiguration configuration,
         IRabbitMQConnectionFactory connectionFactory,
@@ -64,7 +64,7 @@ internal class RabbitMQClient : IRabbitMQClient
 
         var defaultObjectPoolProvider = new DefaultObjectPoolProvider
         {
-            MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DefaultMaxChannelCount
+            MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DEFAULT_MAX_CHANNEL_COUNT,
         };
         _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
@@ -72,12 +72,12 @@ internal class RabbitMQClient : IRabbitMQClient
     }
 
     /// <summary>
-    /// Publishes a message to RabbitMq Exchange
+    /// Publishes a message to RabbitMq Exchange.
     /// </summary>
     /// <param name="message"></param>
     public void Publish(string message)
     {
-        IRabbitMQChannel channel = null;
+        IRabbitMQChannel? channel = null;
         try
         {
             channel = _modelObjectPool.Get();
@@ -93,7 +93,7 @@ internal class RabbitMQClient : IRabbitMQClient
     }
 
     /// <summary>
-    /// Close the connection and all channels to RabbitMq
+    /// Close the connection and all channels to RabbitMq.
     /// </summary>
     /// <exception cref="AggregateException"></exception>
     public void Close()

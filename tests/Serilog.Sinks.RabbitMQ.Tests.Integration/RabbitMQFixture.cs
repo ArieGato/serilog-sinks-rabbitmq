@@ -19,9 +19,6 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
 public class RabbitMQFixture : IDisposable
 {
-    public static bool InDocker => Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
-    public static readonly string SslCertHostName = InDocker ? "serilog.sinks.rabbitmq.ssl-cert" : "localhost";
-    public static readonly string SslPlainHostName = InDocker ? "serilog.sinks.rabbitmq.ssl-plain" : "localhost";
     public const string UserName = "serilog";
     public const string Password = "serilog";
     public const string SerilogAuditSinkExchange = "serilog-sink-audit-exchange";
@@ -31,10 +28,14 @@ public class RabbitMQFixture : IDisposable
     public const string SerilogSinkExchangeType = "fanout";
     public const string SerilogSinkQueueName = "serilog-sink-queue";
 
-    private readonly RabbitMQClient _rabbitMQClient;
+    public static readonly string SslCertHostName = InDocker ? "serilog.sinks.rabbitmq.ssl-cert" : "localhost";
+    public static readonly string SslPlainHostName = InDocker ? "serilog.sinks.rabbitmq.ssl-plain" : "localhost";
 
+    private readonly RabbitMQClient _rabbitMQClient;
     private readonly ConnectionFactory _connectionFactory;
-    private IConnection _consumingConnection;
+    private IConnection? _consumingConnection;
+
+    public static bool InDocker => Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
 
     public RabbitMQFixture()
     {
@@ -43,7 +44,10 @@ public class RabbitMQFixture : IDisposable
 
         _connectionFactory = new ConnectionFactory
         {
-            HostName = SslCertHostName, UserName = UserName, Password = Password, Port = 5672
+            HostName = SslCertHostName,
+            UserName = UserName,
+            Password = Password,
+            Port = 5672,
         };
     }
 
@@ -57,7 +61,7 @@ public class RabbitMQFixture : IDisposable
             Username = UserName,
             Password = Password,
             ExchangeType = SerilogSinkExchangeType,
-            Hostnames = [SslCertHostName]
+            Hostnames = [SslCertHostName],
         };
     }
 
@@ -72,7 +76,7 @@ public class RabbitMQFixture : IDisposable
             Password = Password,
             ExchangeType = SerilogSinkExchangeType,
             Hostnames = [SslCertHostName],
-            SslOption = new SslOption()
+            SslOption = new SslOption
             {
                 Enabled = true,
                 ServerName = SslCertHostName,
@@ -81,22 +85,22 @@ public class RabbitMQFixture : IDisposable
                 CertPath = "./resources/client-cert.pfx",
                 CertPassphrase = "RabbitMQClient",
                 Version = SslProtocols.Tls13,
-            }
+            },
         };
     }
 
-    public async Task InitializeAsync(string exchangeName = null)
+    public async Task InitializeAsync(string? exchangeName = null)
     {
         // Initialize the exchanges and queues.
         using var model = await GetConsumingModelAsync();
 
         model.ExchangeDeclare(SerilogSinkExchange, SerilogSinkExchangeType, true);
         model.QueueDeclare(SerilogSinkQueueName, true, false, false);
-        model.QueueBind(SerilogSinkQueueName, SerilogSinkExchange, "");
+        model.QueueBind(SerilogSinkQueueName, SerilogSinkExchange, string.Empty);
 
         model.ExchangeDeclare(SerilogAuditSinkExchange, SerilogAuditSinkExchangeType, true);
         model.QueueDeclare(SerilogAuditSinkQueueName, true, false, false);
-        model.QueueBind(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, "");
+        model.QueueBind(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, string.Empty);
 
         if (!string.IsNullOrEmpty(exchangeName))
         {
@@ -154,6 +158,7 @@ public class RabbitMQFixture : IDisposable
                 {
                     throw new Exception("Failed to connect to RabbitMQ.");
                 }
+
                 await Task.Delay(1000);
             }
         }

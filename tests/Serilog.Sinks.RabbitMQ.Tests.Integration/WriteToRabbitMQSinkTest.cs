@@ -60,7 +60,8 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         var consumer = new EventingBasicConsumer(channel);
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
             h => consumer.Received += h,
-            h => consumer.Received -= h, () =>
+            h => consumer.Received -= h,
+            () =>
             {
                 channel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
                 logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
@@ -78,8 +79,8 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
             Assert.Equal("Error", receivedMessage["Level"]);
             Assert.Equal(messageTemplate, receivedMessage["MessageTemplate"]);
             Assert.NotNull(receivedMessage["Properties"]);
-            Assert.Equal(1.0, receivedMessage["Properties"]["numerator"]);
-            Assert.Equal(0.0, receivedMessage["Properties"]["denominator"]);
+            Assert.Equal(1.0, receivedMessage["Properties"]!["numerator"]);
+            Assert.Equal(0.0, receivedMessage["Properties"]!["denominator"]);
             Assert.Equal("System.DivideByZeroException: Attempted to divide by zero.", receivedMessage["Exception"]);
 
             logger.Dispose();
@@ -103,7 +104,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
 
         model.ExchangeDeclare(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true);
         model.QueueDeclare(logParallelMessageQueue, true, false, false);
-        model.QueueBind(logParallelMessageQueue, logParallelMessageExchange, "");
+        model.QueueBind(logParallelMessageQueue, logParallelMessageExchange, string.Empty);
 
         var config = new RabbitMQClientConfiguration
         {
@@ -114,7 +115,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
             AutoCreateExchange = true,
             Username = RabbitMQFixture.UserName,
             Password = RabbitMQFixture.Password,
-            Hostnames = [RabbitMQFixture.SslCertHostName]
+            Hostnames = [RabbitMQFixture.SslCertHostName],
         };
         using var rabbitMQClient = new RabbitMQClient(config);
 

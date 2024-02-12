@@ -77,7 +77,6 @@ public class RabbitMQConnectionFactoryTests
             Hostnames = [RabbitMQFixture.SslPlainHostName],
             SslOption = new SslOption
             {
-                
                 Enabled = true,
                 ServerName = RabbitMQFixture.SslCertHostName,
                 AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch |

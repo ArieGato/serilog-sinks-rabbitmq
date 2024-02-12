@@ -20,7 +20,8 @@ using Serilog.Sinks.RabbitMQ;
 SelfLog.Enable(Console.Error);
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
+    .WriteTo.RabbitMQ(
+        (clientConfiguration, sinkConfiguration) =>
         {
             sinkConfiguration.BatchPostingLimit = 100;
             sinkConfiguration.EmitEventFailure =

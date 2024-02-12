@@ -136,7 +136,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
-            RouteKey = "",
+            RouteKey = string.Empty,
             SslOption = new SslOption
             {
                 AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
@@ -145,7 +145,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                 CertPassphrase = "secret",
                 CertPath = "path",
                 Version = SslProtocols.Tls13,
-                CheckCertificateRevocation = true
+                CheckCertificateRevocation = true,
             },
             Username = RabbitMQFixture.UserName,
             VHost = "/",
@@ -158,7 +158,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             QueueLimit = 1000,
             EmitEventFailure = EmitEventFailureHandling.ThrowException,
             TextFormatter = new JsonFormatter(),
-            RestrictedToMinimumLevel = LogEventLevel.Information
+            RestrictedToMinimumLevel = LogEventLevel.Information,
         };
 
         var logger = loggerConfiguration.WriteTo.RabbitMQ(
@@ -187,7 +187,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
-            RouteKey = "",
+            RouteKey = string.Empty,
             SslOption = new SslOption
             {
                 AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
@@ -196,15 +196,16 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                 CertPassphrase = "secret",
                 CertPath = "path",
                 Version = SslProtocols.Tls13,
-                CheckCertificateRevocation = true
+                CheckCertificateRevocation = true,
             },
             Username = RabbitMQFixture.UserName,
-            VHost = "/"
+            VHost = "/",
         };
 
         var rabbitMQSinkConfiguration = new RabbitMQSinkConfiguration
         {
-            TextFormatter = new JsonFormatter(), RestrictedToMinimumLevel = LogEventLevel.Information
+            TextFormatter = new JsonFormatter(),
+            RestrictedToMinimumLevel = LogEventLevel.Information,
         };
 
         var logger = loggerConfiguration.AuditTo.RabbitMQ(rabbitMQClientConfiguration, rabbitMQSinkConfiguration)
@@ -230,7 +231,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.MaxChannels = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
-                    rabbitMQClientConfiguration.RouteKey = "";
+                    rabbitMQClientConfiguration.RouteKey = string.Empty;
                     rabbitMQClientConfiguration.SslOption = new SslOption
                     {
                         AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
@@ -239,7 +240,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                         CertPassphrase = "secret",
                         CertPath = "path",
                         Version = SslProtocols.Tls13,
-                        CheckCertificateRevocation = true
+                        CheckCertificateRevocation = true,
                     };
                     rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
                     rabbitMQClientConfiguration.VHost = "/";
@@ -269,7 +270,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.MaxChannels = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
-                    rabbitMQClientConfiguration.RouteKey = "";
+                    rabbitMQClientConfiguration.RouteKey = string.Empty;
                     rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
                     rabbitMQClientConfiguration.VHost = "/";
 

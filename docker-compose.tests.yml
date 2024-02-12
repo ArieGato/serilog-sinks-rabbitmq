@@ -4,7 +4,7 @@ services:
   integration-test:
     container_name: serilog.sinks.rabbitmq.tests.integration
     build:
-      context: ./ 
+      context: ./
       dockerfile: docker/integration-test/Dockerfile
     depends_on:
       rabbitmq-cert:

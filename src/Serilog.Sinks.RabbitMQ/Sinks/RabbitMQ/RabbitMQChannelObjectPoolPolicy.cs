@@ -57,8 +57,7 @@ internal class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRabbitMQCh
     {
         if (!_exchangeCreated && _config.AutoCreateExchange)
         {
-            model.ExchangeDeclare(_config.Exchange, _config.ExchangeType,
-                _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+            model.ExchangeDeclare(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
             _exchangeCreated = true;
         }
     }
