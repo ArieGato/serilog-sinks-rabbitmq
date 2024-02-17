@@ -77,7 +77,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         receivedMessage["Level"].ShouldBe("Information");
         receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
         receivedMessage["Properties"].ShouldNotBeNull();
-        receivedMessage["Properties"]!["value"].ShouldBe(1.0);
+        ((double)receivedMessage["Properties"]!["value"]!).ShouldBe(1.0);
 
         channel.Close();
         logger.Dispose();
