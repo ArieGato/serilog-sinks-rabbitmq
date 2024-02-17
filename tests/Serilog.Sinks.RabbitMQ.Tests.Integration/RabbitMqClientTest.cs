@@ -53,7 +53,7 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
             });
 
         string receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
-        Assert.Equal(message, receivedMessage);
+        receivedMessage.ShouldBe(message);
 
         consumingChannel.Close();
     }
@@ -89,7 +89,7 @@ public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
             });
 
         string receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
-        Assert.Equal(message, receivedMessage);
+        receivedMessage.ShouldBe(message);
 
         consumingChannel.Close();
     }
