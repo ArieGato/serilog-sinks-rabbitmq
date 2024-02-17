@@ -80,7 +80,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
             receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
             receivedMessage["Properties"].ShouldNotBeNull();
             ((double)receivedMessage["Properties"]!["numerator"]!).ShouldBe(1.0);
-            receivedMessage["Properties"]!["denominator"].ShouldBe(0.0);
+            ((double)receivedMessage["Properties"]!["denominator"]!).ShouldBe(0.0);
             receivedMessage["Exception"].ShouldBe("System.DivideByZeroException: Attempted to divide by zero.");
 
             logger.Dispose();
