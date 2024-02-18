@@ -74,10 +74,10 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
             });
 
         var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray()));
-        Assert.Equal("Information", receivedMessage["Level"]);
-        Assert.Equal(messageTemplate, receivedMessage["MessageTemplate"]);
-        Assert.NotNull(receivedMessage["Properties"]);
-        Assert.Equal(1.0, receivedMessage["Properties"]!["value"]);
+        receivedMessage["Level"].ShouldBe("Information");
+        receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
+        receivedMessage["Properties"].ShouldNotBeNull();
+        ((double)receivedMessage["Properties"]!["value"]!).ShouldBe(1.0);
 
         channel.Close();
         logger.Dispose();

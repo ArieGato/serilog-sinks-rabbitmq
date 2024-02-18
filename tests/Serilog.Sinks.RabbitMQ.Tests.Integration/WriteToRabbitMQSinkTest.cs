@@ -76,12 +76,12 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         {
             var receivedMessage = JObject.Parse(json);
 
-            Assert.Equal("Error", receivedMessage["Level"]);
-            Assert.Equal(messageTemplate, receivedMessage["MessageTemplate"]);
-            Assert.NotNull(receivedMessage["Properties"]);
-            Assert.Equal(1.0, receivedMessage["Properties"]!["numerator"]);
-            Assert.Equal(0.0, receivedMessage["Properties"]!["denominator"]);
-            Assert.Equal("System.DivideByZeroException: Attempted to divide by zero.", receivedMessage["Exception"]);
+            receivedMessage["Level"].ShouldBe("Error");
+            receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
+            receivedMessage["Properties"].ShouldNotBeNull();
+            ((double)receivedMessage["Properties"]!["numerator"]!).ShouldBe(1.0);
+            ((double)receivedMessage["Properties"]!["denominator"]!).ShouldBe(0.0);
+            receivedMessage["Exception"].ShouldBe("System.DivideByZeroException: Attempted to divide by zero.");
 
             logger.Dispose();
         }
