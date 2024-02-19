@@ -70,7 +70,12 @@ jobs:
       run: dotnet build --no-restore -c Debug
 
     - name: Test solution [Debug]
+      if: ${{ startsWith(matrix.os, 'ubuntu') }}
       run: dotnet test --no-build -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+
+    - name: Test solution [Debug/Windows]
+      if: ${{ startsWith(matrix.os, 'windows') }}
+      run: dotnet test --no-build --filter FullyQualifiedName\!~Serilog.Sinks.RabbitMQ.Tests.Integration
 
     - name: Upload coverage reports to Codecov
       if: ${{ startsWith(matrix.os, 'ubuntu') }}
