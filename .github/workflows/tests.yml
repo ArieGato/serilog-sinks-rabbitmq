@@ -26,6 +26,7 @@ jobs:
         fetch-depth: 0
 
     - name: Start RabbitMQ services
+      if: ${{ startsWith(matrix.os, 'ubuntu') }}
       shell: pwsh
       run: |
         docker-compose up -d
