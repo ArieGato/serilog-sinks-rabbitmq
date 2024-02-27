@@ -41,6 +41,3 @@ jobs:
 
     - name: Publish Nuget to GitHub registry
       run: dotnet nuget push ./dist/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/ArieGato/index.json
-
-    - name: Publish Nuget to nuget.org registry
-      run: dotnet nuget push ./dist/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
