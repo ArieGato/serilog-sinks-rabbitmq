@@ -21,7 +21,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Directory.Build.props = Directory.Build.props
 		docker-compose.tests.yml = docker-compose.tests.yml
 		docker-compose.yml = docker-compose.yml
-		gitversion.yml = gitversion.yml
 		LICENSE = LICENSE
 		README.md = README.md
 	EndProjectSection
@@ -46,11 +45,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{E462
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{D9046050-14F3-4815-979E-80BC1D4657A2}"
 	ProjectSection(SolutionItems) = preProject
-		.github\workflows\ci-build.yml = .github\workflows\ci-build.yml
 		.github\workflows\codeql-analysis.yml = .github\workflows\codeql-analysis.yml
 		.github\workflows\label.yml = .github\workflows\label.yml
 		.github\workflows\publish-prerelease.yml = .github\workflows\publish-prerelease.yml
 		.github\workflows\publish-release.yml = .github\workflows\publish-release.yml
+		.github\workflows\tests.yml = .github\workflows\tests.yml
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ISSUE_TEMPLATE", "ISSUE_TEMPLATE", "{4B16CC98-8D0D-463A-B123-6DCB9B24ADBE}"

@@ -38,5 +38,5 @@ public enum EmitEventFailureHandling
     /// <summary>
     /// Throw the exception to the caller.
     /// </summary>
-    ThrowException = 4
+    ThrowException = 4,
 }

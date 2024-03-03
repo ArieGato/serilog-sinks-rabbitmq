@@ -22,8 +22,7 @@ public class RabbitMQConnectionFactoryTests
     [Fact]
     public void GetConnection_ShouldReturnOpenConnection()
     {
-        var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQClientConfiguration(),
-            new CancellationTokenSource());
+        var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQClientConfiguration(), new CancellationTokenSource());
 
         sut.GetConnection().IsOpen.ShouldBeTrue();
 
@@ -48,8 +47,7 @@ public class RabbitMQConnectionFactoryTests
     public void GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSslCert()
     {
         // arrange
-        var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQSslClientConfiguration(),
-            new CancellationTokenSource());
+        var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQSslClientConfiguration(), new CancellationTokenSource());
 
         // act
         var connection = sut.GetConnection();
@@ -81,8 +79,8 @@ public class RabbitMQConnectionFactoryTests
                 ServerName = RabbitMQFixture.SslCertHostName,
                 AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch |
                                          SslPolicyErrors.RemoteCertificateChainErrors,
-                Version = SslProtocols.Tls13
-            }
+                Version = SslProtocols.Tls13,
+            },
         };
 
         var sut = new RabbitMQConnectionFactory(configuration, new CancellationTokenSource());
@@ -96,5 +94,4 @@ public class RabbitMQConnectionFactoryTests
         sut.Close();
         sut.Dispose();
     }
-
 }

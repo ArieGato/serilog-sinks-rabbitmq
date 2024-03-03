@@ -6,7 +6,8 @@ on:
       - master
 
 env:
-  Configuration: Release
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
   build:
@@ -16,98 +17,27 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.ref }}
         fetch-depth: 0
 
-    - name: Start RabbitMQ services
-      shell: pwsh
-      run: |
-        docker-compose up -d
-        $val = 0
-        while(1 -eq 1) {
-            $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
-            $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
-            if ($status_ssl_plain -eq "healthy" -and $status_ssl_cert -eq "healthy") {
-                Write-Host "RabbitMQ services started"
-                break;
-            }
-            $val++
-            if ($val -ge 20)
-            {
-                Write-Host "RabbitMQ services not started after 20 attempts"
-                break;
-            }
-            Write-Host "RabbitMQ services status: ssl-plain: $($status_ssl_plain) - ssl-cert: $($status_ssl_cert). Attempt $val. Retry in 1 second"
-            Start-Sleep -s 1
-        }
-
-    - name: Setup .NET 8
+    - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
 
-    # Determine new version
-    - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v0
-      with:
-        versionSpec: '5.x'
-
-    - name: Determine Version
-      id: gitversion
-      uses: gittools/actions/gitversion/execute@v0
-      with:
-        useConfigFile: true
-        configFilePath: gitversion.yml
-
     - name: Restore dependencies
       run: dotnet restore
 
-    - name: Build
-      run: dotnet build --no-restore -c ${{ env.Configuration }} /p:Version=${{ steps.gitversion.outputs.FullSemVer }}
+    - name: Build solution [Release]
+      run: dotnet build --no-restore -c Release
 
-    - name: Run tests
-      run: dotnet test --no-build -c ${{ env.Configuration }} -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+    - name: Pack solution [Release]
+      run: dotnet pack --no-build -c Release -o dist/packages
 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        files: out/.coverage/*.opencover.xml
-        token: ${{ secrets.CODECOV_TOKEN }} # required
-    
-    - name: Create nuget packages
-      run: dotnet pack --no-build -c ${{ env.Configuration }} -o dist/packages /p:PackageVersion=${{ steps.gitversion.outputs.FullSemVer }}
-
-    - uses: actions/upload-artifact@v4
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
       with:
         name: nuget-packages
         path: dist/packages
 
-  deploy-github:
-    runs-on: 'ubuntu-latest'
-    environment: 'github'
-    needs: build
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: nuget-packages
-          path: dist
-
-      - name: Publish Nuget to GitHub registry
-        run: dotnet nuget push ./dist/*.nupkg -k ${GITHUB_TOKEN} -s https://nuget.pkg.github.com/ArieGato/index.json --skip-duplicate --no-symbols
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy-nuget:
-    runs-on: 'ubuntu-latest'
-    environment: 'nuget'
-    needs: deploy-github
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: nuget-packages
-          path: dist
-
-      - name: Publish Nuget to nuget.org registry
-        run: dotnet nuget push ./dist/*.nupkg --api-key ${NUGET_API_KEY} --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    - name: Publish Nuget to GitHub registry
+      run: dotnet nuget push ./dist/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/ArieGato/index.json

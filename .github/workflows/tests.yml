@@ -1,0 +1,85 @@
+name: Run tests
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Start RabbitMQ services
+      if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      shell: pwsh
+      run: |
+        docker-compose up -d
+        $val = 0
+        while(1 -eq 1) {
+            $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
+            $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
+            if ($status_ssl_plain -eq "healthy" -and $status_ssl_cert -eq "healthy") {
+                Write-Host "RabbitMQ services started"
+                break;
+            }
+            $val++
+            if ($val -ge 20)
+            {
+                Write-Host "RabbitMQ services not started after 20 attempts"
+                break;
+            }
+            Write-Host "RabbitMQ services status: ssl-plain: $($status_ssl_plain) - ssl-cert: $($status_ssl_cert). Attempt $val. Retry in 1 second."
+            Start-Sleep -s 1
+        }
+
+    - name: Setup .NET SDKs
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          6.0.x
+          8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Check formatting
+      if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      run: |
+        dotnet format --no-restore --verify-no-changes --severity warn || (echo "Run 'dotnet format' to fix issues" && exit 1)
+
+    - name: Build solution [Release]
+      run: dotnet build --no-restore -c Release
+
+    - name: Build solution [Debug]
+      run: dotnet build --no-restore -c Debug
+
+    - name: Test solution [Debug]
+      if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      run: dotnet test --no-build -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+
+    - name: Test solution [Debug/Windows]
+      if: ${{ startsWith(matrix.os, 'windows') }}
+      run: dotnet test --no-build --filter FullyQualifiedName\!~Serilog.Sinks.RabbitMQ.Tests.Integration
+
+    - name: Upload coverage reports to Codecov
+      if: ${{ startsWith(matrix.os, 'ubuntu') }}
+      uses: codecov/codecov-action@v4
+      with:
+        files: out/.coverage/*.opencover.xml
+        token: ${{ secrets.CODECOV_TOKEN }} # required
