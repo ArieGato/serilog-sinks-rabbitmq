@@ -40,4 +40,4 @@ jobs:
         path: dist/packages
 
     - name: Publish Nuget to GitHub registry
-      run: dotnet nuget push ./dist/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/ArieGato/index.json
+      run: dotnet nuget push ./dist/packages/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/ArieGato/index.json
