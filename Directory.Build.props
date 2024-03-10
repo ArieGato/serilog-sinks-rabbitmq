@@ -17,6 +17,8 @@
     <AssemblyOriginatorKeyFile>../../assets/Serilog.snk</AssemblyOriginatorKeyFile>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);SA1600;SA1611;SA1614;SA1615;SA1616;SA1627</NoWarn> <!--TODO: write documentation and remove this line-->
+    <!-- version tags begin with 'v' -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>
 
   <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests'))">
