@@ -18,7 +18,7 @@ using RabbitMQ.Client;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// RabbitMqClient - this class is the engine that lets you send messages to RabbitMQ.
+/// RabbitMQClient - this class is the engine that lets you send messages to RabbitMQ.
 /// </summary>
 internal class RabbitMQClient : IRabbitMQClient
 {
