@@ -27,7 +27,7 @@ internal interface IRabbitMQChannel : IDisposable
     bool IsOpen { get; }
 
     /// <summary>
-    /// Publishes a message to RabbitMq Exchange.
+    /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
     /// <param name="address"></param>
     /// <param name="body"></param>

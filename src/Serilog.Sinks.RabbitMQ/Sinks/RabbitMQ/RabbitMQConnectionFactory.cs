@@ -136,7 +136,7 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     }
 
     /// <summary>
-    /// Close the connection and all channels to RabbitMq.
+    /// Close the connection and all channels to RabbitMQ.
     /// </summary>
     /// <exception cref="AggregateException"></exception>
     public void Close()

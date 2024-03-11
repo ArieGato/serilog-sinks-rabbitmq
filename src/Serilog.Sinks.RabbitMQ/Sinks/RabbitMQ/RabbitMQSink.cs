@@ -21,7 +21,7 @@ using Serilog.Sinks.PeriodicBatching;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// Serilog RabbitMq Sink - Lets you log to RabbitMq using Serilog.
+/// Serilog RabbitMQ Sink - Lets you log to RabbitMQ using Serilog.
 /// </summary>
 public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
 {

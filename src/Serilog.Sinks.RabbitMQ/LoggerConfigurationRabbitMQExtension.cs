@@ -25,7 +25,7 @@ using Serilog.Sinks.RabbitMQ;
 namespace Serilog;
 
 /// <summary>
-/// Extension method to configure Serilog with a Sink for RabbitMq.
+/// Extension method to configure Serilog with a Sink for RabbitMQ.
 /// </summary>
 public static class LoggerConfigurationRabbitMqExtension
 {
