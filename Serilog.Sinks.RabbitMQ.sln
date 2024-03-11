@@ -11,7 +11,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6BD5A928
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Serilog.Sinks.RabbitMQ.Tests.Integration", "tests\Serilog.Sinks.RabbitMQ.Tests.Integration\Serilog.Sinks.RabbitMQ.Tests.Integration.csproj", "{94CFEA39-091B-42EF-A3E4-2130AC76A191}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{44AA2E4A-8423-4E12-A0A2-D46E64E24300}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".Solution Items", ".Solution Items", "{44AA2E4A-8423-4E12-A0A2-D46E64E24300}"
 	ProjectSection(SolutionItems) = preProject
 		.dockerignore = .dockerignore
 		.editorconfig = .editorconfig
