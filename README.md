@@ -2,7 +2,7 @@
 
 ![License](https://img.shields.io/github/license/ArieGato/serilog-sinks-rabbitmq)
 
-[![codecov](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq/graph/badge.svg?token=Ma2sUoqqb1)](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq)
+[![codecov](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq/graph/badge.svg?token=4uZ4oaOQUE)](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq)
 [![Nuget](https://img.shields.io/nuget/dt/Serilog.Sinks.RabbitMQ)](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ)
 [![Nuget](https://img.shields.io/nuget/v/Serilog.Sinks.RabbitMQ)](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ)
 
