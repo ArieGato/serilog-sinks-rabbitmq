@@ -27,7 +27,7 @@ namespace Serilog;
 /// <summary>
 /// Extension method to configure Serilog with a Sink for RabbitMQ.
 /// </summary>
-public static class LoggerConfigurationRabbitMQExtension
+public static class LoggerConfigurationRabbitMQExtensions
 {
     private const int DEFAULT_BATCH_POSTING_LIMIT = 50;
     private static readonly TimeSpan _defaultPeriod = TimeSpan.FromSeconds(2);

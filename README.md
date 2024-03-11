@@ -93,6 +93,7 @@ The SSL support has been improved. Now all properties are used when creating the
 
 ### Breaking changes
 
+- Renamed `LoggerConfigurationRabbitMqExtension` to `LoggerConfigurationRabbitMQExtensions`.
 - Renamed `hostname` to `hostnames` in configuration.
 - Default text formatter is `CompactJsonFormatter`. The `RawFromatter` was removed from Serilog.
 
