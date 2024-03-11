@@ -20,13 +20,13 @@ namespace Serilog.Sinks.RabbitMQ;
 internal interface IRabbitMQClient : IDisposable
 {
     /// <summary>
-    /// Publishes a message to RabbitMq Exchange.
+    /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
     /// <param name="message"></param>
     void Publish(string message);
 
     /// <summary>
-    /// Close the connection and all channels to RabbitMq.
+    /// Close the connection and all channels to RabbitMQ.
     /// </summary>
     /// <exception cref="AggregateException"></exception>
     void Close();

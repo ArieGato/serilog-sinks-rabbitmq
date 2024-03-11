@@ -18,7 +18,7 @@ using RabbitMQ.Client;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// RabbitMqClient - this class is the engine that lets you send messages to RabbitMq.
+/// RabbitMQClient - this class is the engine that lets you send messages to RabbitMQ.
 /// </summary>
 internal class RabbitMQClient : IRabbitMQClient
 {
@@ -32,7 +32,7 @@ internal class RabbitMQClient : IRabbitMQClient
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
     /// <summary>
-    /// Constructor for RabbitMqClient.
+    /// Constructor for <see cref="RabbitMQClient"/>.
     /// </summary>
     /// <param name="configuration">mandatory.</param>
     public RabbitMQClient(RabbitMQClientConfiguration configuration)
@@ -72,7 +72,7 @@ internal class RabbitMQClient : IRabbitMQClient
     }
 
     /// <summary>
-    /// Publishes a message to RabbitMq Exchange.
+    /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
     /// <param name="message"></param>
     public void Publish(string message)
@@ -93,7 +93,7 @@ internal class RabbitMQClient : IRabbitMQClient
     }
 
     /// <summary>
-    /// Close the connection and all channels to RabbitMq.
+    /// Close the connection and all channels to RabbitMQ.
     /// </summary>
     /// <exception cref="AggregateException"></exception>
     public void Close()

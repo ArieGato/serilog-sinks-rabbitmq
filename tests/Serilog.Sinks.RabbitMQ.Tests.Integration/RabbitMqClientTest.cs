@@ -18,11 +18,11 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 /// Tests for <see cref="RabbitMQClient" />.
 /// </summary>
 [Collection("Sequential")]
-public sealed class RabbitMqClientTest : IClassFixture<RabbitMQFixture>
+public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 {
     private readonly RabbitMQFixture _rabbitMQFixture;
 
-    public RabbitMqClientTest(RabbitMQFixture rabbitMQFixture)
+    public RabbitMQClientTest(RabbitMQFixture rabbitMQFixture)
     {
         _rabbitMQFixture = rabbitMQFixture;
     }

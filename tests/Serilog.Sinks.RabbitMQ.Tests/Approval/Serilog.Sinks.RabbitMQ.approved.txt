@@ -1,6 +1,6 @@
 namespace Serilog
 {
-    public static class LoggerConfigurationRabbitMqExtension
+    public static class LoggerConfigurationRabbitMQExtensions
     {
         public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, System.Action<Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration> configure) { }
         public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration clientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration sinkConfiguration) { }

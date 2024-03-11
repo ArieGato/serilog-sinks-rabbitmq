@@ -7,7 +7,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/ArieGato/serilog-sinks-rabbitmq</PackageProjectUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageDescription>Serilog.Sinks.RabbitMq is a Nuget package that extends Serilog to support logging to RabbitMq</PackageDescription>
+    <PackageDescription>Serilog.Sinks.RabbitMQ is a Nuget package that extends Serilog to support logging to RabbitMQ</PackageDescription>
     <Authors>Steffen Lyng, Jared Nance, Tsvetelin Tsonev, Jeow Li Huan, Andre Rocha, Shaparam, Meli0r, Johannes Egger, Dag H. Baardsen, Aaron Powell, Thomas Ardal, Juris Gekiss, Arjan Vermunt</Authors>
   </PropertyGroup>
 
