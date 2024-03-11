@@ -249,7 +249,7 @@ ASP.NET has the possibility to encrypt connection string in the web.config.
 
 ## Configuration via code
 
-There are multiple ways for configuring the RabbitMqSink with the release of v3.0.0
+There are multiple ways for configuring the RabbitMQSink with the release of v3.0.0
 
 ```csharp
 Log.Logger = new LoggerConfiguration()

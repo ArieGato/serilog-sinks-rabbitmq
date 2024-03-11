@@ -32,7 +32,7 @@ internal class RabbitMQClient : IRabbitMQClient
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
     /// <summary>
-    /// Constructor for RabbitMqClient.
+    /// Constructor for <see cref="RabbitMQClient"/>.
     /// </summary>
     /// <param name="configuration">mandatory.</param>
     public RabbitMQClient(RabbitMQClientConfiguration configuration)
