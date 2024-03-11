@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net6.0;net8.0</TargetFrameworks>
-    <PackageTags>serilog;logging;rabbitmq;error</PackageTags>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageTags>serilog;logging;rabbitmq</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/ArieGato/serilog-sinks-rabbitmq</PackageProjectUrl>
