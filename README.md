@@ -1,9 +1,24 @@
 # serilog-sinks-rabbitmq
-![Build status](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/ci-build.yml/badge.svg)
-<a href="https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/">
-  <img src="https://img.shields.io/nuget/v/Serilog.Sinks.RabbitMQ.svg" />
-</a>
-[![Gitter](https://badges.gitter.im/serilog-sinks-rabbitmq/serilog-sinks-rabbitmq.svg)](https://gitter.im/serilog-sinks-rabbitmq/Lobby)
+
+![License](https://img.shields.io/github/license/ArieGato/serilog-sinks-rabbitmq)
+
+[![codecov](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq/graph/badge.svg?token=4uZ4oaOQUE)](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq)
+[![Nuget](https://img.shields.io/nuget/dt/Serilog.Sinks.RabbitMQ)](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ)
+[![Nuget](https://img.shields.io/nuget/v/Serilog.Sinks.RabbitMQ)](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ)
+
+[![GitHub Release Date](https://img.shields.io/github/release-date/ArieGato/serilog-sinks-rabbitmq?label=released)](https://github.com/ArieGato/serilog-sinks-rabbitmq/releases)
+[![GitHub commits since latest release (by date)](https://img.shields.io/github/commits-since/ArieGato/serilog-sinks-rabbitmq/latest?label=new+commits)](https://github.com/ArieGato/serilog-sinks-rabbitmq/commits/master)
+![Size](https://img.shields.io/github/repo-size/ArieGato/serilog-sinks-rabbitmq)
+
+[![GitHub contributors](https://img.shields.io/github/contributors/ArieGato/serilog-sinks-rabbitmq)](https://github.com/ArieGato/serilog-sinks-rabbitmq/graphs/contributors)
+![Activity](https://img.shields.io/github/commit-activity/w/ArieGato/serilog-sinks-rabbitmq)
+![Activity](https://img.shields.io/github/commit-activity/m/ArieGato/serilog-sinks-rabbitmq)
+![Activity](https://img.shields.io/github/commit-activity/y/ArieGato/serilog-sinks-rabbitmq)
+
+[![Run unit tests](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/tests.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/tests.yml)
+[![Publish preview to GitHub registry](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-prerelease.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-prerelease.yml)
+[![Publish release to Nuget registry](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-release.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-release.yml)
+[![CodeQL analysis](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/codeql-analysis.yml)
 
 ## Purpose
 
