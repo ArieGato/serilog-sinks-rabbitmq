@@ -99,8 +99,8 @@ The SSL support has been improved. Now all properties are used when creating the
 ## Topics
 
 * [Sink Configuration Options](#sink-configuration-options)
-* [External configuration using Serilog.Settings.AppSettings](#external-configuration-using-serilog.settings.appsettings)
-* [External configuration using Serilog.Settings.Configuration](#external-configuration-using-serilog.settings.configuration)
+* [External configuration using Serilog.Settings.AppSettings](#external-configuration-using-serilogsettingsappsettings)
+* [External configuration using Serilog.Settings.Configuration](#external-configuration-using-serilogsettingsconfiguration)
 * [Audit Sink Configuration](#audit-sink-configuration)
 * [Multihost configuration](#multihost-configuration)
 * [Configuration via code](#configuration-via-code)
