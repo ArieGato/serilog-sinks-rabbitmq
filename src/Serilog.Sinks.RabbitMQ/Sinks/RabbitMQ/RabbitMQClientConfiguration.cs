@@ -47,6 +47,12 @@ public class RabbitMQClientConfiguration
     public string VHost { get; set; } = string.Empty;
 
     /// <summary>
+    /// Client provided name to be used for connection.
+    /// This option may be used to differentiate between connected applications in RabbitMQ Management UI.
+    /// </summary>
+    public string? ClientProvidedName { get; set; }
+
+    /// <summary>
     /// Heartbeat timeout in ms to use when negotiating with the server.
     /// </summary>
     public ushort Heartbeat { get; set; }
@@ -101,6 +107,7 @@ public class RabbitMQClientConfiguration
         RouteKey = config.RouteKey;
         Port = config.Port;
         VHost = config.VHost;
+        ClientProvidedName = config.ClientProvidedName;
         Heartbeat = config.Heartbeat;
         SslOption = config.SslOption;
         AutoCreateExchange = config.AutoCreateExchange;

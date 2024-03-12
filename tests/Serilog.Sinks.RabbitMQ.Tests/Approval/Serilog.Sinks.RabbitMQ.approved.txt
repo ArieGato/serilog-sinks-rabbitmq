@@ -69,6 +69,7 @@ namespace Serilog.Sinks.RabbitMQ
     {
         public RabbitMQClientConfiguration() { }
         public bool AutoCreateExchange { get; set; }
+        public string? ClientProvidedName { get; set; }
         public Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode DeliveryMode { get; set; }
         public string Exchange { get; set; }
         public string ExchangeType { get; set; }
