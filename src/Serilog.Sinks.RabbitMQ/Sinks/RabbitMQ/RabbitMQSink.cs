@@ -29,6 +29,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly IRabbitMQClient _client;
     private readonly ILogEventSink? _failureSink;
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
+    private readonly Func<LogEvent, string>? _routeKeyFunction;
     private bool _disposedValue;
 
     /// <summary>
@@ -45,6 +46,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _formatter = rabbitMQSinkConfiguration.TextFormatter;
         _client = new RabbitMQClient(configuration);
         _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
+        _routeKeyFunction = configuration.RouteKeyFunction;
         _failureSink = failureSink;
     }
 
@@ -72,7 +74,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     {
         var sw = new StringWriter();
         _formatter.Format(logEvent, sw);
-        _client.Publish(sw.ToString());
+        _client.Publish(sw.ToString(), _routeKeyFunction?.Invoke(logEvent));
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
@@ -87,7 +89,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                _client.Publish(sw.ToString(), _routeKeyFunction?.Invoke(logEvent));
             }
         }
         catch (Exception exception)

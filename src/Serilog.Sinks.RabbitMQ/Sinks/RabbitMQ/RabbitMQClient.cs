@@ -75,13 +75,16 @@ internal class RabbitMQClient : IRabbitMQClient
     /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
     /// <param name="message"></param>
-    public void Publish(string message)
+    public void Publish(string message, string? routingKey = null)
     {
         IRabbitMQChannel? channel = null;
         try
         {
             channel = _modelObjectPool.Get();
-            channel.BasicPublish(_publicationAddress, System.Text.Encoding.UTF8.GetBytes(message));
+            var address = routingKey == null
+                ? _publicationAddress
+                : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
+            channel.BasicPublish(address, System.Text.Encoding.UTF8.GetBytes(message));
         }
         finally
         {

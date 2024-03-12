@@ -23,7 +23,7 @@ internal interface IRabbitMQClient : IDisposable
     /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
     /// <param name="message"></param>
-    void Publish(string message);
+    void Publish(string message, string? routingKey = null);
 
     /// <summary>
     /// Close the connection and all channels to RabbitMQ.
