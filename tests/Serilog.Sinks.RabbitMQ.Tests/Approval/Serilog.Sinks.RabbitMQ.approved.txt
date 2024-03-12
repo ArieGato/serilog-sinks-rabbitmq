@@ -30,8 +30,8 @@ namespace Serilog
         public static Serilog.LoggerConfiguration RabbitMQ(
                     this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration,
                     string[] hostnames,
-                    string? username,
-                    string? password,
+                    string username,
+                    string password,
                     string? exchange = null,
                     string? exchangeType = null,
                     Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode deliveryMode = 1,
@@ -44,7 +44,7 @@ namespace Serilog
                     System.Security.Authentication.SslProtocols sslVersion = 0,
                     System.Net.Security.SslPolicyErrors sslAcceptablePolicyErrors = 0,
                     bool sslCheckCertificateRevocation = false,
-                    int batchPostingLimit = 0,
+                    int batchPostingLimit = 50,
                     System.TimeSpan period = default,
                     int? queueLimit = default,
                     Serilog.Formatting.ITextFormatter? formatter = null,
@@ -75,12 +75,12 @@ namespace Serilog.Sinks.RabbitMQ
         public ushort Heartbeat { get; set; }
         public System.Collections.Generic.IList<string> Hostnames { get; set; }
         public int MaxChannels { get; set; }
-        public string? Password { get; set; }
+        public string Password { get; set; }
         public int Port { get; set; }
         public string RouteKey { get; set; }
         public System.Func<Serilog.Events.LogEvent, string>? RouteKeyFunction { get; set; }
         public RabbitMQ.Client.SslOption? SslOption { get; set; }
-        public string? Username { get; set; }
+        public string Username { get; set; }
         public string VHost { get; set; }
         public Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration From(Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration config) { }
     }

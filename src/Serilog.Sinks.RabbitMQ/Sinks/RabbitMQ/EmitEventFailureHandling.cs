@@ -15,7 +15,8 @@
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// Specifies options for handling failures when emitting the events to RabbitMQ. Can be a combination of options.
+/// Specifies options for handling failures when emitting the events to RabbitMQ.
+/// Can be a combination of options.
 /// </summary>
 [Flags]
 public enum EmitEventFailureHandling
@@ -26,7 +27,7 @@ public enum EmitEventFailureHandling
     Ignore = 0,
 
     /// <summary>
-    /// Send the error to the SelfLog.
+    /// Send the error to the <see cref="Debugging.SelfLog"/>.
     /// </summary>
     WriteToSelfLog = 1,
 

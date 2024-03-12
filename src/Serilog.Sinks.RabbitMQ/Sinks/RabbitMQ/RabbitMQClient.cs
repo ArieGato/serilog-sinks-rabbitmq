@@ -18,23 +18,22 @@ using RabbitMQ.Client;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// RabbitMQClient - this class is the engine that lets you send messages to RabbitMQ.
+/// This class is the engine that lets you send messages to RabbitMQ.
 /// </summary>
-internal class RabbitMQClient : IRabbitMQClient
+internal sealed class RabbitMQClient : IRabbitMQClient
 {
     private readonly ObjectPool<IRabbitMQChannel> _modelObjectPool;
 
-    public const int DEFAULT_MAX_CHANNEL_COUNT = 64;
+    /// <summary>
+    /// Default value for the maximum number of channels.
+    /// </summary>
+    internal const int DEFAULT_MAX_CHANNEL_COUNT = 64;
+
     private readonly CancellationTokenSource _closeTokenSource = new();
 
-    // configuration member
     private readonly PublicationAddress _publicationAddress;
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
-    /// <summary>
-    /// Constructor for <see cref="RabbitMQClient"/>.
-    /// </summary>
-    /// <param name="configuration">mandatory.</param>
     public RabbitMQClient(RabbitMQClientConfiguration configuration)
     {
         _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
@@ -71,10 +70,6 @@ internal class RabbitMQClient : IRabbitMQClient
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
     }
 
-    /// <summary>
-    /// Publishes a message to RabbitMQ Exchange.
-    /// </summary>
-    /// <param name="message"></param>
     public void Publish(string message, string? routingKey = null)
     {
         IRabbitMQChannel? channel = null;
@@ -95,10 +90,6 @@ internal class RabbitMQClient : IRabbitMQClient
         }
     }
 
-    /// <summary>
-    /// Close the connection and all channels to RabbitMQ.
-    /// </summary>
-    /// <exception cref="AggregateException"></exception>
     public void Close()
     {
         var exceptions = new List<Exception>();
@@ -127,7 +118,6 @@ internal class RabbitMQClient : IRabbitMQClient
         }
     }
 
-    /// <inheritdoc />
     public void Dispose()
     {
         _closeTokenSource.Dispose();

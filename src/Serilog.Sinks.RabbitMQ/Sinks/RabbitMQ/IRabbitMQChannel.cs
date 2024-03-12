@@ -22,14 +22,14 @@ namespace Serilog.Sinks.RabbitMQ;
 internal interface IRabbitMQChannel : IDisposable
 {
     /// <summary>
-    /// Returns true when the channel is open.
+    /// Returns <see langword="true"/> when the channel is open.
     /// </summary>
     bool IsOpen { get; }
 
     /// <summary>
     /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
-    /// <param name="address"></param>
-    /// <param name="body"></param>
+    /// <param name="address"><see cref="PublicationAddress"/>.</param>
+    /// <param name="body">Message body.</param>
     void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
 }

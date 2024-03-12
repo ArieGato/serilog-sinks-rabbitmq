@@ -11,7 +11,7 @@ public class RabbitMQSinkTests
     public void Emit_ShouldPublishMessages()
     {
         // Arrange
-        var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), new List<LogEventProperty>());
+        var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), []);
 
         var textFormatter = Substitute.For<ITextFormatter>();
         textFormatter
@@ -34,8 +34,8 @@ public class RabbitMQSinkTests
     {
         // Arrange
         IEnumerable<LogEvent> logEvents = [
-            new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-1", []), new List<LogEventProperty>()),
-            new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-2", []), new List<LogEventProperty>())];
+            new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-1", []), []),
+            new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-2", []), [])];
 
         var textFormatter = Substitute.For<ITextFormatter>();
         textFormatter

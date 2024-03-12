@@ -22,12 +22,13 @@ internal interface IRabbitMQClient : IDisposable
     /// <summary>
     /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
-    /// <param name="message"></param>
+    /// <param name="message">Message text.</param>
+    /// <param name="routingKey">Optional routing key.</param>
     void Publish(string message, string? routingKey = null);
 
     /// <summary>
     /// Close the connection and all channels to RabbitMQ.
     /// </summary>
-    /// <exception cref="AggregateException"></exception>
+    /// <exception cref="AggregateException">In case of any error when closing.</exception>
     void Close();
 }
