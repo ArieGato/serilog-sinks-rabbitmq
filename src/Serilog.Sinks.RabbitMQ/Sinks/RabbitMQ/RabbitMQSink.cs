@@ -29,6 +29,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly IRabbitMQClient _client;
     private readonly ILogEventSink? _failureSink;
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
+    private readonly Func<LogEvent, string>? _routeKeyFunction;
     private bool _disposedValue;
 
     internal RabbitMQSink(
@@ -39,6 +40,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _formatter = rabbitMQSinkConfiguration.TextFormatter;
         _client = new RabbitMQClient(configuration);
         _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
+        _routeKeyFunction = configuration.RouteKeyFunction;
         _failureSink = failureSink;
     }
 
@@ -49,11 +51,13 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         IRabbitMQClient client,
         ITextFormatter textFormatter,
         EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
-        ILogEventSink? failureSink = null)
+        ILogEventSink? failureSink = null,
+        Func<LogEvent, string>? routeKeyFunction = null)
     {
         _client = client;
         _formatter = textFormatter;
         _emitEventFailureHandling = emitEventFailureHandling;
+        _routeKeyFunction = routeKeyFunction;
         _failureSink = failureSink;
     }
 
@@ -62,7 +66,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     {
         var sw = new StringWriter();
         _formatter.Format(logEvent, sw);
-        _client.Publish(sw.ToString());
+        _client.Publish(sw.ToString(), _routeKeyFunction?.Invoke(logEvent));
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
@@ -77,7 +81,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             {
                 var sw = new StringWriter();
                 _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString());
+                _client.Publish(sw.ToString(), _routeKeyFunction?.Invoke(logEvent));
             }
         }
         catch (Exception exception)

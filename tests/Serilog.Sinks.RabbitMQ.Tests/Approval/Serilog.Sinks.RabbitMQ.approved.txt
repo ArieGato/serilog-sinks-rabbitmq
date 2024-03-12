@@ -81,6 +81,7 @@ namespace Serilog.Sinks.RabbitMQ
         public string Password { get; set; }
         public int Port { get; set; }
         public string RouteKey { get; set; }
+        public System.Func<Serilog.Events.LogEvent, string>? RouteKeyFunction { get; set; }
         public RabbitMQ.Client.SslOption? SslOption { get; set; }
         public string Username { get; set; }
         public string VHost { get; set; }

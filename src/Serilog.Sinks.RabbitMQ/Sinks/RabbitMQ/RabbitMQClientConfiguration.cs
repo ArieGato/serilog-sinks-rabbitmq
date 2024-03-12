@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using RabbitMQ.Client;
+using Serilog.Events;
 
 namespace Serilog.Sinks.RabbitMQ;
 
@@ -83,6 +84,13 @@ public class RabbitMQClientConfiguration
     public string RouteKey { get; set; } = string.Empty;
 
     /// <summary>
+    /// The route key function that allows to organize dynamic routing.
+    /// By default <see langword="null"/> and <see cref="RouteKey"/> option is used instead.
+    /// When set this option is used instead of fixed <see cref="RouteKey"/>.
+    /// </summary>
+    public Func<LogEvent, string>? RouteKeyFunction { get; set; }
+
+    /// <summary>
     /// When set to <see langword="true"/>, auto create exchange.
     /// </summary>
     public bool AutoCreateExchange { get; set; }
@@ -106,6 +114,7 @@ public class RabbitMQClientConfiguration
         ExchangeType = config.ExchangeType;
         DeliveryMode = config.DeliveryMode;
         RouteKey = config.RouteKey;
+        RouteKeyFunction = config.RouteKeyFunction;
         Port = config.Port;
         VHost = config.VHost;
         ClientProvidedName = config.ClientProvidedName;
