@@ -70,13 +70,13 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
     }
 
-    public void Publish(string message)
+    public void Publish(ReadOnlyMemory<byte> message)
     {
         IRabbitMQChannel? channel = null;
         try
         {
             channel = _modelObjectPool.Get();
-            channel.BasicPublish(_publicationAddress, System.Text.Encoding.UTF8.GetBytes(message));
+            channel.BasicPublish(_publicationAddress, message);
         }
         finally
         {

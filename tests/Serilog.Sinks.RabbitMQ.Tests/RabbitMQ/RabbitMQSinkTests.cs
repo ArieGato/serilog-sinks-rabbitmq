@@ -26,7 +26,7 @@ public class RabbitMQSinkTests
         sut.Emit(logEvent);
 
         // Assert
-        rabbitMQClient.Received(1).Publish(Arg.Is("some-message"));
+        rabbitMQClient.Received(1).Publish(Arg.Is(Encoding.UTF8.GetBytes("some-message")));
     }
 
     [Fact]
@@ -50,8 +50,8 @@ public class RabbitMQSinkTests
         await sut.EmitBatchAsync(logEvents);
 
         // Assert
-        rabbitMQClient.Received(1).Publish(Arg.Is("some-message-1"));
-        rabbitMQClient.Received(1).Publish(Arg.Is("some-message-2"));
+        rabbitMQClient.Received(1).Publish(Arg.Is(Encoding.UTF8.GetBytes("some-message-1")));
+        rabbitMQClient.Received(1).Publish(Arg.Is(Encoding.UTF8.GetBytes("some-message-2")));
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class RabbitMQSinkTests
         await sut.EmitBatchAsync(logEvents);
 
         // Assert
-        rabbitMQClient.DidNotReceive().Publish(Arg.Any<string>());
+        rabbitMQClient.DidNotReceive().Publish(Arg.Any<ReadOnlyMemory<byte>>());
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<string>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -173,7 +173,7 @@ public class RabbitMQSinkTests
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<string>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -199,7 +199,7 @@ public class RabbitMQSinkTests
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<string>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -225,7 +225,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<string>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -247,7 +247,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<string>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();

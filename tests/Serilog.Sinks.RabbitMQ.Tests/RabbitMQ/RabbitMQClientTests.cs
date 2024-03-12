@@ -38,7 +38,7 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
         // Act
-        sut.Publish("some-message");
+        sut.Publish(Encoding.UTF8.GetBytes("some-message"));
 
         // Assert
         rabbitMQChannelObjectPoolPolicy.Received(1).Create();
@@ -118,7 +118,7 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
         // Need to publish a message first to create the channel in the Pool
-        sut.Publish("some-message");
+        sut.Publish(Encoding.UTF8.GetBytes("some-message"));
 
         // Act
         sut.Dispose();
