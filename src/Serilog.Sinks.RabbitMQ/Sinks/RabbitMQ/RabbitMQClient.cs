@@ -34,7 +34,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
     private readonly PublicationAddress _publicationAddress;
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
-    internal RabbitMQClient(RabbitMQClientConfiguration configuration)
+    public RabbitMQClient(RabbitMQClientConfiguration configuration)
     {
         _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
 
