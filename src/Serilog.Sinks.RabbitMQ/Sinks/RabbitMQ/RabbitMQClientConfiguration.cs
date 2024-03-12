@@ -24,17 +24,17 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// List of hosts to use for the connection.
     /// </summary>
-    public IList<string> Hostnames { get; set; } = new List<string>();
+    public IList<string> Hostnames { get; set; } = [];
 
     /// <summary>
     /// Username to use when authenticating to the server.
     /// </summary>
-    public string? Username { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
 
     /// <summary>
     /// Password to use when authenticating to the server.
     /// </summary>
-    public string? Password { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 
     /// <summary>
     /// The port to connect on.
@@ -42,12 +42,12 @@ public class RabbitMQClientConfiguration
     public int Port { get; set; }
 
     /// <summary>
-    /// Virtual host to access during this connection.
+    /// Virtual host to access during connection.
     /// </summary>
     public string VHost { get; set; } = string.Empty;
 
     /// <summary>
-    /// Heartbeat timeout in ms to use when negotiating with the server.
+    /// Heartbeat timeout in milliseconds to use when negotiating with the server.
     /// </summary>
     public ushort Heartbeat { get; set; }
 
@@ -77,12 +77,13 @@ public class RabbitMQClientConfiguration
     public string RouteKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// When set to <c>true</c>, auto create exchange.
+    /// When set to <see langword="true"/>, auto create exchange.
     /// </summary>
     public bool AutoCreateExchange { get; set; }
 
     /// <summary>
-    /// Maximum number of channels in the channel pool. Default is 64.
+    /// Maximum number of channels in the channel pool.
+    /// Default is 64.
     /// </summary>
     public int MaxChannels { get; set; } = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT;
 
