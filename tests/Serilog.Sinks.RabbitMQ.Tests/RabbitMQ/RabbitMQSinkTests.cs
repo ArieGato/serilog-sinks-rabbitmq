@@ -7,6 +7,21 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
 public class RabbitMQSinkTests
 {
+    private sealed class StubClient : IRabbitMQClient
+    {
+        public void Close() => throw new NotImplementedException();
+
+        public void Dispose() => throw new NotImplementedException();
+
+        public void Publish(ReadOnlyMemory<byte> message)
+        {
+            // Need to store as strings because content of ReadOnlyMemory is reused.
+            Messages.Add(Encoding.UTF8.GetString(message.ToArray()));
+        }
+
+        public List<string> Messages { get; set; } = [];
+    }
+
     [Fact]
     public void Emit_ShouldPublishMessages()
     {
@@ -18,7 +33,7 @@ public class RabbitMQSinkTests
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
             .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        var rabbitMQClient = new StubClient();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
@@ -26,7 +41,8 @@ public class RabbitMQSinkTests
         sut.Emit(logEvent);
 
         // Assert
-        rabbitMQClient.Received(1).Publish(Arg.Is(Encoding.UTF8.GetBytes("some-message")));
+        rabbitMQClient.Messages.Count.ShouldBe(1);
+        rabbitMQClient.Messages[0].ShouldBe("some-message");
     }
 
     [Fact]
@@ -42,7 +58,7 @@ public class RabbitMQSinkTests
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
             .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        var rabbitMQClient = new StubClient();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
 
@@ -50,8 +66,9 @@ public class RabbitMQSinkTests
         await sut.EmitBatchAsync(logEvents);
 
         // Assert
-        rabbitMQClient.Received(1).Publish(Arg.Is(Encoding.UTF8.GetBytes("some-message-1")));
-        rabbitMQClient.Received(1).Publish(Arg.Is(Encoding.UTF8.GetBytes("some-message-2")));
+        rabbitMQClient.Messages.Count.ShouldBe(2);
+        rabbitMQClient.Messages[0].ShouldBe("some-message-1");
+        rabbitMQClient.Messages[1].ShouldBe("some-message-2");
     }
 
     [Fact]

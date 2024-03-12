@@ -29,6 +29,7 @@ namespace Serilog.Sinks.RabbitMQ;
 public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
 {
     private static readonly RecyclableMemoryStreamManager _manager = new();
+    private static readonly Encoding _utf8NoBOM = new UTF8Encoding(false);
 
     private readonly ITextFormatter _formatter;
     private readonly IRabbitMQClient _client;
@@ -66,8 +67,9 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     public void Emit(LogEvent logEvent)
     {
         using var stream = _manager.GetStream();
-        using var sw = new StreamWriter(stream, Encoding.UTF8);
+        using var sw = new StreamWriter(stream, _utf8NoBOM);
         _formatter.Format(logEvent, sw);
+        sw.Flush();
         _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length));
     }
 
@@ -82,8 +84,9 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             foreach (var logEvent in logEvents)
             {
                 using var stream = _manager.GetStream();
-                using var sw = new StreamWriter(stream, Encoding.UTF8);
+                using var sw = new StreamWriter(stream, _utf8NoBOM);
                 _formatter.Format(logEvent, sw);
+                sw.Flush();
                 _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length));
             }
         }
