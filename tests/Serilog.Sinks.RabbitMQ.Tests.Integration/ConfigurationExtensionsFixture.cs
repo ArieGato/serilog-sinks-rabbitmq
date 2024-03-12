@@ -315,7 +315,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
 
         var act = () => loggerConfiguration.WriteTo.RabbitMQ(
             hostnames: ["localhost"],
-            username: null,
+            username: null!,
             password: "password",
             port: 5672);
 
@@ -331,7 +331,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var act = () => loggerConfiguration.WriteTo.RabbitMQ(
             hostnames: ["localhost"],
             username: "username",
-            password: null,
+            password: null!,
             port: 5672);
 
         var ex = Should.Throw<ArgumentException>(act);

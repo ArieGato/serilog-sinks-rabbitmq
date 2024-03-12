@@ -24,8 +24,7 @@ Log.Logger = new LoggerConfiguration()
         (clientConfiguration, sinkConfiguration) =>
         {
             sinkConfiguration.BatchPostingLimit = 100;
-            sinkConfiguration.EmitEventFailure =
-                EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.WriteToSelfLog;
+            sinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.WriteToSelfLog;
             sinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
             sinkConfiguration.Period = TimeSpan.FromSeconds(2);
             sinkConfiguration.TextFormatter = new Serilog.Formatting.Json.JsonFormatter();
@@ -34,7 +33,7 @@ Log.Logger = new LoggerConfiguration()
             clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
             clientConfiguration.Exchange = "LogExchange";
             clientConfiguration.ExchangeType = "fanout";
-            clientConfiguration.Hostnames = new[] { "localhost" };
+            clientConfiguration.Hostnames = ["localhost"];
             clientConfiguration.Password = "serilog";
             clientConfiguration.Username = "serilog";
         },

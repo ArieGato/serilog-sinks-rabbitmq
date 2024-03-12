@@ -24,7 +24,7 @@ internal interface IRabbitMQConnectionFactory : IDisposable
     /// <summary>
     /// Returns the connection. Creates a new connection if none exists.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>New or already created connection.</returns>
     IConnection GetConnection();
 
     /// <summary>
