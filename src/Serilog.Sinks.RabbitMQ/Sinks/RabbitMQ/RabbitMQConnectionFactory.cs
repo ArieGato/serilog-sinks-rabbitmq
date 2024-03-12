@@ -17,7 +17,7 @@ using Serilog.Debugging;
 
 namespace Serilog.Sinks.RabbitMQ;
 
-internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
+internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
 {
     private readonly RabbitMQClientConfiguration _config;
     private readonly CancellationTokenSource _cancellationTokenSource;
@@ -26,11 +26,6 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
 
     private IConnection? _connection;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RabbitMQConnectionFactory"/> class.
-    /// </summary>
-    /// <param name="rabbitMQConfiguration"></param>
-    /// <param name="cancellationTokenSource"></param>
     public RabbitMQConnectionFactory(
         RabbitMQClientConfiguration rabbitMQConfiguration,
         CancellationTokenSource cancellationTokenSource)
@@ -40,10 +35,6 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         _connectionFactory = GetConnectionFactory();
     }
 
-    /// <summary>
-    /// Returns the connection. Creates a new connection if none exists.
-    /// </summary>
-    /// <returns></returns>
     public IConnection GetConnection()
     {
         if (_connection != null)
@@ -135,17 +126,12 @@ internal class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         return connectionFactory;
     }
 
-    /// <summary>
-    /// Close the connection and all channels to RabbitMQ.
-    /// </summary>
-    /// <exception cref="AggregateException"></exception>
     public void Close()
     {
         _connectionLock.Wait(10);
         _connection?.Close();
     }
 
-    /// <inheritdoc />
     public void Dispose()
     {
         try

@@ -21,7 +21,7 @@ using Serilog.Sinks.PeriodicBatching;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// Serilog RabbitMQ Sink - Lets you log to RabbitMQ using Serilog.
+/// Serilog RabbitMQ Sink - lets you log to RabbitMQ using Serilog.
 /// </summary>
 public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
 {
@@ -31,12 +31,6 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
     private bool _disposedValue;
 
-    /// <summary>
-    /// Default constructor.
-    /// </summary>
-    /// <param name="configuration"></param>
-    /// <param name="rabbitMQSinkConfiguration"></param>
-    /// <param name="failureSink"></param>
     internal RabbitMQSink(
         RabbitMQClientConfiguration configuration,
         RabbitMQSinkConfiguration rabbitMQSinkConfiguration,
@@ -51,10 +45,6 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     /// <summary>
     /// Constructor for testing purposes.
     /// </summary>
-    /// <param name="client"></param>
-    /// <param name="textFormatter"></param>
-    /// <param name="emitEventFailureHandling"></param>
-    /// <param name="failureSink"></param>
     internal RabbitMQSink(
         IRabbitMQClient client,
         ITextFormatter textFormatter,
@@ -102,10 +92,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.OnEmptyBatchAsync" />
-    public Task OnEmptyBatchAsync()
-    {
-        return Task.CompletedTask;
-    }
+    public Task OnEmptyBatchAsync() => Task.CompletedTask;
 
     /// <inheritdoc cref="IDisposable.Dispose"/>
     public void Dispose()
@@ -125,7 +112,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             SelfLog.WriteLine("Exception occurred closing RabbitMQClient {0}", exception.Message);
         }
 
-        // Dispose the failure sink if it's disposable
+        // Dispose the failure sink if it's disposable.
         if (_failureSink is IDisposable disposableFailureSink)
         {
             disposableFailureSink.Dispose();
@@ -137,12 +124,12 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <summary>
-    /// Handles the exceptions.
+    /// Handles the exceptions from <see cref="EmitBatchAsync"/>.
     /// </summary>
-    /// <param name="ex"></param>
-    /// <param name="events"></param>
+    /// <param name="ex">Occurred exception.</param>
+    /// <param name="events">Batch of log events.</param>
     /// <returns>true when exception has been handled.</returns>
-    private bool HandleException(Exception ex, IEnumerable<LogEvent> events)
+    private bool HandleException(Exception ex, LogEvent[] events)
     {
         if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToSelfLog))
         {
@@ -150,8 +137,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             SelfLog.WriteLine("Caught exception while performing bulk operation to RabbitMQ: {0}", ex);
         }
 
-        if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink) &&
-            _failureSink != null)
+        if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink) && _failureSink != null)
         {
             // Send to a failure sink
             try
@@ -170,8 +156,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             }
         }
 
-        // return true if the exception has been handled. e.g. when the exception doesn't
-        // need to be rethrown
+        // Return true if the exception has been handled. e.g. when the exception doesn't need to be rethrown.
         return !_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.ThrowException);
     }
 }

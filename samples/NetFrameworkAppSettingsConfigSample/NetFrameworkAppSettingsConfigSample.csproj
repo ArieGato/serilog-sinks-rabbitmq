@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net48</TargetFramework>
+    <NoWarn>$(NoWarn);SA1516</NoWarn> <!--looks like a bug in stylecop-->
   </PropertyGroup>
 
   <ItemGroup>

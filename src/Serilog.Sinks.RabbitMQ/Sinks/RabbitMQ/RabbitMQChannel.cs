@@ -23,16 +23,12 @@ namespace Serilog.Sinks.RabbitMQ;
 internal sealed class RabbitMQChannel : IRabbitMQChannel
 {
     private readonly IBasicProperties _properties;
-
-    /// <summary>
-    /// The wrapped <see cref="IModel"/>.
-    /// </summary>
     private readonly IModel _model;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQChannel"/> class.
     /// </summary>
-    /// <param name="model"></param>
+    /// <param name="model">The wrapped <see cref="IModel"/>.</param>
     public RabbitMQChannel(IModel model)
     {
         _model = model;
@@ -47,7 +43,6 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
         _model.BasicPublish(address, _properties, body);
     }
 
-    /// <inheritdoc />
     public void Dispose()
     {
         try

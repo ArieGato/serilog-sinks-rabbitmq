@@ -16,6 +16,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".Solution Items", ".Solutio
 		.dockerignore = .dockerignore
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
+		CHANGELOG.md = CHANGELOG.md
 		CODE_OF_CONDUCT.md = CODE_OF_CONDUCT.md
 		CONTRIBUTING.md = CONTRIBUTING.md
 		Directory.Build.props = Directory.Build.props
@@ -23,6 +24,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".Solution Items", ".Solutio
 		docker-compose.yml = docker-compose.yml
 		LICENSE = LICENSE
 		README.md = README.md
+		stylecop.json = stylecop.json
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Serilog.Sinks.RabbitMQ.Tests", "tests\Serilog.Sinks.RabbitMQ.Tests\Serilog.Sinks.RabbitMQ.Tests.csproj", "{40744D04-8DE1-454C-87E9-2A27DD102AA5}"

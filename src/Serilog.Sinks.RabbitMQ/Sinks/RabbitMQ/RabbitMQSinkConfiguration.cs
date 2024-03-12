@@ -25,13 +25,15 @@ public class RabbitMQSinkConfiguration
 {
     /// <summary>
     /// The maximum number of events to include in a single batch.
+    /// Default is 50.
     /// </summary>
-    public int BatchPostingLimit { get; set; }
+    public int BatchPostingLimit { get; set; } = LoggerConfigurationRabbitMQExtensions.DEFAULT_BATCH_POSTING_LIMIT;
 
     /// <summary>
     /// The time to wait between checking for event batches.
+    /// Default is 2 seconds.
     /// </summary>
-    public TimeSpan Period { get; set; }
+    public TimeSpan Period { get; set; } = LoggerConfigurationRabbitMQExtensions._defaultPeriod;
 
     /// <summary>
     /// The batched sink internal queue limit.
@@ -46,6 +48,7 @@ public class RabbitMQSinkConfiguration
 
     /// <summary>
     /// The minimum level for events passed through the sink.
+    /// Default is <see cref="LogEventLevel.Verbose"/>.
     /// </summary>
     public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
 
