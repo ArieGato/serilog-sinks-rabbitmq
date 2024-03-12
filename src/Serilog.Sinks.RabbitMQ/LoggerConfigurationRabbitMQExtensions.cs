@@ -73,6 +73,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="routeKey">The routing key.</param>
     /// <param name="port">The port number.</param>
     /// <param name="vHost">The virtual host.</param>
+    /// <param name="clientProvidedName">Client provided name to be used for connection.</param>
     /// <param name="heartbeat">The heartbeat interval.</param>
     /// <param name="sslEnabled">Indicates whether SSL is enabled.</param>
     /// <param name="sslServerName">The SSL server name.</param>
@@ -100,6 +101,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         string? routeKey = null,
         int port = 0,
         string? vHost = null,
+        string? clientProvidedName = null,
         ushort heartbeat = 0,
         bool sslEnabled = false,
         string? sslServerName = null,
@@ -128,6 +130,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             RouteKey = routeKey ?? string.Empty,
             Port = port,
             VHost = vHost ?? string.Empty,
+            ClientProvidedName = clientProvidedName,
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
             MaxChannels = maxChannels,
@@ -199,6 +202,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="routeKey">The routing key.</param>
     /// <param name="port">The port number.</param>
     /// <param name="vHost">The virtual host.</param>
+    /// <param name="clientProvidedName">Client provided name to be used for connection.</param>
     /// <param name="heartbeat">The heartbeat interval.</param>
     /// <param name="sslEnabled">Indicates whether SSL is enabled.</param>
     /// <param name="sslServerName">The SSL server name.</param>
@@ -221,6 +225,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         string? routeKey = null,
         int port = 0,
         string? vHost = null,
+        string? clientProvidedName = null,
         ushort heartbeat = 0,
         bool sslEnabled = false,
         string? sslServerName = null,
@@ -244,6 +249,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             RouteKey = routeKey ?? string.Empty,
             Port = port,
             VHost = vHost ?? string.Empty,
+            ClientProvidedName = clientProvidedName,
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
             MaxChannels = maxChannels,
