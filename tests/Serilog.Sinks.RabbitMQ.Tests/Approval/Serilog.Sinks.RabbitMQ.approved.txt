@@ -30,8 +30,8 @@ namespace Serilog
         public static Serilog.LoggerConfiguration RabbitMQ(
                     this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration,
                     string[] hostnames,
-                    string? username,
-                    string? password,
+                    string username,
+                    string password,
                     string? exchange = null,
                     string? exchangeType = null,
                     Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode deliveryMode = 1,
