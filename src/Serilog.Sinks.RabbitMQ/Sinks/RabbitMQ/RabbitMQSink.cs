@@ -51,11 +51,13 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         IRabbitMQClient client,
         ITextFormatter textFormatter,
         EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
-        ILogEventSink? failureSink = null)
+        ILogEventSink? failureSink = null,
+        Func<LogEvent, string>? routeKeyFunction = null)
     {
         _client = client;
         _formatter = textFormatter;
         _emitEventFailureHandling = emitEventFailureHandling;
+        _routeKeyFunction = routeKeyFunction;
         _failureSink = failureSink;
     }
 

@@ -1,7 +1,9 @@
+using Microsoft.Extensions.ObjectPool;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
+using Serilog.Formatting.Compact;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
@@ -259,5 +261,37 @@ public class RabbitMQSinkTests
 
         // Assert
         await Should.NotThrowAsync(act);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Emit_Should_Use_RouteKeyFunction_If_Specified(bool useRouteKeyFunction)
+    {
+        // Arrange
+        var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), []);
+        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        {
+            Exchange = "some-exchange",
+            ExchangeType = "some-exchange-type",
+            RouteKey = "some-route-key",
+        };
+        if (useRouteKeyFunction)
+            rabbitMQClientConfiguration.RouteKeyFunction = _ => "super-key";
+        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+        var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
+        rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
+
+        var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+
+        var sut = new RabbitMQSink(rabbitMQClient, new CompactJsonFormatter(), routeKeyFunction: rabbitMQClientConfiguration.RouteKeyFunction);
+
+        // Act
+        sut.Emit(logEvent);
+
+        // Assert
+        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe(useRouteKeyFunction ? "super-key" : "some-route-key");
     }
 }
