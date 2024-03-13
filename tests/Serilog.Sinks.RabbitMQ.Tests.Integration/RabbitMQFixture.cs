@@ -135,7 +135,7 @@ public class RabbitMQFixture : IDisposable
         _rabbitMQClient.Dispose();
     }
 
-    public void Publish(string message) => _rabbitMQClient.Publish(message);
+    public void Publish(string message) => _rabbitMQClient.Publish(Encoding.UTF8.GetBytes(message));
 
     // The IModel is not disposed automatically, so the calling member is responsible for disposing it.
     public async Task<IModel> GetConsumingModelAsync()

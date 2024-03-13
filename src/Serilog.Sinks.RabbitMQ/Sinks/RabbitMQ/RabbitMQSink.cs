@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Buffers;
+using System.Text;
+using Microsoft.IO;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
@@ -25,6 +28,9 @@ namespace Serilog.Sinks.RabbitMQ;
 /// </summary>
 public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
 {
+    private static readonly RecyclableMemoryStreamManager _manager = new();
+    private static readonly Encoding _utf8NoBOM = new UTF8Encoding(false);
+
     private readonly ITextFormatter _formatter;
     private readonly IRabbitMQClient _client;
     private readonly ILogEventSink? _failureSink;
@@ -64,9 +70,11 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     /// <inheritdoc cref="ILogEventSink.Emit" />
     public void Emit(LogEvent logEvent)
     {
-        var sw = new StringWriter();
+        using var stream = _manager.GetStream();
+        using var sw = new StreamWriter(stream, _utf8NoBOM);
         _formatter.Format(logEvent, sw);
-        _client.Publish(sw.ToString(), _routeKeyFunction?.Invoke(logEvent));
+        sw.Flush();
+        _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent));
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
@@ -79,9 +87,11 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         {
             foreach (var logEvent in logEvents)
             {
-                var sw = new StringWriter();
+                using var stream = _manager.GetStream();
+                using var sw = new StreamWriter(stream, _utf8NoBOM);
                 _formatter.Format(logEvent, sw);
-                _client.Publish(sw.ToString(), _routeKeyFunction?.Invoke(logEvent));
+                sw.Flush();
+                _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent));
             }
         }
         catch (Exception exception)

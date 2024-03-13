@@ -110,7 +110,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
         };
 
         using var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
-        rabbitMQClient.Publish("a message");
+        rabbitMQClient.Publish(Encoding.UTF8.GetBytes("a message"));
 
         //// wait for message sent
         // await Task.Delay(1000);
@@ -158,7 +158,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
         {
             for (int i = 0; i < 1000; i++)
             {
-                rabbitMQClient.Publish(message);
+                rabbitMQClient.Publish(Encoding.UTF8.GetBytes(message));
             }
         });
 
