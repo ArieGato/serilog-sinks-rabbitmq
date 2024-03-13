@@ -86,13 +86,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         try
         {
             foreach (var logEvent in logEvents)
-            {
-                using var stream = _manager.GetStream();
-                using var sw = new StreamWriter(stream, _utf8NoBOM);
-                _formatter.Format(logEvent, sw);
-                sw.Flush();
-                _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent));
-            }
+                Emit(logEvent);
         }
         catch (Exception exception)
         {
