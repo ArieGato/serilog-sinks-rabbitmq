@@ -28,7 +28,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
     }
 
     /// <summary>
-    ///   Consumer should receive a message after calling Publish.
+    /// Consumer should receive a message after calling Publish.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation.</returns>.
     [Fact]

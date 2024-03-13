@@ -18,7 +18,7 @@ using Newtonsoft.Json.Linq;
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
 /// <summary>
-///   Tests for using <see cref="RabbitMQSink" /> as WriteTo sink.
+/// Tests for using <see cref="RabbitMQSink" /> as WriteTo sink.
 /// </summary>
 [Collection("Sequential")]
 public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>

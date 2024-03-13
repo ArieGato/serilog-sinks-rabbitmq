@@ -62,6 +62,7 @@ public class RabbitMQFixture : IDisposable
             Password = Password,
             ExchangeType = SerilogSinkExchangeType,
             Hostnames = [SslCertHostName],
+            ClientProvidedName = nameof(RabbitMQFixture),
         };
     }
 

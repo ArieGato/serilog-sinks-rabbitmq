@@ -17,7 +17,7 @@ using Newtonsoft.Json.Linq;
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
 /// <summary>
-///   Tests for using <see cref="RabbitMQSink" /> as audit sink.
+/// Tests for using <see cref="RabbitMQSink" /> as audit sink.
 /// </summary>
 [Collection("Sequential")]
 public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixture>
@@ -30,7 +30,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
     }
 
     /// <summary>
-    ///   Consumer should receive a message after calling Publish.
+    /// Consumer should receive a message after calling Publish.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation.</returns>.
     [Fact]
