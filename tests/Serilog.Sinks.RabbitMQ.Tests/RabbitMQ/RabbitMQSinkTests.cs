@@ -1,4 +1,5 @@
 using Microsoft.Extensions.ObjectPool;
+using Serilog.Configuration;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
@@ -310,5 +311,19 @@ public class RabbitMQSinkTests
         // Assert
         rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
         rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe(useRouteKeyFunction ? "super-key" : "some-route-key");
+    }
+
+    [Fact]
+    public void WriteTo_Should_Throw_If_Called_On_Null()
+    {
+        LoggerSinkConfiguration config = null!;
+        Should.Throw<ArgumentNullException>(() => config.RabbitMQ((a, b) => { })).ParamName.ShouldBe("loggerSinkConfiguration");
+    }
+
+    [Fact]
+    public void AuditTo_Should_Throw_If_Called_On_Null()
+    {
+        LoggerAuditSinkConfiguration config = null!;
+        Should.Throw<ArgumentNullException>(() => config.RabbitMQ((a, b) => { })).ParamName.ShouldBe("loggerAuditSinkConfiguration");
     }
 }
