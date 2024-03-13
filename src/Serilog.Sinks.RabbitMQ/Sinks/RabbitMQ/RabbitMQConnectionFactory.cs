@@ -88,6 +88,11 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
             NetworkRecoveryInterval = TimeSpan.FromSeconds(2),
         };
 
+        if (_config.ClientProvidedName != null)
+        {
+            connectionFactory.ClientProvidedName = _config.ClientProvidedName;
+        }
+
         if (_config.SslOption != null)
         {
             connectionFactory.Ssl = _config.SslOption;

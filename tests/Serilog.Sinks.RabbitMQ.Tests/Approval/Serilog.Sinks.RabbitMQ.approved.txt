@@ -17,6 +17,7 @@ namespace Serilog
                     string? routeKey = null,
                     int port = 0,
                     string? vHost = null,
+                    string? clientProvidedName = null,
                     ushort heartbeat = 0,
                     bool sslEnabled = false,
                     string? sslServerName = null,
@@ -38,6 +39,7 @@ namespace Serilog
                     string? routeKey = null,
                     int port = 0,
                     string? vHost = null,
+                    string? clientProvidedName = null,
                     ushort heartbeat = 0,
                     bool sslEnabled = false,
                     string? sslServerName = null,
@@ -69,6 +71,7 @@ namespace Serilog.Sinks.RabbitMQ
     {
         public RabbitMQClientConfiguration() { }
         public bool AutoCreateExchange { get; set; }
+        public string? ClientProvidedName { get; set; }
         public Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode DeliveryMode { get; set; }
         public string Exchange { get; set; }
         public string ExchangeType { get; set; }
@@ -78,6 +81,7 @@ namespace Serilog.Sinks.RabbitMQ
         public string Password { get; set; }
         public int Port { get; set; }
         public string RouteKey { get; set; }
+        public System.Func<Serilog.Events.LogEvent, string>? RouteKeyFunction { get; set; }
         public RabbitMQ.Client.SslOption? SslOption { get; set; }
         public string Username { get; set; }
         public string VHost { get; set; }
