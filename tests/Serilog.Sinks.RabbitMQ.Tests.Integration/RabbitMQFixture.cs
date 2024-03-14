@@ -73,8 +73,6 @@ public class RabbitMQFixture : IDisposable
             Port = 5671,
             DeliveryMode = RabbitMQDeliveryMode.Durable,
             Exchange = SerilogSinkExchange,
-            Username = UserName,
-            Password = Password,
             ExchangeType = SerilogSinkExchangeType,
             Hostnames = [SslCertHostName],
             SslOption = new SslOption
