@@ -47,5 +47,6 @@ The SSL support has been improved. Now all properties are used when creating the
 - Renamed `LoggerConfigurationRabbitMqExtension` to `LoggerConfigurationRabbitMQExtensions`.
 - Renamed `hostname` to `hostnames` in configuration.
 - Default text formatter is `CompactJsonFormatter`. The `RawFromatter` was removed from Serilog.
+- Requires `Serilog.Sinks.PeriodicBatching` `4.0`. This could break other sinks that inherit from `PeriodicBatchingSink` from this package. This was obsolete code and has been removed. See [release notes](https://github.com/serilog/serilog-sinks-periodicbatching/releases/tag/v4.0.0) for more information
 
 ## 8.0.0
