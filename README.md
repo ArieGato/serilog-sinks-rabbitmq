@@ -139,7 +139,7 @@ for complete details about sink configuration. This is an example of setting som
 <add key="serilog:write-to:RabbitMQ.hostnames" value="server1,server2"/>
 <add key="serilog:write-to:RabbitMQ.exchange" value="LogExchange"/>
 <add key="serilog:write-to:RabbitMQ.batchPostingLimit" value="1000"/>
-<add key="serilog:write-to:RabbitMQ.period" value="00:00:30"/>
+<add key="serilog:write-to:RabbitMQ.period" value="0.00:00:2.00"/>
 ```
 
 ## External configuration using Serilog.Settings.Configuration
