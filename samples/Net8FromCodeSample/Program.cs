@@ -38,6 +38,19 @@ Log.Logger = new LoggerConfiguration()
             clientConfiguration.Username = "serilog";
         },
         failureSinkConfiguration => failureSinkConfiguration.File("./log/log.txt", LogEventLevel.Information))
+    .AuditTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
+        {
+            sinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
+            sinkConfiguration.TextFormatter = new Serilog.Formatting.Json.JsonFormatter();
+
+            clientConfiguration.AutoCreateExchange = true;
+            clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
+            clientConfiguration.Exchange = "LogExchange";
+            clientConfiguration.ExchangeType = "fanout";
+            clientConfiguration.Hostnames = ["localhost"];
+            clientConfiguration.Password = "serilog";
+            clientConfiguration.Username = "serilog";
+        })
     .CreateLogger();
 
 Log.Information("Hello, world!");
