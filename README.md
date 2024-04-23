@@ -139,7 +139,7 @@ for complete details about sink configuration. This is an example of setting som
 <add key="serilog:write-to:RabbitMQ.hostnames" value="server1,server2"/>
 <add key="serilog:write-to:RabbitMQ.exchange" value="LogExchange"/>
 <add key="serilog:write-to:RabbitMQ.batchPostingLimit" value="1000"/>
-<add key="serilog:write-to:RabbitMQ.period" value="0.00:00:2.00"/>
+<add key="serilog:write-to:RabbitMQ.period" value="0.00:00:02.00"/>
 ```
 
 ## External configuration using Serilog.Settings.Configuration
@@ -154,8 +154,8 @@ for complete details about sink configuration. Keys and values are not case-sens
     "MinimumLevel": "Debug",
     "WriteTo": [
       {
-        "Name": "RabbitMQ", 
-        "Args": { 
+        "Name": "RabbitMQ",
+        "Args": {
           "username": "usr",
           "password": "pwd",
           "hostnames": [
@@ -165,7 +165,7 @@ for complete details about sink configuration. Keys and values are not case-sens
           "exchange": "LogExchange",
           "autoCreateExchange": true,
           "batchPostingLimit": 1000,
-          "period": 30
+          "period": "0.00.00.02.00"
         } 
       }
     ]
@@ -203,6 +203,30 @@ The constructor accepts most of the same arguments, and like other Serilog audit
 * `levelSwitch`
 
 The _batchPostingLimit_ and _period_ parameters are not available because the audit sink writes log events immediately.
+
+```json
+{
+  "Serilog": {
+    "Using":  ["Serilog.Sinks.RabbitMQ"],
+    "MinimumLevel": "Debug",
+    "AuditTo": [
+      {
+        "Name": "RabbitMQ",
+        "Args": {
+          "username": "usr",
+          "password": "pwd",
+          "hostnames": [
+            "localhost"
+          ],
+          "port": 5672,
+          "exchange": "LogExchange",
+          "autoCreateExchange": true
+        }
+      }
+    ]
+  }
+}
+```
 
 ## Multihost Configuration
 
