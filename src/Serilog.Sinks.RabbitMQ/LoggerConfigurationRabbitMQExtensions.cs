@@ -130,7 +130,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
-        LogEventLevel levelSwitch = LogEventLevel.Information,
+        LogEventLevel levelSwitch = LogEventLevel.Verbose,
         EmitEventFailureHandling emitEventFailure = EmitEventFailureHandling.WriteToSelfLog,
         Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
     {
@@ -259,7 +259,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
-        LogEventLevel levelSwitch = LogEventLevel.Information)
+        LogEventLevel levelSwitch = LogEventLevel.Verbose)
     {
         // setup configuration
         var clientConfiguration = new RabbitMQClientConfiguration
