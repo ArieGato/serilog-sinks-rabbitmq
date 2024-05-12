@@ -27,7 +27,7 @@ namespace Serilog
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int maxChannels = 64,
-                    Serilog.Events.LogEventLevel levelSwitch = 2) { }
+                    Serilog.Events.LogEventLevel levelSwitch = 0) { }
         public static Serilog.LoggerConfiguration RabbitMQ(
                     this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration,
                     string[] hostnames,
@@ -52,7 +52,7 @@ namespace Serilog
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int maxChannels = 64,
-                    Serilog.Events.LogEventLevel levelSwitch = 2,
+                    Serilog.Events.LogEventLevel levelSwitch = 0,
                     Serilog.Sinks.RabbitMQ.EmitEventFailureHandling emitEventFailure = 1,
                     System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null) { }
     }

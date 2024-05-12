@@ -16,11 +16,11 @@
     <PackageReference Include="RabbitMQ.Client" Version="6.8.1" AllowedVersions="[6.8.1,7.0)" />
     <PackageReference Include="Serilog" Version="3.1.1" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="2.0.0" />
-    <PackageReference Include="Serilog.Sinks.PeriodicBatching" Version="4.0.1" />
+    <PackageReference Include="Serilog.Sinks.PeriodicBatching" Version="4.1.0" />
     <PackageReference Include="MinVer" Version="5.0.0" PrivateAssets="All" />
   </ItemGroup>
 
-  <ItemGroup  Condition="'$(TargetFramework)' == 'netstandard2.0'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="3.1.32" />
   </ItemGroup>
 
@@ -33,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="8.0.3" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="8.0.4" />
   </ItemGroup>
 
   <ItemGroup>

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
@@ -39,7 +40,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
     {
         await _rabbitMQFixture.InitializeAsync();
 
-        var logger = new LoggerConfiguration()
+        using var logger = new LoggerConfiguration()
             .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
             {
                 clientConfiguration.Port = 5672;
@@ -82,8 +83,6 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
             ((double)receivedMessage["Properties"]!["numerator"]!).ShouldBe(1.0);
             ((double)receivedMessage["Properties"]!["denominator"]!).ShouldBe(0.0);
             receivedMessage["Exception"].ShouldBe("System.DivideByZeroException: Attempted to divide by zero.");
-
-            logger.Dispose();
         }
         catch (Exception e)
         {
@@ -91,7 +90,56 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         }
 
         channel.Close();
-        logger.Dispose();
+    }
+
+    /// <summary>
+    /// Consumer should receive a message after logging debug message.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation.</returns>.
+    [Fact]
+    public async Task Debug_ThroughReadConfiguration_ConsumerReceivesMessage()
+    {
+        await _rabbitMQFixture.InitializeAsync();
+
+        var configuration = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.without.levelswitch.json", false, true)
+            .Build();
+
+        using var logger = new LoggerConfiguration()
+            .ReadFrom.Configuration(configuration)
+            .CreateLogger();
+
+        const string messageTemplate = "This is a debug log message";
+
+        using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        var consumer = new EventingBasicConsumer(channel);
+        var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
+            h => consumer.Received += h,
+            h => consumer.Received -= h,
+            () =>
+            {
+                channel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+                logger.Debug(messageTemplate);
+
+                // Wait for consumer to receive the message.
+                return Task.Delay(1000);
+            });
+
+        string json = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+
+        try
+        {
+            var receivedMessage = JObject.Parse(json);
+
+            receivedMessage["Level"].ShouldBe("Debug");
+            receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
+        }
+        catch (Exception e)
+        {
+            Assert.Fail(e.Message + " " + json);
+        }
+
+        channel.Close();
     }
 
     [Fact]
