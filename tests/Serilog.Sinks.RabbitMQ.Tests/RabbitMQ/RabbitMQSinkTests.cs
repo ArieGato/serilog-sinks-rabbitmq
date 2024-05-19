@@ -12,7 +12,11 @@ public class RabbitMQSinkTests
 {
     private sealed class StubClient : IRabbitMQClient
     {
+        public Task PublishAsync(ReadOnlyMemory<byte> message, string? routingKey = null) => throw new NotImplementedException();
+
         public void Close() => throw new NotImplementedException();
+
+        public Task CloseAsync() => throw new NotImplementedException();
 
         public void Dispose() => throw new NotImplementedException();
 
@@ -22,7 +26,7 @@ public class RabbitMQSinkTests
             Messages.Add(Encoding.UTF8.GetString(message.ToArray()));
         }
 
-        public List<string> Messages { get; set; } = [];
+        public List<string> Messages { get; } = [];
     }
 
     [Fact]
@@ -309,7 +313,7 @@ public class RabbitMQSinkTests
         sut.Emit(logEvent);
 
         // Assert
-        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
         rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe(useRouteKeyFunction ? "super-key" : "some-route-key");
     }
 

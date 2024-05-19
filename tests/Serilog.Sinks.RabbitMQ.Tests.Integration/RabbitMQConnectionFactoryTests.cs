@@ -20,48 +20,48 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 public class RabbitMQConnectionFactoryTests
 {
     [Fact]
-    public void GetConnection_ShouldReturnOpenConnection()
+    public async Task GetConnection_ShouldReturnOpenConnection()
     {
         var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQClientConfiguration(), new CancellationTokenSource());
 
-        sut.GetConnection().IsOpen.ShouldBeTrue();
+        (await sut.GetConnectionAsync()).IsOpen.ShouldBeTrue();
 
-        sut.Close();
+        await sut.CloseAsync();
 
         sut.Dispose();
     }
 
     [Fact]
-    public void GetConnection_ShouldReturnNull_WhenBrokerCannotBeReached()
+    public async Task GetConnection_ShouldReturnNull_WhenBrokerCannotBeReached()
     {
         var rabbitMQClientConfiguration = RabbitMQFixture.GetRabbitMQClientConfiguration();
         rabbitMQClientConfiguration.Port = 5673;
 
         using var sut = new RabbitMQConnectionFactory(rabbitMQClientConfiguration, new CancellationTokenSource());
 
-        var act = () => sut.GetConnection();
-        Should.Throw<BrokerUnreachableException>(act).GetType().ShouldBe(typeof(BrokerUnreachableException));
+        var act = () => sut.GetConnectionAsync();
+        (await Should.ThrowAsync<BrokerUnreachableException>(act)).GetType().ShouldBe(typeof(BrokerUnreachableException));
     }
 
     [Fact]
-    public void GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSslCert()
+    public async Task GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSslCert()
     {
         // arrange
         var sut = new RabbitMQConnectionFactory(RabbitMQFixture.GetRabbitMQSslClientConfiguration(), new CancellationTokenSource());
 
         // act
-        var connection = sut.GetConnection();
+        var connection = await sut.GetConnectionAsync();
 
         // assert
         connection.IsOpen.ShouldBeTrue();
 
-        sut.Close();
+        await sut.CloseAsync();
 
         sut.Dispose();
     }
 
     [Fact]
-    public void GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSslPlain()
+    public async Task GetConnection_ShouldReturnOpenConnection_WhenConfiguredForSslPlain()
     {
         // arrange
         var configuration = new RabbitMQClientConfiguration
@@ -86,12 +86,12 @@ public class RabbitMQConnectionFactoryTests
         var sut = new RabbitMQConnectionFactory(configuration, new CancellationTokenSource());
 
         // act
-        var connection = sut.GetConnection();
+        var connection = await sut.GetConnectionAsync();
 
         // assert
         connection.IsOpen.ShouldBeTrue();
 
-        sut.Close();
+        await sut.CloseAsync();
         sut.Dispose();
     }
 }

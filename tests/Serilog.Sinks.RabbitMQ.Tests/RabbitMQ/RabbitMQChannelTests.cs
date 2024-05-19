@@ -17,11 +17,11 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 public class RabbitMQChannelTests
 {
     [Fact]
-    public void Dispose_ShouldNotThrowException_WhenIModelCloseThrowsException()
+    public async Task Dispose_ShouldNotThrowException_WhenIModelCloseThrowsException()
     {
         // Arrange
-        var model = Substitute.For<IModel>();
-        model.When(x => x.Close())
+        var model = Substitute.For<IChannel>();
+        model.When(x => x.CloseAsync())
             .Do(_ => throw new Exception("some-message"));
 
         var sut = new RabbitMQChannel(model);
@@ -30,7 +30,7 @@ public class RabbitMQChannelTests
         sut.Dispose();
 
         // Assert
-        model.Received(1).Close();
+        await model.Received(1).CloseAsync();
         model.Received(1).Dispose();
     }
 
@@ -38,7 +38,7 @@ public class RabbitMQChannelTests
     public void IsOpen_ShouldReturnTrue_WhenModelIsOpen()
     {
         // Arrange
-        var model = Substitute.For<IModel>();
+        var model = Substitute.For<IChannel>();
         model.IsOpen.Returns(true);
 
         var sut = new RabbitMQChannel(model);
@@ -51,12 +51,11 @@ public class RabbitMQChannelTests
     }
 
     [Fact]
-    public void BasicPublish_ShouldCallModelBasicPublish_WithCorrectParameters()
+    public async Task BasicPublish_ShouldCallModelBasicPublish_WithCorrectParameters()
     {
         // Arrange
-        var model = Substitute.For<IModel>();
-        var basicProperties = Substitute.For<IBasicProperties>();
-        model.CreateBasicProperties().Returns(basicProperties);
+        var model = Substitute.For<IChannel>();
+        var basicProperties = new BasicProperties { AppId = "AppId" };
 
         var address = new PublicationAddress("exchangeType", "exchangeName", "routingKey");
         var body = new ReadOnlyMemory<byte>([1, 2, 3]);
@@ -64,9 +63,9 @@ public class RabbitMQChannelTests
         var sut = new RabbitMQChannel(model);
 
         // Act
-        sut.BasicPublish(address, body);
+        await sut.BasicPublishAsync(address, body);
 
         // Assert
-        model.Received(1).BasicPublish(address, Arg.Is(basicProperties), body);
+        await model.Received(1).BasicPublishAsync(address, Arg.Is(basicProperties), body);
     }
 }

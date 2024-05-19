@@ -36,14 +36,6 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="xunit" Version="2.8.0" />
-    <PackageReference Update="xunit.runner.visualstudio" Version="2.8.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-
   <!-- START: This is a buildtime work around for https://github.com/dotnet/corefx/issues/22101 -->
   <Target Name="CopyCustomContent" AfterTargets="AfterBuild">
     <Copy SourceFiles="App.config" DestinationFiles="$(OutDir)\ReSharperTestRunner.dll.config" />

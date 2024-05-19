@@ -25,10 +25,11 @@ internal interface IRabbitMQConnectionFactory : IDisposable
     /// Returns the connection. Creates a new connection if none exists.
     /// </summary>
     /// <returns>New or already created connection.</returns>
-    IConnection GetConnection();
+    Task<IConnection> GetConnectionAsync();
 
     /// <summary>
     /// Close the underlying connection.
     /// </summary>
-    void Close();
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task CloseAsync();
 }

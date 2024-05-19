@@ -44,7 +44,7 @@ public class RabbitMQClientTests
         rabbitMQChannelObjectPoolPolicy.Received(1).Create();
         rabbitMQChannelObjectPoolPolicy.Received(1).Return(Arg.Is(rabbitMQChannel));
 
-        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class RabbitMQClientTests
         sut.Close();
 
         // Assert
-        rabbitMQConnectionFactory.Received(1).Close();
+        rabbitMQConnectionFactory.Received(1).CloseAsync();
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class RabbitMQClientTests
             RouteKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        rabbitMQConnectionFactory.When(x => x.Close()).Do(_ => throw new InvalidOperationException("some-exception"));
+        rabbitMQConnectionFactory.When(x => x.CloseAsync()).Do(_ => throw new InvalidOperationException("some-exception"));
 
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
 

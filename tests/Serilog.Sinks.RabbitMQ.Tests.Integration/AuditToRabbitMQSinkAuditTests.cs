@@ -64,13 +64,13 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
             h => consumer.Received += h,
             h => consumer.Received -= h,
-            () =>
+            async () =>
             {
-                channel.BasicConsume(RabbitMQFixture.SerilogAuditSinkQueueName, autoAck: true, consumer);
+                await channel.BasicConsumeAsync(RabbitMQFixture.SerilogAuditSinkQueueName, autoAck: true, consumer);
                 logger.Information(messageTemplate, 1.0);
 
                 // Wait for consumer to receive the message.
-                return Task.Delay(50);
+                await Task.Delay(50);
             });
 
         var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray()));
@@ -79,7 +79,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         receivedMessage["Properties"].ShouldNotBeNull();
         ((double)receivedMessage["Properties"]!["value"]!).ShouldBe(1.0);
 
-        channel.Close();
+        await channel.CloseAsync();
         logger.Dispose();
     }
 }
