@@ -55,7 +55,7 @@ public class RabbitMQChannelTests
     {
         // Arrange
         var model = Substitute.For<IChannel>();
-        var basicProperties = new BasicProperties { AppId = "AppId" };
+        var basicProperties = new BasicProperties();
 
         var address = new PublicationAddress("exchangeType", "exchangeName", "routingKey");
         var body = new ReadOnlyMemory<byte>([1, 2, 3]);
@@ -66,6 +66,7 @@ public class RabbitMQChannelTests
         await sut.BasicPublishAsync(address, body);
 
         // Assert
-        await model.Received(1).BasicPublishAsync(address, Arg.Is(basicProperties), body);
+        var actual = Arg.Is<BasicProperties>(p => p.AppId == basicProperties.AppId);
+        await model.Received(1).BasicPublishAsync(address, actual, body);
     }
 }
