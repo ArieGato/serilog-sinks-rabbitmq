@@ -33,6 +33,7 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
     {
         _channel = channel;
 
+        // _properties = channel.CreateBasicProperties();
         _properties = new BasicProperties { AppId = "AppId" };
     }
 

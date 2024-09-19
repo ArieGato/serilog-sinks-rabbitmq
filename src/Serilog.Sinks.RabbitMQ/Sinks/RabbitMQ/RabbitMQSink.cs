@@ -18,7 +18,6 @@ using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Sinks.PeriodicBatching;
 
 namespace Serilog.Sinks.RabbitMQ;
 
@@ -77,7 +76,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
-    public Task EmitBatchAsync(IEnumerable<LogEvent> batch)
+    public Task EmitBatchAsync(IReadOnlyCollection<LogEvent> batch)
     {
         // make sure we have an array to avoid multiple enumeration
         var logEvents = batch as LogEvent[] ?? batch.ToArray();

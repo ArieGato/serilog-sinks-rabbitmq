@@ -56,7 +56,7 @@ public class RabbitMQSinkTests
     public async Task EmitBatchAsync_ShouldPublishMessages()
     {
         // Arrange
-        IEnumerable<LogEvent> logEvents = [
+        IReadOnlyCollection<LogEvent> logEvents = [
             new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-1", []), []),
             new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message-2", []), [])];
 
@@ -82,7 +82,7 @@ public class RabbitMQSinkTests
     public async Task EmitBatchAsync_ShouldDoNothing_WhenNoEventsAreEmitted()
     {
         // Arrange
-        IEnumerable<LogEvent> logEvents = [];
+        IReadOnlyCollection<LogEvent> logEvents = [];
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();

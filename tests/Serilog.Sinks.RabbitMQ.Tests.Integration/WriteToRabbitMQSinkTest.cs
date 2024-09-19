@@ -58,25 +58,25 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         const string messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
 
         using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
-        var consumer = new EventingBasicConsumer(channel);
-        var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
-            h => consumer.Received += h,
-            h => consumer.Received -= h,
-            async () =>
-            {
-                await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
-                logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
 
-                // Wait for consumer to receive the message.
-                await Task.Delay(1000);
-            });
+        JObject? receivedMessage = null;
 
-        string json = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.Received += (_, eventArgs) =>
+        {
+            receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventArgs.Body.ToArray()));
+            return Task.CompletedTask;
+        };
+
+        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
+
+        // Wait for consumer to receive the message.
+        await Task.Delay(1000);
 
         try
         {
-            var receivedMessage = JObject.Parse(json);
-
+            receivedMessage.ShouldNotBeNull();
             receivedMessage["Level"].ShouldBe("Error");
             receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
             receivedMessage["Properties"].ShouldNotBeNull();
@@ -86,7 +86,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         }
         catch (Exception e)
         {
-            Assert.Fail(e.Message + " " + json);
+            Assert.Fail(e.Message + " " + receivedMessage);
         }
 
         await channel.CloseAsync();
@@ -112,31 +112,31 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         const string messageTemplate = "This is a debug log message";
 
         using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
-        var consumer = new EventingBasicConsumer(channel);
-        var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
-            h => consumer.Received += h,
-            h => consumer.Received -= h,
-            async () =>
-            {
-                await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
-                logger.Debug(messageTemplate);
 
-                // Wait for consumer to receive the message.
-                await Task.Delay(1000);
-            });
+        JObject? receivedMessage = null;
 
-        string json = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.Received += (_, eventArgs) =>
+        {
+            receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventArgs.Body.ToArray()));
+            return Task.CompletedTask;
+        };
+
+        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        logger.Debug(messageTemplate);
+
+        // Wait for consumer to receive the message.
+        await Task.Delay(1000);
 
         try
         {
-            var receivedMessage = JObject.Parse(json);
-
+            receivedMessage.ShouldNotBeNull();
             receivedMessage["Level"].ShouldBe("Debug");
             receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
         }
         catch (Exception e)
         {
-            Assert.Fail(e.Message + " " + json);
+            Assert.Fail(e.Message + " " + receivedMessage);
         }
 
         await channel.CloseAsync();

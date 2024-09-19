@@ -99,7 +99,7 @@ public class RabbitMQFixture : IDisposable
 
         if (!string.IsNullOrEmpty(exchangeName))
         {
-            await model.ExchangeDeclareAsync(exchangeName, SerilogSinkExchangeType, true);
+            await model.ExchangeDeclareAsync(exchangeName!, SerilogSinkExchangeType, true);
         }
 
         await model.CloseAsync();
