@@ -43,21 +43,9 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
         var properties = _model.CreateBasicProperties();
         if (customProperties != null)
         {
-            var keyMapping = new Dictionary<string, Action<object>>
-            {
-                { "type", value => properties.Type = value.ToString() },
-            };
-
             foreach (var property in customProperties)
             {
-                if (keyMapping.TryGetValue(property.Key, out var setProperty))
-                {
-                    setProperty(property.Value);
-                }
-                else
-                {
-                    properties.Headers[property.Key] = property.Value;
-                }
+                properties.Type = property.Value.ToString();
             }
         }
 
