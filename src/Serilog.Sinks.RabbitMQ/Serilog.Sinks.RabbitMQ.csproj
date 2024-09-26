@@ -9,6 +9,8 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageDescription>Serilog.Sinks.RabbitMQ is a Nuget package that extends Serilog to support logging to RabbitMQ</PackageDescription>
     <Authors>Steffen Lyng, Jared Nance, Tsvetelin Tsonev, Jeow Li Huan, Andre Rocha, Shaparam, Meli0r, Johannes Egger, Dag H. Baardsen, Aaron Powell, Thomas Ardal, Juris Gekiss, Arjan Vermunt, Ivan Maximov</Authors>
+    <PlatformTarget>x64</PlatformTarget>
+    <NoWarn>SA1600;SA1611</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

@@ -16,7 +16,7 @@ public class RabbitMQSinkTests
 
         public void Dispose() => throw new NotImplementedException();
 
-        public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null)
+        public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null, IDictionary<string, object>? customProperties = null)
         {
             // Need to be stored as string because underlying array of ReadOnlyMemory is reused.
             Messages.Add(Encoding.UTF8.GetString(message.ToArray()));

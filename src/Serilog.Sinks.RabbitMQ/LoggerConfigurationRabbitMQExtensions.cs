@@ -105,6 +105,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="levelSwitch">The minimal log event level switch.</param>
     /// <param name="emitEventFailure">The handling of event failure.</param>
     /// <param name="failureSinkConfiguration">The failure sink configuration.</param>
+    /// <param name="customProperties">custom.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
         this LoggerSinkConfiguration loggerConfiguration,
@@ -132,7 +133,8 @@ public static class LoggerConfigurationRabbitMQExtensions
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         EmitEventFailureHandling emitEventFailure = EmitEventFailureHandling.WriteToSelfLog,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
+        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null,
+        IDictionary<string, object>? customProperties = null)
     {
         // setup configuration
         var clientConfiguration = new RabbitMQClientConfiguration
@@ -171,6 +173,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             QueueLimit = queueLimit,
             EmitEventFailure = emitEventFailure,
             RestrictedToMinimumLevel = levelSwitch,
+            CustomProperties = customProperties,
         };
 
         if (formatter != null)
@@ -360,7 +363,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         RabbitMQSinkConfiguration sinkConfiguration,
         ILogEventSink? failureSink = null)
     {
-        var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration, failureSink);
+        var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration, failureSink: failureSink);
         var periodicBatchingSinkOptions = new PeriodicBatchingSinkOptions
         {
             BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
