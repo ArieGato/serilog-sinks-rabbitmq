@@ -31,5 +31,6 @@ internal interface IRabbitMQChannel : IDisposable
     /// </summary>
     /// <param name="address"><see cref="PublicationAddress"/>.</param>
     /// <param name="body">Message body.</param>
-    void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
+    /// <param name="customProperties">Optional custom properties.</param>
+    void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body, IDictionary<string, object>? customProperties = null);
 }

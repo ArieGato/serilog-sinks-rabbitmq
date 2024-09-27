@@ -70,7 +70,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
     }
 
-    public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null)
+    public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null, IDictionary<string, object>? customProperties = null)
     {
         IRabbitMQChannel? channel = null;
         try
@@ -79,7 +79,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
             var address = routingKey == null
                 ? _publicationAddress
                 : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
-            channel.BasicPublish(address, message);
+            channel.BasicPublish(address, message, customProperties);
         }
         finally
         {

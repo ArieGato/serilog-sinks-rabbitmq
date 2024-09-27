@@ -56,4 +56,9 @@ public class RabbitMQSinkConfiguration
     /// Specifies how failed emits should be handled.
     /// </summary>
     public EmitEventFailureHandling EmitEventFailure { get; set; }
+
+    /// <summary>
+    /// Custom properties.
+    /// </summary>
+    public IDictionary<string, object>? CustomProperties { get; set; }
 }

@@ -35,6 +35,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly ILogEventSink? _failureSink;
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
     private readonly Func<LogEvent, string>? _routeKeyFunction;
+    private readonly IDictionary<string, object> _customProperties;
     private bool _disposedValue;
 
     internal RabbitMQSink(
@@ -46,6 +47,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _client = new RabbitMQClient(configuration);
         _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
         _routeKeyFunction = configuration.RouteKeyFunction;
+        _customProperties = rabbitMQSinkConfiguration.CustomProperties ?? new Dictionary<string, object>();
         _failureSink = failureSink;
     }
 
@@ -63,6 +65,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _formatter = textFormatter;
         _emitEventFailureHandling = emitEventFailureHandling;
         _routeKeyFunction = routeKeyFunction;
+        _customProperties = new Dictionary<string, object>();
         _failureSink = failureSink;
     }
 
@@ -73,7 +76,8 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         using var sw = new StreamWriter(stream, _utf8NoBOM);
         _formatter.Format(logEvent, sw);
         sw.Flush();
-        _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent));
+
+        _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent), _customProperties);
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />

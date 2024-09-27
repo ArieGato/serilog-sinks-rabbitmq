@@ -38,9 +38,31 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
 
     public bool IsOpen => _model.IsOpen;
 
-    public void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body)
+    public void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body, IDictionary<string, object>? customProperties = null)
     {
-        _model.BasicPublish(address, _properties, body);
+        var properties = _model.CreateBasicProperties();
+        if (customProperties != null)
+        {
+            properties.Headers = new Dictionary<string, object>();
+            var keyMapping = new Dictionary<string, Action<object>>
+            {
+                { "type", value => properties.Type = value.ToString() },
+            };
+
+            foreach (var property in customProperties)
+            {
+                if (keyMapping.TryGetValue(property.Key, out var setProperty))
+                {
+                    setProperty(property.Value);
+                }
+                else
+                {
+                    properties.Headers[property.Key] = property.Value;
+                }
+            }
+        }
+
+        _model.BasicPublish(address, properties, body);
     }
 
     public void Dispose()
