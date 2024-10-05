@@ -19,7 +19,6 @@ using Serilog.Configuration;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Sinks.PeriodicBatching;
 using Serilog.Sinks.RabbitMQ;
 
 namespace Serilog;
@@ -152,7 +151,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             MaxChannels = maxChannels,
         };
 
-        if (sslEnabled)
+        if (sslEnabled && sslServerName is not null)
         {
             clientConfiguration.SslOption = new SslOption
             {
@@ -279,7 +278,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             MaxChannels = maxChannels,
         };
 
-        if (sslEnabled)
+        if (sslEnabled && sslServerName is not null)
         {
             clientConfiguration.SslOption = new SslOption
             {
@@ -332,11 +331,8 @@ public static class LoggerConfigurationRabbitMQExtensions
             return loggerSinkConfiguration.Sink(periodicBatchingSink, sinkConfiguration.RestrictedToMinimumLevel);
         }
 
-        return LoggerSinkConfiguration.Wrap(
-            loggerSinkConfiguration,
-            failureSink => GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration, failureSink),
-            failureSinkConfiguration,
-            sinkConfiguration.RestrictedToMinimumLevel);
+        var wrapper = LoggerSinkConfiguration.Wrap(sink => GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration, sink), failureSinkConfiguration);
+        return loggerSinkConfiguration.Sink(wrapper, sinkConfiguration.RestrictedToMinimumLevel);
     }
 
     private static LoggerConfiguration RegisterAuditSink(
@@ -355,16 +351,16 @@ public static class LoggerConfigurationRabbitMQExtensions
             .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
     }
 
-    private static PeriodicBatchingSink GetPeriodicBatchingSink(
+    private static ILogEventSink GetPeriodicBatchingSink(
         RabbitMQClientConfiguration clientConfiguration,
         RabbitMQSinkConfiguration sinkConfiguration,
         ILogEventSink? failureSink = null)
     {
         var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration, failureSink);
-        var periodicBatchingSinkOptions = new PeriodicBatchingSinkOptions
+        var periodicBatchingSinkOptions = new BatchingOptions
         {
             BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
-            Period = sinkConfiguration.Period,
+            BufferingTimeLimit = sinkConfiguration.Period,
             EagerlyEmitFirstEvent = true,
         };
 
@@ -373,7 +369,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             periodicBatchingSinkOptions.QueueLimit = sinkConfiguration.QueueLimit.Value;
         }
 
-        return new PeriodicBatchingSink(rabbitMQSink, periodicBatchingSinkOptions);
+        return LoggerSinkConfiguration.CreateSink(lc => lc.Sink(rabbitMQSink, periodicBatchingSinkOptions));
     }
 
     private static void ValidateRabbitMQClientConfiguration(RabbitMQClientConfiguration clientConfiguration)

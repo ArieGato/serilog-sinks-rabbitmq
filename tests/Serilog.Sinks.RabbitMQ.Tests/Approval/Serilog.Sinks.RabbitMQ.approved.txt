@@ -92,11 +92,11 @@ namespace Serilog.Sinks.RabbitMQ
         NonDurable = 1,
         Durable = 2,
     }
-    public sealed class RabbitMQSink : Serilog.Core.ILogEventSink, Serilog.Sinks.PeriodicBatching.IBatchedLogEventSink, System.IDisposable
+    public sealed class RabbitMQSink : Serilog.Core.IBatchedLogEventSink, Serilog.Core.ILogEventSink, System.IDisposable
     {
         public void Dispose() { }
         public void Emit(Serilog.Events.LogEvent logEvent) { }
-        public System.Threading.Tasks.Task EmitBatchAsync(System.Collections.Generic.IEnumerable<Serilog.Events.LogEvent> batch) { }
+        public System.Threading.Tasks.Task EmitBatchAsync(System.Collections.Generic.IReadOnlyCollection<Serilog.Events.LogEvent> batch) { }
         public System.Threading.Tasks.Task OnEmptyBatchAsync() { }
     }
     public class RabbitMQSinkConfiguration
