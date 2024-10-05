@@ -1,10 +1,22 @@
-using Microsoft.Extensions.ObjectPool;
+// Copyright 2015-2024 Serilog Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 using Serilog.Configuration;
 using Serilog.Core;
 using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
-using Serilog.Formatting.Compact;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
@@ -16,7 +28,7 @@ public class RabbitMQSinkTests
 
         public void Dispose() => throw new NotImplementedException();
 
-        public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null)
+        public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null, IDictionary<string, object?>? headerProperties = null)
         {
             // Need to be stored as string because underlying array of ReadOnlyMemory is reused.
             Messages.Add(Encoding.UTF8.GetString(message.ToArray()));
@@ -167,7 +179,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string?>(), Arg.Any<IDictionary<string, object?>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -193,7 +205,7 @@ public class RabbitMQSinkTests
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string?>(), Arg.Any<IDictionary<string, object?>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -219,7 +231,7 @@ public class RabbitMQSinkTests
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string?>(), Arg.Any<IDictionary<string, object?>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -245,7 +257,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string?>(), Arg.Any<IDictionary<string, object?>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -279,38 +291,6 @@ public class RabbitMQSinkTests
 
         // Assert
         await Should.NotThrowAsync(act);
-    }
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void Emit_Should_Use_RouteKeyFunction_If_Specified(bool useRouteKeyFunction)
-    {
-        // Arrange
-        var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), []);
-        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
-        {
-            Exchange = "some-exchange",
-            ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key",
-        };
-        if (useRouteKeyFunction)
-            rabbitMQClientConfiguration.RouteKeyFunction = _ => "super-key";
-        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
-        var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
-        rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
-
-        var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
-
-        var sut = new RabbitMQSink(rabbitMQClient, new CompactJsonFormatter(), routeKeyFunction: rabbitMQClientConfiguration.RouteKeyFunction);
-
-        // Act
-        sut.Emit(logEvent);
-
-        // Assert
-        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
-        rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe(useRouteKeyFunction ? "super-key" : "some-route-key");
     }
 
     [Fact]

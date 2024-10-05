@@ -64,7 +64,7 @@ public class RabbitMQChannelTests
         var sut = new RabbitMQChannel(model);
 
         // Act
-        sut.BasicPublish(address, body);
+        sut.BasicPublish(address, body, null);
 
         // Assert
         model.Received(1).BasicPublish(address, Arg.Is(basicProperties), body);

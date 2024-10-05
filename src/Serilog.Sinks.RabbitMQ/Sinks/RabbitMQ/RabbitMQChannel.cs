@@ -22,7 +22,6 @@ namespace Serilog.Sinks.RabbitMQ;
 /// </summary>
 internal sealed class RabbitMQChannel : IRabbitMQChannel
 {
-    private readonly IBasicProperties _properties;
     private readonly IModel _model;
 
     /// <summary>
@@ -32,15 +31,19 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
     public RabbitMQChannel(IModel model)
     {
         _model = model;
-
-        _properties = model.CreateBasicProperties();
     }
 
     public bool IsOpen => _model.IsOpen;
 
-    public void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body)
+    public void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body, IDictionary<string, object?>? headerProperties)
     {
-        _model.BasicPublish(address, _properties, body);
+        var properties = _model.CreateBasicProperties();
+        if (headerProperties is not null)
+        {
+            properties.Headers = headerProperties;
+        }
+
+        _model.BasicPublish(address, properties, body);
     }
 
     public void Dispose()

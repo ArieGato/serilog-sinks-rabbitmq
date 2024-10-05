@@ -12,25 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using RabbitMQ.Client;
+using Serilog.Events;
 
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// The RabbitMQ Channel interface.
+/// Interface for handling events before send message.
 /// </summary>
-internal interface IRabbitMQChannel : IDisposable
+public interface ISendMessageEvents
 {
     /// <summary>
-    /// Returns <see langword="true"/> when the channel is open.
+    /// Get custom header properties for the message.
     /// </summary>
-    bool IsOpen { get; }
+    Func<LogEvent, IDictionary<string, object?>> OnGetHeaderProperties { get; }
 
     /// <summary>
-    /// Publishes a message to RabbitMQ Exchange.
+    /// Get routing key for the message.
     /// </summary>
-    /// <param name="address"><see cref="PublicationAddress"/>.</param>
-    /// <param name="body">Message body.</param>
-    /// <param name="headerProperties">Additional header properties.</param>
-    void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body, IDictionary<string, object?>? headerProperties);
+    Func<LogEvent, string> OnGetRouteKey { get; }
+
+    /// <summary>
+    /// Initialize the message send events. This is called during configuration of the sink.
+    /// </summary>
+    /// <param name="configuration">The <see cref="RabbitMQClientConfiguration"/> used to initialize the SendMessageEvents.</param>
+    void Initialize(RabbitMQClientConfiguration configuration);
 }

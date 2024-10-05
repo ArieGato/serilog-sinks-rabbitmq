@@ -12,24 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Microsoft.Extensions.Configuration;
-using Serilog;
-using Serilog.Debugging;
+using Serilog.Events;
 
-// Enable the SelfLog output
-SelfLog.Enable(Console.Error);
+namespace Serilog.Sinks.RabbitMQ;
 
-IConfiguration configuration = new ConfigurationBuilder()
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", true, true)
-    .Build();
+/// <inheritdoc />
+public sealed class DefaultSendMessageEvents : ISendMessageEvents
+{
+    private string _routeKey = string.Empty;
 
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(configuration)
-    .CreateLogger();
+    /// <inheritdoc />
+    public Func<LogEvent, IDictionary<string, object?>> OnGetHeaderProperties => _ => new Dictionary<string, object?>();
 
-Log.Information("Hello, world!");
+    /// <inheritdoc />
+    public Func<LogEvent, string> OnGetRouteKey => _ => _routeKey;
 
-Log.Error("Good bye, world!");
-
-Log.CloseAndFlush();
+    /// <inheritdoc />
+    public void Initialize(RabbitMQClientConfiguration configuration) => _routeKey = configuration.RouteKey;
+}

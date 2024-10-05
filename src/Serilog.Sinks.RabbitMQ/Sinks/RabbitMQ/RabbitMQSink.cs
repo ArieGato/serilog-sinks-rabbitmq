@@ -33,18 +33,18 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly IRabbitMQClient _client;
     private readonly ILogEventSink? _failureSink;
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
-    private readonly Func<LogEvent, string>? _routeKeyFunction;
+    private readonly ISendMessageEvents _sendMessageEvents;
     private bool _disposedValue;
 
     internal RabbitMQSink(
-        RabbitMQClientConfiguration configuration,
+        RabbitMQClientConfiguration rabbitMQClientConfiguration,
         RabbitMQSinkConfiguration rabbitMQSinkConfiguration,
         ILogEventSink? failureSink = null)
     {
         _formatter = rabbitMQSinkConfiguration.TextFormatter;
-        _client = new RabbitMQClient(configuration);
+        _client = new RabbitMQClient(rabbitMQClientConfiguration);
         _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
-        _routeKeyFunction = configuration.RouteKeyFunction;
+        _sendMessageEvents = rabbitMQClientConfiguration.SendMessageEvents;
         _failureSink = failureSink;
     }
 
@@ -56,13 +56,13 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         ITextFormatter textFormatter,
         EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
         ILogEventSink? failureSink = null,
-        Func<LogEvent, string>? routeKeyFunction = null)
+        ISendMessageEvents? sendMessageEvents = null)
     {
         _client = client;
         _formatter = textFormatter;
         _emitEventFailureHandling = emitEventFailureHandling;
-        _routeKeyFunction = routeKeyFunction;
         _failureSink = failureSink;
+        _sendMessageEvents = sendMessageEvents ?? new DefaultSendMessageEvents();
     }
 
     /// <inheritdoc cref="ILogEventSink.Emit" />
@@ -72,7 +72,9 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         using var sw = new StreamWriter(stream, _utf8NoBOM);
         _formatter.Format(logEvent, sw);
         sw.Flush();
-        _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent));
+        var messageHeaders = _sendMessageEvents.OnGetHeaderProperties(logEvent);
+        string routingKey = _sendMessageEvents.OnGetRouteKey(logEvent);
+        _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), routingKey, messageHeaders);
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />

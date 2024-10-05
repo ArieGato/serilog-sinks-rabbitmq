@@ -99,6 +99,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="period">The time to wait between checking for event batches.</param>
     /// <param name="queueLimit">The batch internal queue limit.</param>
     /// <param name="formatter">The text formatter.</param>
+    /// <param name="sendMessageEvents">The Message Send Event handler.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="maxChannels">The maximum number of channels.</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
@@ -127,6 +128,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         TimeSpan period = default,
         int? queueLimit = null,
         ITextFormatter? formatter = null,
+        ISendMessageEvents? sendMessageEvents = null,
         bool autoCreateExchange = false,
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
@@ -176,6 +178,13 @@ public static class LoggerConfigurationRabbitMQExtensions
         {
             sinkConfiguration.TextFormatter = formatter;
         }
+
+        if (sendMessageEvents is not null)
+        {
+            clientConfiguration.SendMessageEvents = sendMessageEvents;
+        }
+
+        clientConfiguration.SendMessageEvents.Initialize(clientConfiguration);
 
         return loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
     }
@@ -233,6 +242,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="sslAcceptablePolicyErrors">The acceptable SSL policy errors.</param>
     /// <param name="sslCheckCertificateRevocation">Indicates whether to check certificate revocation.</param>
     /// <param name="formatter">The text formatter.</param>
+    /// <param name="sendMessageEvents">The Message Send Event handler.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="maxChannels">The maximum number of channels.</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
@@ -256,6 +266,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None,
         bool sslCheckCertificateRevocation = false,
         ITextFormatter? formatter = null,
+        ISendMessageEvents? sendMessageEvents = null,
         bool autoCreateExchange = false,
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
         LogEventLevel levelSwitch = LogEventLevel.Verbose)
@@ -299,6 +310,13 @@ public static class LoggerConfigurationRabbitMQExtensions
         {
             sinkConfiguration.TextFormatter = formatter;
         }
+
+        if (sendMessageEvents is not null)
+        {
+            clientConfiguration.SendMessageEvents = sendMessageEvents;
+        }
+
+        clientConfiguration.SendMessageEvents.Initialize(clientConfiguration);
 
         return loggerAuditSinkConfiguration.RegisterAuditSink(clientConfiguration, sinkConfiguration);
     }
