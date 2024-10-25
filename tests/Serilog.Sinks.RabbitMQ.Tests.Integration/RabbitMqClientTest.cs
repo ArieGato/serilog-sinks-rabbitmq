@@ -38,12 +38,12 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         string message = Guid.NewGuid().ToString();
 
-        using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         string? receivedMessage = null;
 
         var consumer = new AsyncEventingBasicConsumer(consumingChannel);
-        consumer.Received += (_, eventArgs) =>
+        consumer.ReceivedAsync += (_, eventArgs) =>
         {
             receivedMessage = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
             return Task.CompletedTask;
@@ -71,12 +71,12 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         string message = Guid.NewGuid().ToString();
 
-        using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         string? receivedMessage = null;
 
         var consumer = new AsyncEventingBasicConsumer(consumingChannel);
-        consumer.Received += (_, eventArgs) =>
+        consumer.ReceivedAsync += (_, eventArgs) =>
         {
             receivedMessage = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
             return Task.CompletedTask;
@@ -118,7 +118,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         //// wait for message sent
         // await Task.Delay(1000);
-        using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         try
         {

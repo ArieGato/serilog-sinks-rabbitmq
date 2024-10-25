@@ -58,12 +58,12 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
 
         logger.Information(messageTemplate, 1.0);
 
-        using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         JObject? receivedMessage = null;
 
         var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.Received += (_, eventArgs) =>
+        consumer.ReceivedAsync += (_, eventArgs) =>
         {
             receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventArgs.Body.ToArray()));
             return Task.CompletedTask;
