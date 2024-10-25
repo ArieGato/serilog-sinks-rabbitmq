@@ -26,7 +26,7 @@ Log.Logger = new LoggerConfiguration()
             sinkConfiguration.BatchPostingLimit = 100;
             sinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.WriteToSelfLog;
             sinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
-            sinkConfiguration.Period = TimeSpan.FromSeconds(2);
+            sinkConfiguration.BufferingTimeLimit = TimeSpan.FromSeconds(2);
             sinkConfiguration.TextFormatter = new Serilog.Formatting.Json.JsonFormatter();
 
             clientConfiguration.AutoCreateExchange = true;

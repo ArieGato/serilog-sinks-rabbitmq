@@ -45,7 +45,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         };
         _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
-        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
+        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         };
         _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
-        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
+        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
 
     public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null, IDictionary<string, object?>? headerProperties = null)
@@ -76,7 +76,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         try
         {
             channel = _modelObjectPool.Get();
-            var address = routingKey == null
+            var address = routingKey == null || _publicationAddress.RoutingKey == routingKey
                 ? _publicationAddress
                 : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
             channel.BasicPublish(address, message, headerProperties);

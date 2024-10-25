@@ -16,7 +16,7 @@ public class RabbitMQClientConfigurationTests
             VHost = "/",
             Exchange = "logs",
             ExchangeType = "direct",
-            RouteKey = "log",
+            RoutingKey = "log",
             DeliveryMode = RabbitMQDeliveryMode.NonDurable,
             MaxChannels = 65,
             Port = 5673,

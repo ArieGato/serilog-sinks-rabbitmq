@@ -136,7 +136,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
-            RouteKey = string.Empty,
+            RoutingKey = string.Empty,
             SslOption = new SslOption
             {
                 AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
@@ -154,7 +154,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var rabbitMQSinkConfiguration = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = 100,
-            Period = TimeSpan.FromSeconds(3),
+            BufferingTimeLimit = TimeSpan.FromSeconds(3),
             QueueLimit = 1000,
             EmitEventFailure = EmitEventFailureHandling.ThrowException,
             TextFormatter = new JsonFormatter(),
@@ -187,7 +187,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             MaxChannels = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
-            RouteKey = string.Empty,
+            RoutingKey = string.Empty,
             SslOption = new SslOption
             {
                 AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
@@ -231,7 +231,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.MaxChannels = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
-                    rabbitMQClientConfiguration.RouteKey = string.Empty;
+                    rabbitMQClientConfiguration.RoutingKey = string.Empty;
                     rabbitMQClientConfiguration.SslOption = new SslOption
                     {
                         AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch,
@@ -270,13 +270,13 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.MaxChannels = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
-                    rabbitMQClientConfiguration.RouteKey = string.Empty;
+                    rabbitMQClientConfiguration.RoutingKey = string.Empty;
                     rabbitMQClientConfiguration.Username = RabbitMQFixture.UserName;
                     rabbitMQClientConfiguration.VHost = "/";
 
                     rabbitMQSinkConfiguration.TextFormatter = new JsonFormatter();
                     rabbitMQSinkConfiguration.BatchPostingLimit = 50;
-                    rabbitMQSinkConfiguration.Period = TimeSpan.FromSeconds(5);
+                    rabbitMQSinkConfiguration.BufferingTimeLimit = TimeSpan.FromSeconds(5);
                     rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
                     rabbitMQSinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink |
                                                                  EmitEventFailureHandling.ThrowException;

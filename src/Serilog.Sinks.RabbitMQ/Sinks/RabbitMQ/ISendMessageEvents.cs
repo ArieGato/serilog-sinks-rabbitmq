@@ -29,11 +29,5 @@ public interface ISendMessageEvents
     /// <summary>
     /// Get routing key for the message.
     /// </summary>
-    Func<LogEvent, string> OnGetRouteKey { get; }
-
-    /// <summary>
-    /// Initialize the message send events. This is called during configuration of the sink.
-    /// </summary>
-    /// <param name="configuration">The <see cref="RabbitMQClientConfiguration"/> used to initialize the SendMessageEvents.</param>
-    void Initialize(RabbitMQClientConfiguration configuration);
+    Func<LogEvent, string?> OnGetRoutingKey { get; }
 }

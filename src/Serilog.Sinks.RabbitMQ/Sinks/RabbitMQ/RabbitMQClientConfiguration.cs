@@ -80,7 +80,7 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// The route key.
     /// </summary>
-    public string RouteKey { get; set; } = string.Empty;
+    public string RoutingKey { get; set; } = string.Empty;
 
     /// <summary>
     /// When set to <see langword="true"/>, auto create exchange.
@@ -97,7 +97,7 @@ public class RabbitMQClientConfiguration
     /// Controls the rendering of log events into text, for example to log JSON.
     /// To control plain text formatting, use the overload that accepts an output template.
     /// </summary>
-    public ISendMessageEvents SendMessageEvents { get; set; } = new DefaultSendMessageEvents();
+    public ISendMessageEvents? SendMessageEvents { get; set; }
 
     /// <summary>
     /// Create options from other one.
@@ -111,7 +111,7 @@ public class RabbitMQClientConfiguration
         Exchange = config.Exchange;
         ExchangeType = config.ExchangeType;
         DeliveryMode = config.DeliveryMode;
-        RouteKey = config.RouteKey;
+        RoutingKey = config.RoutingKey;
         Port = config.Port;
         VHost = config.VHost;
         ClientProvidedName = config.ClientProvidedName;

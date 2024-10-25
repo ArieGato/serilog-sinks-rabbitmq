@@ -17,9 +17,22 @@ using Serilog.Sinks.RabbitMQ;
 
 namespace Net8AppsettingsJsonSample;
 
-/// <inheritdoc />
-public class CustomSendMessageEvents : ISendMessageEvents
+/// <summary>
+/// A custom SendMessageEvents class to handle events before sending a message.
+/// </summary>
+public sealed class CustomSendMessageEvents : ISendMessageEvents
 {
+    private readonly string _defaultRoutingKey;
+
+    /// <summary>
+    /// The constructor for the CustomSendMessageEvents class.
+    /// </summary>
+    /// <param name="defaultRoutingKey">The default routing key.</param>
+    public CustomSendMessageEvents(string defaultRoutingKey)
+    {
+        _defaultRoutingKey = defaultRoutingKey;
+    }
+
     /// <inheritdoc />
     public Func<LogEvent, IDictionary<string, object?>> OnGetHeaderProperties => @event =>
     {
@@ -32,19 +45,13 @@ public class CustomSendMessageEvents : ISendMessageEvents
     };
 
     /// <inheritdoc />
-    public Func<LogEvent, string> OnGetRouteKey => @event =>
+    public Func<LogEvent, string> OnGetRoutingKey => @event =>
     {
         // example of routing based on log level
         return @event.Level switch
         {
             LogEventLevel.Error => "error",
-            _ => string.Empty
+            _ => _defaultRoutingKey
         };
     };
-
-    /// <inheritdoc />
-    public void Initialize(RabbitMQClientConfiguration configuration)
-    {
-        // no need to initialize the Custom Message Send Event
-    }
 }

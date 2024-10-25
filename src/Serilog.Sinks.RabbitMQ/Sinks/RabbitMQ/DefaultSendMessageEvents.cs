@@ -17,16 +17,22 @@ using Serilog.Events;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <inheritdoc />
-public sealed class DefaultSendMessageEvents : ISendMessageEvents
+internal sealed class DefaultSendMessageEvents : ISendMessageEvents
 {
-    private string _routeKey = string.Empty;
+    private readonly string? _routingKey;
+
+    /// <summary>
+    /// The constructor for the DefaultSendMessageEvents class.
+    /// </summary>
+    /// <param name="routingKey">The routing key to use.</param>
+    public DefaultSendMessageEvents(string? routingKey)
+    {
+        _routingKey = routingKey;
+    }
 
     /// <inheritdoc />
     public Func<LogEvent, IDictionary<string, object?>> OnGetHeaderProperties => _ => new Dictionary<string, object?>();
 
     /// <inheritdoc />
-    public Func<LogEvent, string> OnGetRouteKey => _ => _routeKey;
-
-    /// <inheritdoc />
-    public void Initialize(RabbitMQClientConfiguration configuration) => _routeKey = configuration.RouteKey;
+    public Func<LogEvent, string?> OnGetRoutingKey => _ => _routingKey;
 }
