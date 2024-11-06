@@ -29,7 +29,7 @@ jobs:
       if: ${{ startsWith(matrix.os, 'ubuntu') }}
       shell: pwsh
       run: |
-        docker-compose up -d
+        docker compose up -d
         $val = 0
         while(1 -eq 1) {
             $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
