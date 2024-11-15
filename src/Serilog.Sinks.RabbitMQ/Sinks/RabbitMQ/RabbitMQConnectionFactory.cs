@@ -35,8 +35,6 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         _connectionFactory = GetConnectionFactory();
     }
 
-    public IConnection GetConnection() => AsyncHelpers.RunSync(GetConnectionAsync);
-
     public async Task<IConnection> GetConnectionAsync()
     {
         if (_connection != null)
@@ -130,8 +128,6 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
 
         return connectionFactory;
     }
-
-    public void Close() => AsyncHelpers.RunSync(CloseAsync);
 
     public async Task CloseAsync()
     {
