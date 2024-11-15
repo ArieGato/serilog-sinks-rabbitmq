@@ -66,17 +66,10 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <inheritdoc cref="ILogEventSink.Emit" />
-    public void Emit(LogEvent logEvent)
-    {
-        using var stream = _manager.GetStream();
-        using var sw = new StreamWriter(stream, _utf8NoBOM);
-        _formatter.Format(logEvent, sw);
-        sw.Flush();
-        _client.Publish(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent));
-    }
+    public void Emit(LogEvent logEvent) => AsyncHelpers.RunSync(() => EmitAsync(logEvent));
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
-    public Task EmitBatchAsync(IReadOnlyCollection<LogEvent> batch)
+    public async Task EmitBatchAsync(IReadOnlyCollection<LogEvent> batch)
     {
         // make sure we have an array to avoid multiple enumeration
         var logEvents = batch as LogEvent[] ?? batch.ToArray();
@@ -84,7 +77,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         try
         {
             foreach (var logEvent in logEvents)
-                Emit(logEvent);
+                await EmitAsync(logEvent).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -93,8 +86,6 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
                 throw;
             }
         }
-
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc cref="IBatchedLogEventSink.OnEmptyBatchAsync" />
@@ -127,6 +118,19 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _client.Dispose();
 
         _disposedValue = true;
+    }
+
+    /// <summary>
+    /// Emits a log event to RabbitMQ.
+    /// </summary>
+    /// <param name="logEvent">The log event to write.</param>
+    private Task EmitAsync(LogEvent logEvent)
+    {
+        using var stream = _manager.GetStream();
+        using var sw = new StreamWriter(stream, _utf8NoBOM);
+        _formatter.Format(logEvent, sw);
+        sw.Flush();
+        return _client.PublishAsync(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), _routeKeyFunction?.Invoke(logEvent));
     }
 
     /// <summary>

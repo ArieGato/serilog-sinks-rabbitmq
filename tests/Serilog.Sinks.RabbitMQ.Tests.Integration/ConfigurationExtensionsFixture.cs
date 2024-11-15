@@ -37,8 +37,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             .CreateLogger();
 
         using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
-        cleanupModel.ExchangeDelete("serilog-settings-sink-exchange");
-        cleanupModel.Close();
+        await cleanupModel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
+        await cleanupModel.CloseAsync();
 
         // should not throw
         logger.Dispose();
@@ -52,8 +52,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             .CreateLogger();
 
         using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
-        cleanupModel.ExchangeDelete("serilog-settings-sink-exchange");
-        cleanupModel.Close();
+        await cleanupModel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
+        await cleanupModel.CloseAsync();
 
         // should not throw
         logger.Dispose();
@@ -67,8 +67,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             .CreateLogger();
 
         using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
-        cleanupModel.ExchangeDelete("serilog-settings-sink-audit-exchange");
-        cleanupModel.Close();
+        await cleanupModel.ExchangeDeleteAsync("serilog-settings-sink-audit-exchange");
+        await cleanupModel.CloseAsync();
 
         // should not throw
         logger.Dispose();

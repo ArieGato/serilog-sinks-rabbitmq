@@ -38,24 +38,26 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         string message = Guid.NewGuid().ToString();
 
-        using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
-        var consumer = new EventingBasicConsumer(consumingChannel);
-        var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
-            h => consumer.Received += h,
-            h => consumer.Received -= h,
-            () =>
-            {
-                consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
-                _rabbitMQFixture.Publish(message);
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
 
-                // Wait for consumer to receive the message.
-                return Task.Delay(50);
-            });
+        string? receivedMessage = null;
 
-        string receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+        var consumer = new AsyncEventingBasicConsumer(consumingChannel);
+        consumer.ReceivedAsync += (_, eventArgs) =>
+        {
+            receivedMessage = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
+            return Task.CompletedTask;
+        };
+
+        await consumingChannel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        await _rabbitMQFixture.PublishAsync(message);
+
+        // Wait for consumer to receive the message.
+        await Task.Delay(50);
+
         receivedMessage.ShouldBe(message);
 
-        consumingChannel.Close();
+        await consumingChannel.CloseAsync();
     }
 
     /// <summary>
@@ -69,29 +71,31 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         string message = Guid.NewGuid().ToString();
 
-        using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
-        var consumer = new EventingBasicConsumer(consumingChannel);
-        var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
-            h => consumer.Received += h,
-            h => consumer.Received -= h,
-            () =>
-            {
-                // start consuming queue
-                consumingChannel.BasicConsume(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
 
-                for (int i = 0; i < 100; i++)
-                {
-                    _rabbitMQFixture.Publish(message);
-                }
+        string? receivedMessage = null;
 
-                // Wait for consumer to receive the message.
-                return Task.Delay(1000);
-            });
+        var consumer = new AsyncEventingBasicConsumer(consumingChannel);
+        consumer.ReceivedAsync += (_, eventArgs) =>
+        {
+            receivedMessage = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
+            return Task.CompletedTask;
+        };
 
-        string receivedMessage = Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray());
+        // start consuming queue
+        await consumingChannel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+
+        for (int i = 0; i < 100; i++)
+        {
+            await _rabbitMQFixture.PublishAsync(message);
+        }
+
+        // Wait for consumer to receive the message.
+        await Task.Delay(1000);
+
         receivedMessage.ShouldBe(message);
 
-        consumingChannel.Close();
+        await consumingChannel.CloseAsync();
     }
 
     [Fact]
@@ -110,24 +114,24 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
         };
 
         using var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
-        rabbitMQClient.Publish(Encoding.UTF8.GetBytes("a message"));
+        await rabbitMQClient.PublishAsync("a message"u8.ToArray());
 
         //// wait for message sent
         // await Task.Delay(1000);
-        using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
 
         try
         {
             // should not throw
-            consumingChannel.ExchangeDeclarePassive("auto-created-exchange-name");
+            await consumingChannel.ExchangeDeclarePassiveAsync("auto-created-exchange-name");
         }
         finally
         {
-            consumingChannel.ExchangeDelete("auto-created-exchange-name");
+            await consumingChannel.ExchangeDeleteAsync("auto-created-exchange-name");
         }
 
-        consumingChannel.Close();
-        rabbitMQClient.Close();
+        await consumingChannel.CloseAsync();
+        await rabbitMQClient.CloseAsync();
     }
 
     /// <summary>
@@ -154,17 +158,17 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
 
-        Parallel.For(0, 10, parallelOptions, (_, _) =>
+        Parallel.For(0, 10, parallelOptions, async (_, _) =>
         {
             for (int i = 0; i < 1000; i++)
             {
-                rabbitMQClient.Publish(Encoding.UTF8.GetBytes(message));
+                await rabbitMQClient.PublishAsync(Encoding.UTF8.GetBytes(message));
             }
         });
 
         // Add some delay to ensure all messages are published before the exchange is deleted
         await Task.Delay(1000);
 
-        rabbitMQClient.Close();
+        await rabbitMQClient.CloseAsync();
     }
 }

@@ -58,28 +58,29 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
 
         logger.Information(messageTemplate, 1.0);
 
-        using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
 
-        var consumer = new EventingBasicConsumer(channel);
-        var eventRaised = await Assert.RaisesAsync<BasicDeliverEventArgs>(
-            h => consumer.Received += h,
-            h => consumer.Received -= h,
-            () =>
-            {
-                channel.BasicConsume(RabbitMQFixture.SerilogAuditSinkQueueName, autoAck: true, consumer);
-                logger.Information(messageTemplate, 1.0);
+        JObject? receivedMessage = null;
 
-                // Wait for consumer to receive the message.
-                return Task.Delay(50);
-            });
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += (_, eventArgs) =>
+        {
+            receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventArgs.Body.ToArray()));
+            return Task.CompletedTask;
+        };
+        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogAuditSinkQueueName, autoAck: true, consumer);
+        logger.Information(messageTemplate, 1.0);
 
-        var receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventRaised.Arguments.Body.ToArray()));
+        // Wait for consumer to receive the message.
+        await Task.Delay(50);
+
+        receivedMessage.ShouldNotBeNull();
         receivedMessage["Level"].ShouldBe("Information");
         receivedMessage["MessageTemplate"].ShouldBe(messageTemplate);
         receivedMessage["Properties"].ShouldNotBeNull();
         ((double)receivedMessage["Properties"]!["value"]!).ShouldBe(1.0);
 
-        channel.Close();
+        await channel.CloseAsync();
         logger.Dispose();
     }
 }

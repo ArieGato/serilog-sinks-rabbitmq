@@ -12,17 +12,21 @@ public class RabbitMQSinkTests
 {
     private sealed class StubClient : IRabbitMQClient
     {
-        public void Close() => throw new NotImplementedException();
-
-        public void Dispose() => throw new NotImplementedException();
-
-        public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null)
+        public Task PublishAsync(ReadOnlyMemory<byte> message, string? routingKey = null)
         {
             // Need to be stored as string because underlying array of ReadOnlyMemory is reused.
             Messages.Add(Encoding.UTF8.GetString(message.ToArray()));
+
+            return Task.CompletedTask;
         }
 
-        public List<string> Messages { get; set; } = [];
+        public void Close() => throw new NotImplementedException();
+
+        public Task CloseAsync() => throw new NotImplementedException();
+
+        public void Dispose() => throw new NotImplementedException();
+
+        public List<string> Messages { get; } = [];
     }
 
     [Fact]
@@ -89,7 +93,7 @@ public class RabbitMQSinkTests
         await sut.EmitBatchAsync(logEvents);
 
         // Assert
-        rabbitMQClient.DidNotReceive().Publish(Arg.Any<ReadOnlyMemory<byte>>());
+        await rabbitMQClient.DidNotReceive().PublishAsync(Arg.Any<ReadOnlyMemory<byte>>());
     }
 
     [Fact]
@@ -167,7 +171,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -193,7 +197,7 @@ public class RabbitMQSinkTests
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -219,7 +223,7 @@ public class RabbitMQSinkTests
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -245,7 +249,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -267,7 +271,7 @@ public class RabbitMQSinkTests
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Publish(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
@@ -309,7 +313,7 @@ public class RabbitMQSinkTests
         sut.Emit(logEvent);
 
         // Assert
-        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
         rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe(useRouteKeyFunction ? "super-key" : "some-route-key");
     }
 

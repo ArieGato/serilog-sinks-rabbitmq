@@ -51,9 +51,8 @@ public class RabbitMQFixture : IDisposable
         };
     }
 
-    public static RabbitMQClientConfiguration GetRabbitMQClientConfiguration()
-    {
-        return new RabbitMQClientConfiguration
+    public static RabbitMQClientConfiguration GetRabbitMQClientConfiguration() =>
+        new()
         {
             Port = 5672,
             DeliveryMode = RabbitMQDeliveryMode.Durable,
@@ -64,11 +63,9 @@ public class RabbitMQFixture : IDisposable
             Hostnames = [SslCertHostName],
             ClientProvidedName = nameof(RabbitMQFixture),
         };
-    }
 
-    public static RabbitMQClientConfiguration GetRabbitMQSslClientConfiguration()
-    {
-        return new RabbitMQClientConfiguration
+    public static RabbitMQClientConfiguration GetRabbitMQSslClientConfiguration() =>
+        new()
         {
             Port = 5671,
             DeliveryMode = RabbitMQDeliveryMode.Durable,
@@ -86,66 +83,71 @@ public class RabbitMQFixture : IDisposable
                 Version = SslProtocols.Tls13,
             },
         };
-    }
 
     public async Task InitializeAsync(string? exchangeName = null)
     {
         // Initialize the exchanges and queues.
         using var model = await GetConsumingModelAsync();
 
-        model.ExchangeDeclare(SerilogSinkExchange, SerilogSinkExchangeType, true);
-        model.QueueDeclare(SerilogSinkQueueName, true, false, false);
-        model.QueueBind(SerilogSinkQueueName, SerilogSinkExchange, string.Empty);
+        await model.ExchangeDeclareAsync(SerilogSinkExchange, SerilogSinkExchangeType, true);
+        await model.QueueDeclareAsync(SerilogSinkQueueName, true, false, false);
+        await model.QueueBindAsync(SerilogSinkQueueName, SerilogSinkExchange, string.Empty);
 
-        model.ExchangeDeclare(SerilogAuditSinkExchange, SerilogAuditSinkExchangeType, true);
-        model.QueueDeclare(SerilogAuditSinkQueueName, true, false, false);
-        model.QueueBind(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, string.Empty);
+        await model.ExchangeDeclareAsync(SerilogAuditSinkExchange, SerilogAuditSinkExchangeType, true);
+        await model.QueueDeclareAsync(SerilogAuditSinkQueueName, true, false, false);
+        await model.QueueBindAsync(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, string.Empty);
 
         if (!string.IsNullOrEmpty(exchangeName))
         {
-            model.ExchangeDeclare(exchangeName, SerilogSinkExchangeType, true);
+            await model.ExchangeDeclareAsync(exchangeName!, SerilogSinkExchangeType, true);
         }
 
-        model.Close();
+        await model.CloseAsync();
 
         await Task.Delay(1000);
     }
 
-    public void Dispose()
+    public void Dispose() => AsyncHelpers.RunSync(CleanupAsync);
+
+    public async Task CleanupAsync()
     {
         // Always cleanup the exchanges and queues.
-        _consumingConnection ??= _connectionFactory.CreateConnection();
+        _consumingConnection ??= await _connectionFactory.CreateConnectionAsync();
 
-        var cleanupModel = _consumingConnection.CreateModel();
+        var channel = await _consumingConnection.CreateChannelAsync();
 
-        cleanupModel.QueueDelete(SerilogSinkQueueName);
-        cleanupModel.ExchangeDelete(SerilogSinkExchange);
+        await channel.QueueDeleteAsync(SerilogSinkQueueName);
+        await channel.ExchangeDeleteAsync(SerilogSinkExchange);
 
-        cleanupModel.QueueDelete(SerilogAuditSinkQueueName);
-        cleanupModel.ExchangeDelete(SerilogAuditSinkExchange);
+        await channel.QueueDeleteAsync(SerilogAuditSinkQueueName);
+        await channel.ExchangeDeleteAsync(SerilogAuditSinkExchange);
 
-        cleanupModel.Close();
-        cleanupModel.Dispose();
+        await channel.CloseAsync();
+        channel.Dispose();
 
-        _consumingConnection?.Close();
+        if (_consumingConnection is not null)
+        {
+            await _consumingConnection.CloseAsync();
+        }
+
         _consumingConnection?.Dispose();
 
-        _rabbitMQClient.Close();
+        await _rabbitMQClient.CloseAsync();
         _rabbitMQClient.Dispose();
     }
 
-    public void Publish(string message) => _rabbitMQClient.Publish(Encoding.UTF8.GetBytes(message));
+    public Task PublishAsync(string message) => _rabbitMQClient.PublishAsync(Encoding.UTF8.GetBytes(message));
 
     // The IModel is not disposed automatically, so the calling member is responsible for disposing it.
-    public async Task<IModel> GetConsumingModelAsync()
+    public async Task<IChannel> GetConsumingModelAsync()
     {
         int counter = 0;
         while (true)
         {
             try
             {
-                _consumingConnection ??= _connectionFactory.CreateConnection();
-                return _consumingConnection.CreateModel();
+                _consumingConnection ??= await _connectionFactory.CreateConnectionAsync();
+                return await _consumingConnection.CreateChannelAsync();
             }
             catch (BrokerUnreachableException)
             {

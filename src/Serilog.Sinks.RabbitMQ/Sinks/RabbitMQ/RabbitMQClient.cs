@@ -70,7 +70,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
     }
 
-    public void Publish(ReadOnlyMemory<byte> message, string? routingKey = null)
+    public async Task PublishAsync(ReadOnlyMemory<byte> message, string? routingKey = null)
     {
         IRabbitMQChannel? channel = null;
         try
@@ -79,7 +79,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
             var address = routingKey == null
                 ? _publicationAddress
                 : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
-            channel.BasicPublish(address, message);
+            await channel.BasicPublishAsync(address, message).ConfigureAwait(false);
         }
         finally
         {
@@ -90,7 +90,9 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         }
     }
 
-    public void Close()
+    public void Close() => AsyncHelpers.RunSync(CloseAsync);
+
+    public async Task CloseAsync()
     {
         var exceptions = new List<Exception>();
 
@@ -105,7 +107,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
 
         try
         {
-            _rabbitMQConnectionFactory.Close();
+            await _rabbitMQConnectionFactory.CloseAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

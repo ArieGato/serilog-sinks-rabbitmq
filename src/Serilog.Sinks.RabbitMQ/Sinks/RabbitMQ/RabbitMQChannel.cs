@@ -18,30 +18,28 @@ using RabbitMQ.Client;
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// A wrapper class for <see cref="IModel"/> to be used in <see cref="ObjectPool{T}"/>.
+/// A wrapper class for <see cref="IChannel"/> to be used in <see cref="ObjectPool{T}"/>.
 /// </summary>
 internal sealed class RabbitMQChannel : IRabbitMQChannel
 {
-    private readonly IBasicProperties _properties;
-    private readonly IModel _model;
+    private readonly BasicProperties _properties;
+    private readonly IChannel _channel;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQChannel"/> class.
     /// </summary>
-    /// <param name="model">The wrapped <see cref="IModel"/>.</param>
-    public RabbitMQChannel(IModel model)
+    /// <param name="channel">The wrapped <see cref="IChannel"/>.</param>
+    public RabbitMQChannel(IChannel channel)
     {
-        _model = model;
+        _channel = channel;
 
-        _properties = model.CreateBasicProperties();
+        _properties = new BasicProperties();
     }
 
-    public bool IsOpen => _model.IsOpen;
+    public bool IsOpen => _channel.IsOpen;
 
-    public void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body)
-    {
-        _model.BasicPublish(address, _properties, body);
-    }
+    public ValueTask BasicPublishAsync(PublicationAddress address, ReadOnlyMemory<byte> body)
+        => _channel.BasicPublishAsync(address, _properties, body);
 
     public void Dispose()
     {
@@ -49,13 +47,13 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
         {
             // Disposing channel and connection objects is not enough,
             // they must be explicitly closed with the API methods.
-            _model.Close();
+            _channel.CloseAsync();
         }
         catch
         {
             // ignored
         }
 
-        _model.Dispose();
+        _channel.Dispose();
     }
 }

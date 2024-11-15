@@ -35,18 +35,18 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         _connectionFactory = GetConnectionFactory();
     }
 
-    public IConnection GetConnection()
+    public async Task<IConnection> GetConnectionAsync()
     {
         if (_connection != null)
         {
             return _connection;
         }
 
-        _connectionLock.Wait(_cancellationTokenSource.Token);
+        await _connectionLock.WaitAsync(_cancellationTokenSource.Token).ConfigureAwait(false);
 
         try
         {
-            _connection ??= _connectionFactory.CreateConnection(GetAmqpTcpEndpoints());
+            _connection ??= await _connectionFactory.CreateConnectionAsync(GetAmqpTcpEndpoints()).ConfigureAwait(false);
         }
         finally
         {
@@ -56,9 +56,8 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         return _connection;
     }
 
-    private List<AmqpTcpEndpoint> GetAmqpTcpEndpoints()
-    {
-        return _config.Hostnames.Select(hostname =>
+    private IEnumerable<AmqpTcpEndpoint> GetAmqpTcpEndpoints() =>
+        _config.Hostnames.Select(hostname =>
         {
             var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(hostname);
             if (_connectionFactory.Port > 0)
@@ -76,7 +75,6 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
 
             return amqpTcpEndpoint;
         }).ToList();
-    }
 
     private ConnectionFactory GetConnectionFactory()
     {
@@ -131,17 +129,20 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         return connectionFactory;
     }
 
-    public void Close()
+    public async Task CloseAsync()
     {
-        _connectionLock.Wait(10);
-        _connection?.Close();
+        await _connectionLock.WaitAsync(10).ConfigureAwait(false);
+        if (_connection is not null)
+        {
+            await _connection.CloseAsync().ConfigureAwait(false);
+        }
     }
 
     public void Dispose()
     {
         try
         {
-            _connectionLock?.Dispose();
+            _connectionLock.Dispose();
             _connection?.Dispose();
         }
         catch (Exception exception)
