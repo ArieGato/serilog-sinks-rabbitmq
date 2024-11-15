@@ -32,5 +32,5 @@ internal interface IRabbitMQChannel : IDisposable
     /// <param name="address"><see cref="PublicationAddress"/>.</param>
     /// <param name="body">Message body.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    Task BasicPublishAsync(PublicationAddress address, ReadOnlyMemory<byte> body);
+    ValueTask BasicPublishAsync(PublicationAddress address, ReadOnlyMemory<byte> body);
 }

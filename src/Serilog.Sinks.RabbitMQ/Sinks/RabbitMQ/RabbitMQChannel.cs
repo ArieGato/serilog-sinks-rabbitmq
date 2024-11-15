@@ -38,8 +38,8 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
 
     public bool IsOpen => _channel.IsOpen;
 
-    public async Task BasicPublishAsync(PublicationAddress address, ReadOnlyMemory<byte> body)
-        => await _channel.BasicPublishAsync(address, _properties, body).ConfigureAwait(false);
+    public ValueTask BasicPublishAsync(PublicationAddress address, ReadOnlyMemory<byte> body)
+        => _channel.BasicPublishAsync(address, _properties, body);
 
     public void Dispose()
     {

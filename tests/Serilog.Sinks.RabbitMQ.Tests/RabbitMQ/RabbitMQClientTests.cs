@@ -19,7 +19,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 public class RabbitMQClientTests
 {
     [Fact]
-    public void Publish_ShouldCreateAndReturnChannelToPool()
+    public async Task Publish_ShouldCreateAndReturnChannelToPool()
     {
         // Arrange
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -38,13 +38,13 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
         // Act
-        sut.Publish(Encoding.UTF8.GetBytes("some-message"));
+        await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"));
 
         // Assert
         rabbitMQChannelObjectPoolPolicy.Received(1).Create();
         rabbitMQChannelObjectPoolPolicy.Received(1).Return(Arg.Is(rabbitMQChannel));
 
-        rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        await rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class RabbitMQClientTests
     }
 
     [Fact]
-    public void Dispose_ShouldDisposeConnectionAndChannel()
+    public async Task Dispose_ShouldDisposeConnectionAndChannel()
     {
         // Arrange
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -118,7 +118,7 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
         // Need to publish a message first to create the channel in the Pool
-        sut.Publish(Encoding.UTF8.GetBytes("some-message"));
+        await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"));
 
         // Act
         sut.Dispose();

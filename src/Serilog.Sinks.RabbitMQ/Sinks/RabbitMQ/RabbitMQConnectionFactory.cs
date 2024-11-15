@@ -44,11 +44,11 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
             return _connection;
         }
 
-        await _connectionLock.WaitAsync(_cancellationTokenSource.Token);
+        await _connectionLock.WaitAsync(_cancellationTokenSource.Token).ConfigureAwait(false);
 
         try
         {
-            _connection ??= await _connectionFactory.CreateConnectionAsync(GetAmqpTcpEndpoints());
+            _connection ??= await _connectionFactory.CreateConnectionAsync(GetAmqpTcpEndpoints()).ConfigureAwait(false);
         }
         finally
         {

@@ -24,13 +24,6 @@ internal interface IRabbitMQClient : IDisposable
     /// </summary>
     /// <param name="message">Message text.</param>
     /// <param name="routingKey">Optional routing key.</param>
-    void Publish(ReadOnlyMemory<byte> message, string? routingKey = null);
-
-    /// <summary>
-    /// Publishes a message to RabbitMQ Exchange.
-    /// </summary>
-    /// <param name="message">Message text.</param>
-    /// <param name="routingKey">Optional routing key.</param>
     /// <returns>Returns a task representing the asynchronous operation.</returns>
     Task PublishAsync(ReadOnlyMemory<byte> message, string? routingKey = null);
 

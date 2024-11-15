@@ -36,10 +36,10 @@ internal sealed class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRab
 
     private async Task<IRabbitMQChannel> CreateAsync()
     {
-        var connection = await _rabbitMQConnectionFactory.GetConnectionAsync();
-        var model = await connection.CreateChannelAsync();
+        var connection = await _rabbitMQConnectionFactory.GetConnectionAsync().ConfigureAwait(false);
+        var model = await connection.CreateChannelAsync().ConfigureAwait(false);
 
-        await CreateExchangeAsync(model);
+        await CreateExchangeAsync(model).ConfigureAwait(false);
 
         return new RabbitMQChannel(model);
     }
@@ -50,7 +50,8 @@ internal sealed class RabbitMQChannelObjectPoolPolicy : IPooledObjectPolicy<IRab
     {
         if (!_exchangeCreated && _config.AutoCreateExchange)
         {
-            await model.ExchangeDeclareAsync(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable);
+            await model.ExchangeDeclareAsync(_config.Exchange, _config.ExchangeType, _config.DeliveryMode == RabbitMQDeliveryMode.Durable)
+                .ConfigureAwait(false);
             _exchangeCreated = true;
         }
     }

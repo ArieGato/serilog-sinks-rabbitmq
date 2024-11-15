@@ -50,7 +50,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
         };
 
         await consumingChannel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
-        _rabbitMQFixture.Publish(message);
+        await _rabbitMQFixture.PublishAsync(message);
 
         // Wait for consumer to receive the message.
         await Task.Delay(50);
@@ -87,7 +87,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         for (int i = 0; i < 100; i++)
         {
-            _rabbitMQFixture.Publish(message);
+            await _rabbitMQFixture.PublishAsync(message);
         }
 
         // Wait for consumer to receive the message.
@@ -158,11 +158,11 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 10 };
 
-        Parallel.For(0, 10, parallelOptions, (_, _) =>
+        Parallel.For(0, 10, parallelOptions, async (_, _) =>
         {
             for (int i = 0; i < 1000; i++)
             {
-                rabbitMQClient.Publish(Encoding.UTF8.GetBytes(message));
+                await rabbitMQClient.PublishAsync(Encoding.UTF8.GetBytes(message));
             }
         });
 

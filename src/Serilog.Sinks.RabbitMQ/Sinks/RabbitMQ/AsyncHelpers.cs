@@ -15,6 +15,7 @@
 // Adapted from Rebus
 
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
 
 #pragma warning disable SA1513
@@ -29,6 +30,7 @@ using System.Runtime.ExceptionServices;
 
 namespace Serilog.Sinks.RabbitMQ;
 
+[ExcludeFromCodeCoverage]
 internal static class AsyncHelpers
 {
     /// <summary>
