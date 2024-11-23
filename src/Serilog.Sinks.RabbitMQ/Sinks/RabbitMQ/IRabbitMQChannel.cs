@@ -31,5 +31,6 @@ internal interface IRabbitMQChannel : IDisposable
     /// </summary>
     /// <param name="address"><see cref="PublicationAddress"/>.</param>
     /// <param name="body">Message body.</param>
-    void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body);
+    /// <param name="isPersistent"><see langword="true"/> if the message should be persisted to disk.</param>
+    void BasicPublish(PublicationAddress address, ReadOnlyMemory<byte> body, bool isPersistent);
 }

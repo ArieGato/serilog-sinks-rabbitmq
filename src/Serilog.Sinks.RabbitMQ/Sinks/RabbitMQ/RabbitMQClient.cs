@@ -33,10 +33,12 @@ internal sealed class RabbitMQClient : IRabbitMQClient
 
     private readonly PublicationAddress _publicationAddress;
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
+    private readonly bool _isPersistent;
 
     public RabbitMQClient(RabbitMQClientConfiguration configuration)
     {
         _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
+        _isPersistent = configuration.DeliveryMode == RabbitMQDeliveryMode.Durable;
 
         var pooledObjectPolicy = new RabbitMQChannelObjectPoolPolicy(configuration, _rabbitMQConnectionFactory);
         var defaultObjectPoolProvider = new DefaultObjectPoolProvider
@@ -60,6 +62,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         IPooledObjectPolicy<IRabbitMQChannel> pooledObjectPolicy)
     {
         _rabbitMQConnectionFactory = connectionFactory;
+        _isPersistent = configuration.DeliveryMode == RabbitMQDeliveryMode.Durable;
 
         var defaultObjectPoolProvider = new DefaultObjectPoolProvider
         {
@@ -79,7 +82,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
             var address = routingKey == null
                 ? _publicationAddress
                 : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
-            channel.BasicPublish(address, message);
+            channel.BasicPublish(address, message, _isPersistent);
         }
         finally
         {

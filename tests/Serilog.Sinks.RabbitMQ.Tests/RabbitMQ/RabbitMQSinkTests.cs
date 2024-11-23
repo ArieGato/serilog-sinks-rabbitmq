@@ -309,7 +309,7 @@ public class RabbitMQSinkTests
         sut.Emit(logEvent);
 
         // Assert
-        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<bool>());
         rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe(useRouteKeyFunction ? "super-key" : "some-route-key");
     }
 
