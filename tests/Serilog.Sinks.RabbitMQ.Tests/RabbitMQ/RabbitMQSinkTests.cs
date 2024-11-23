@@ -12,7 +12,7 @@ public class RabbitMQSinkTests
 {
     private sealed class StubClient : IRabbitMQClient
     {
-        public Task PublishAsync(ReadOnlyMemory<byte> message, string? routingKey = null)
+        public Task PublishAsync(ReadOnlyMemory<byte> message, BasicProperties basicProperties, string? routingKey = null)
         {
             // Need to be stored as string because underlying array of ReadOnlyMemory is reused.
             Messages.Add(Encoding.UTF8.GetString(message.ToArray()));
@@ -40,9 +40,10 @@ public class RabbitMQSinkTests
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
             .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = new StubClient();
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         // Act
         sut.Emit(logEvent);
@@ -65,9 +66,10 @@ public class RabbitMQSinkTests
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
             .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = new StubClient();
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         // Act
         await sut.EmitBatchAsync(logEvents);
@@ -85,15 +87,16 @@ public class RabbitMQSinkTests
         IReadOnlyCollection<LogEvent> logEvents = [];
 
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         // Act
         await sut.EmitBatchAsync(logEvents);
 
         // Assert
-        await rabbitMQClient.DidNotReceive().PublishAsync(Arg.Any<ReadOnlyMemory<byte>>());
+        await rabbitMQClient.DidNotReceive().PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>());
     }
 
     [Fact]
@@ -101,9 +104,10 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         // Act
         await sut.OnEmptyBatchAsync();
@@ -116,9 +120,10 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         // Act
         sut.Dispose();
@@ -133,9 +138,10 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         // Act
         sut.Dispose();
@@ -151,11 +157,12 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.Close())
             .Do(_ => throw new Exception("some-message"));
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         // Act
         sut.Dispose();
@@ -170,12 +177,13 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, EmitEventFailureHandling.WriteToFailureSink, failureSink);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
 
         // Act
         var logEvent1 = LogEventBuilder.Create().Build();
@@ -196,12 +204,13 @@ public class RabbitMQSinkTests
         SelfLog.Enable(writer);
 
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, EmitEventFailureHandling.WriteToSelfLog, failureSink);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToSelfLog, failureSink);
 
         // Act
         var logEvent1 = LogEventBuilder.Create().Build();
@@ -222,15 +231,16 @@ public class RabbitMQSinkTests
         SelfLog.Enable(writer);
 
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
         failureSink.When(x => x.Emit(Arg.Any<LogEvent>()))
             .Do(_ => throw new Exception("failure-sink-message"));
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, EmitEventFailureHandling.WriteToFailureSink, failureSink);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
 
         // Act
         var logEvent1 = LogEventBuilder.Create().Build();
@@ -248,12 +258,13 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, EmitEventFailureHandling.ThrowException, failureSink);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.ThrowException, failureSink);
 
         // Act
         var logEvent1 = LogEventBuilder.Create().Build();
@@ -270,12 +281,13 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>()))
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>()))
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, EmitEventFailureHandling.Ignore, failureSink);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.Ignore, failureSink);
 
         // Act
         var logEvent1 = LogEventBuilder.Create().Build();
@@ -285,10 +297,8 @@ public class RabbitMQSinkTests
         await Should.NotThrowAsync(act);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void Emit_Should_Use_RouteKeyFunction_If_Specified(bool useRouteKeyFunction)
+    [Fact]
+    public void Emit_Should_Use_RoutingKeyFunction_If_Specified()
     {
         // Arrange
         var logEvent = new LogEvent(DateTimeOffset.Now, LogEventLevel.Information, null, new MessageTemplate("some-message", []), []);
@@ -296,38 +306,40 @@ public class RabbitMQSinkTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key",
+            RoutingKey = "some-route-key",
         };
-        if (useRouteKeyFunction)
-            rabbitMQClientConfiguration.RouteKeyFunction = _ => "super-key";
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
         var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
         rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
 
+        // configure default send message events
+        var messageEvents = new DefaultSendMessageEvents();
+        messageEvents.Initialize(rabbitMQClientConfiguration);
+
         var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
-        var sut = new RabbitMQSink(rabbitMQClient, new CompactJsonFormatter(), routeKeyFunction: rabbitMQClientConfiguration.RouteKeyFunction);
+        var sut = new RabbitMQSink(rabbitMQClient, new CompactJsonFormatter(), messageEvents);
 
         // Act
         sut.Emit(logEvent);
 
         // Assert
-        rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
-        rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe(useRouteKeyFunction ? "super-key" : "some-route-key");
+        rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<BasicProperties>(), Arg.Any<ReadOnlyMemory<byte>>());
+        rabbitMQChannel.ReceivedCalls().First().GetArguments()[0].ShouldBeOfType<PublicationAddress>().RoutingKey.ShouldBe("some-route-key");
     }
 
     [Fact]
     public void WriteTo_Should_Throw_If_Called_On_Null()
     {
         LoggerSinkConfiguration config = null!;
-        Should.Throw<ArgumentNullException>(() => config.RabbitMQ((a, b) => { })).ParamName.ShouldBe("loggerSinkConfiguration");
+        Should.Throw<ArgumentNullException>(() => config.RabbitMQ((_, _) => { })).ParamName.ShouldBe("loggerSinkConfiguration");
     }
 
     [Fact]
     public void AuditTo_Should_Throw_If_Called_On_Null()
     {
         LoggerAuditSinkConfiguration config = null!;
-        Should.Throw<ArgumentNullException>(() => config.RabbitMQ((a, b) => { })).ParamName.ShouldBe("loggerAuditSinkConfiguration");
+        Should.Throw<ArgumentNullException>(() => config.RabbitMQ((_, _) => { })).ParamName.ShouldBe("loggerAuditSinkConfiguration");
     }
 }

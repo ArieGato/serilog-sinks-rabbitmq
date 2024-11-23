@@ -45,7 +45,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         };
         _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
-        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
+        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
 
     /// <summary>
@@ -67,10 +67,10 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         };
         _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
-        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RouteKey);
+        _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
 
-    public async Task PublishAsync(ReadOnlyMemory<byte> message, string? routingKey = null)
+    public async Task PublishAsync(ReadOnlyMemory<byte> message, BasicProperties basicProperties, string? routingKey = null)
     {
         IRabbitMQChannel? channel = null;
         try
@@ -79,7 +79,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
             var address = routingKey == null
                 ? _publicationAddress
                 : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
-            await channel.BasicPublishAsync(address, message).ConfigureAwait(false);
+            await channel.BasicPublishAsync(address, basicProperties, message).ConfigureAwait(false);
         }
         finally
         {

@@ -13,25 +13,28 @@
 // limitations under the License.
 
 using RabbitMQ.Client;
+using Serilog.Events;
 
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// The RabbitMQ Channel interface.
+/// Interface for handling events before send message.
 /// </summary>
-internal interface IRabbitMQChannel : IDisposable
+public interface ISendMessageEvents
 {
     /// <summary>
-    /// Returns <see langword="true"/> when the channel is open.
+    /// Initialize the event handler.
     /// </summary>
-    bool IsOpen { get; }
+    /// <param name="configuration">The RabbitMQ client configuration.</param>
+    void Initialize(RabbitMQClientConfiguration configuration);
 
     /// <summary>
-    /// Publishes a message to RabbitMQ Exchange.
+    /// Get routing key for the message.
     /// </summary>
-    /// <param name="address"><see cref="PublicationAddress"/>.</param>
-    /// <param name="basicProperties">The message properties.</param>
-    /// <param name="body">Message body.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    ValueTask BasicPublishAsync(PublicationAddress address, BasicProperties basicProperties, ReadOnlyMemory<byte> body);
+    Func<LogEvent, string?> OnGetRoutingKey { get; }
+
+    /// <summary>
+    /// Set message properties before publish.
+    /// </summary>
+    Action<LogEvent, IBasicProperties> OnSetMessageProperties { get; }
 }

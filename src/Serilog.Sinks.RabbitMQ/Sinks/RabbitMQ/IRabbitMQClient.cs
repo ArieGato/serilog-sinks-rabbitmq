@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using RabbitMQ.Client;
+
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
@@ -23,9 +25,10 @@ internal interface IRabbitMQClient : IDisposable
     /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
     /// <param name="message">Message text.</param>
+    /// <param name="basicProperties">The message properties.</param>
     /// <param name="routingKey">Optional routing key.</param>
     /// <returns>Returns a task representing the asynchronous operation.</returns>
-    Task PublishAsync(ReadOnlyMemory<byte> message, string? routingKey = null);
+    Task PublishAsync(ReadOnlyMemory<byte> message, BasicProperties basicProperties, string? routingKey = null);
 
     /// <summary>
     /// Close the connection and all channels to RabbitMQ.

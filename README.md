@@ -75,7 +75,7 @@ Use of named arguments is strongly recommended.
 * `exchange`
 * `exchangeType`
 * `deliveryMode`
-* `routeKey`
+* `routingKey`
 * `port`
 * `vHost`
 * `heartbeat`
@@ -85,7 +85,7 @@ Use of named arguments is strongly recommended.
 * `sslAcceptablePolicyErrors`
 * `sslCheckCertificateRevocation`
 * `batchPostingLimit`
-* `period`
+* `bufferingTimeLimit`
 * `queueLimit`
 * `formatter`
 * `autoCreateExchange`
@@ -94,7 +94,7 @@ Use of named arguments is strongly recommended.
 
 ### Arguments
 
-Parameters `exchange`, `exchangeType`, `deliveryMode`, `routeKey` provide additional configuration when connecting to RabbitMQ.
+Parameters `exchange`, `exchangeType`, `deliveryMode`, `routingKey` provide additional configuration when connecting to RabbitMQ.
 If `autoCreateExchange` is `true`, the sink will create the exchange if an exchange by that name doesn't exist.
 Exchange is not created by default.
 
@@ -106,7 +106,7 @@ and certificate revocation checking is disabled. You can change server name thro
 This is a "periodic batching sink." The sink will queue a certain number of log events before they're actually written to RabbitMQ. 
 There is also a timeout period so that the batch is always written even if it has not been filled. 
 By default, the batch size is 50 rows and the timeout is 2 seconds. 
-You can change these through by setting the `batchPostingLimit` and `period` arguments.
+You can change these through by setting the `batchPostingLimit` and `bufferingTimeLimit` arguments.
 
 Refer to the [Formatter](https://github.com/serilog/serilog/wiki/Formatting-Output#formatting-json) for details about the _formatter_ arguments.
 
@@ -139,7 +139,7 @@ for complete details about sink configuration. This is an example of setting som
 <add key="serilog:write-to:RabbitMQ.hostnames" value="server1,server2"/>
 <add key="serilog:write-to:RabbitMQ.exchange" value="LogExchange"/>
 <add key="serilog:write-to:RabbitMQ.batchPostingLimit" value="1000"/>
-<add key="serilog:write-to:RabbitMQ.period" value="0.00:00:02.00"/>
+<add key="serilog:write-to:RabbitMQ.bufferingTimeLimit" value="0.00:00:02.00"/>
 ```
 
 ## External configuration using Serilog.Settings.Configuration
@@ -165,7 +165,7 @@ for complete details about sink configuration. Keys and values are not case-sens
           "exchange": "LogExchange",
           "autoCreateExchange": true,
           "batchPostingLimit": 1000,
-          "period": "0.00.00.02.00"
+          "bufferingTimeLimit": "0.00.00.02.00"
         } 
       }
     ]
@@ -188,7 +188,7 @@ The constructor accepts most of the same arguments, and like other Serilog audit
 * `exchange`
 * `exchangeType`
 * `deliveryMode`
-* `routeKey`
+* `routingKey`
 * `port`
 * `vHost`
 * `heartbeat`
@@ -202,7 +202,7 @@ The constructor accepts most of the same arguments, and like other Serilog audit
 * `maxChannels`
 * `levelSwitch`
 
-The _batchPostingLimit_ and _period_ parameters are not available because the audit sink writes log events immediately.
+The _batchPostingLimit_ and _bufferingTimeLimit_ parameters are not available because the audit sink writes log events immediately.
 
 ```json
 {
@@ -259,7 +259,7 @@ Log.Logger = new LoggerConfiguration()
         clientConfiguration.Exchange     = _config["RABBITMQ_EXCHANGE"];
         clientConfiguration.ExchangeType = _config["RABBITMQ_EXCHANGE_TYPE"];
         clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-        clientConfiguration.RouteKey     = "Logs";
+        clientConfiguration.RoutingKey     = "Logs";
         clientConfiguration.Port         = 5672;
 
         foreach (string hostname in _config.GetSection("RABBITMQ_HOSTNAMES").Get<string[]>())

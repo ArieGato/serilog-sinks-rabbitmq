@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using RabbitMQ.Client;
-using Serilog.Events;
 
 namespace Serilog.Sinks.RabbitMQ;
 
@@ -81,14 +80,7 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// The route key.
     /// </summary>
-    public string RouteKey { get; set; } = string.Empty;
-
-    /// <summary>
-    /// The route key function that allows to organize dynamic routing.
-    /// By default <see langword="null"/> and <see cref="RouteKey"/> option is used instead.
-    /// When set this option is used instead of fixed <see cref="RouteKey"/>.
-    /// </summary>
-    public Func<LogEvent, string>? RouteKeyFunction { get; set; }
+    public string RoutingKey { get; set; } = string.Empty;
 
     /// <summary>
     /// When set to <see langword="true"/>, auto create exchange.
@@ -102,6 +94,11 @@ public class RabbitMQClientConfiguration
     public int MaxChannels { get; set; } = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT;
 
     /// <summary>
+    /// Contains events for sending messages.
+    /// </summary>
+    public ISendMessageEvents? SendMessageEvents { get; set; }
+
+    /// <summary>
     /// Create options from other one.
     /// </summary>
     /// <param name="config">The source options.</param>
@@ -113,8 +110,7 @@ public class RabbitMQClientConfiguration
         Exchange = config.Exchange;
         ExchangeType = config.ExchangeType;
         DeliveryMode = config.DeliveryMode;
-        RouteKey = config.RouteKey;
-        RouteKeyFunction = config.RouteKeyFunction;
+        RoutingKey = config.RoutingKey;
         Port = config.Port;
         VHost = config.VHost;
         ClientProvidedName = config.ClientProvidedName;
@@ -123,6 +119,7 @@ public class RabbitMQClientConfiguration
         AutoCreateExchange = config.AutoCreateExchange;
         MaxChannels = config.MaxChannels;
         Hostnames = config.Hostnames.ToList();
+        SendMessageEvents = config.SendMessageEvents;
 
         return this;
     }
