@@ -4,9 +4,11 @@ on:
   pull_request:
     branches:
       - master
+      - 7.x
   push:
     branches:
       - master
+      - 7.x
 
 env:
   DOTNET_NOLOGO: true

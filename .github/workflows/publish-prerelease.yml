@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - 7.x
 
 env:
   DOTNET_NOLOGO: true
