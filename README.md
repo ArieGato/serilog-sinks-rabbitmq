@@ -38,6 +38,7 @@ As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes
 |3.0.0|1.6.1|4.5.1|2.8.0|5.\*|
 |6.0.0|2.0.0|4.7.2|2.8.0|6.\*|
 |7.0.0|2.0.0|-|3.1.1|6.8.\*|
+|8.0.0|2.0.0|-|4.1.0|7.0|
 
 ## Installation
 
