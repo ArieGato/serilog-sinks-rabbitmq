@@ -16,7 +16,7 @@ public class RabbitMQClientConfigurationTests
             VHost = "/",
             Exchange = "logs",
             ExchangeType = "direct",
-            RouteKey = "log",
+            RoutingKey = "log",
             DeliveryMode = RabbitMQDeliveryMode.NonDurable,
             MaxChannels = 65,
             Port = 5673,
@@ -36,7 +36,7 @@ public class RabbitMQClientConfigurationTests
         };
 
         // Act
-        var copy = new RabbitMQClientConfiguration().From(original);
+        var copy = original.Clone();
 
         // Assert
         copy.ShouldBeEquivalentTo(original);

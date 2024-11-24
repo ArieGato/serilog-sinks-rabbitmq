@@ -26,7 +26,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key",
+            RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
@@ -38,13 +38,13 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
         // Act
-        await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"));
+        await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"), new BasicProperties());
 
         // Assert
         rabbitMQChannelObjectPoolPolicy.Received(1).Create();
         rabbitMQChannelObjectPoolPolicy.Received(1).Return(Arg.Is(rabbitMQChannel));
 
-        await rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        await rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<BasicProperties>(), Arg.Any<ReadOnlyMemory<byte>>());
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key",
+            RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
@@ -77,7 +77,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key",
+            RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         rabbitMQConnectionFactory.When(x => x.CloseAsync()).Do(_ => throw new InvalidOperationException("some-exception"));
@@ -106,7 +106,7 @@ public class RabbitMQClientTests
         {
             Exchange = "some-exchange",
             ExchangeType = "some-exchange-type",
-            RouteKey = "some-route-key",
+            RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
@@ -118,7 +118,7 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
 
         // Need to publish a message first to create the channel in the Pool
-        await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"));
+        await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"), new BasicProperties());
 
         // Act
         sut.Dispose();

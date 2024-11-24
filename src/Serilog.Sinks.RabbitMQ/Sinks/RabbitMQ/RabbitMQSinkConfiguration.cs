@@ -33,7 +33,7 @@ public class RabbitMQSinkConfiguration
     /// The time to wait between checking for event batches.
     /// Default is 2 seconds.
     /// </summary>
-    public TimeSpan Period { get; set; } = LoggerConfigurationRabbitMQExtensions._defaultPeriod;
+    public TimeSpan BufferingTimeLimit { get; set; } = LoggerConfigurationRabbitMQExtensions._defaultBufferingTimeLimit;
 
     /// <summary>
     /// The batched sink internal queue limit.

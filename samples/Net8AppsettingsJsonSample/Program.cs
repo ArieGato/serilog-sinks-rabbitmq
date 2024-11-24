@@ -13,7 +13,9 @@
 // limitations under the License.
 
 using Microsoft.Extensions.Configuration;
+using Net8AppsettingsJsonSample;
 using Serilog;
+using Serilog.Context;
 using Serilog.Debugging;
 
 // Enable the SelfLog output
@@ -26,8 +28,12 @@ IConfiguration configuration = new ConfigurationBuilder()
 
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(configuration)
+    .Enrich.FromLogContext()
     .CreateLogger();
 
-Log.Information("Hello, world!");
+using (LogContext.PushProperty(LogProperties.CORRELATION_ID, Guid.NewGuid()))
+{
+    Log.Information("Hello, world!");
 
-Log.CloseAndFlush();
+    Log.CloseAndFlush();
+}

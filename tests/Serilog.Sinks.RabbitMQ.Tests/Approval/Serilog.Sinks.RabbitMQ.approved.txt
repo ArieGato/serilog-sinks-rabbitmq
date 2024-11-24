@@ -14,7 +14,7 @@ namespace Serilog
                     string? exchange = null,
                     string? exchangeType = null,
                     Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode deliveryMode = 1,
-                    string? routeKey = null,
+                    string? routingKey = null,
                     int port = 0,
                     string? vHost = null,
                     string? clientProvidedName = null,
@@ -27,7 +27,8 @@ namespace Serilog
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int maxChannels = 64,
-                    Serilog.Events.LogEventLevel levelSwitch = 0) { }
+                    Serilog.Events.LogEventLevel levelSwitch = 0,
+                    Serilog.Sinks.RabbitMQ.ISendMessageEvents? sendMessageEvents = null) { }
         public static Serilog.LoggerConfiguration RabbitMQ(
                     this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration,
                     string[] hostnames,
@@ -36,7 +37,7 @@ namespace Serilog
                     string? exchange = null,
                     string? exchangeType = null,
                     Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode deliveryMode = 1,
-                    string? routeKey = null,
+                    string? routingKey = null,
                     int port = 0,
                     string? vHost = null,
                     string? clientProvidedName = null,
@@ -47,14 +48,15 @@ namespace Serilog
                     System.Net.Security.SslPolicyErrors sslAcceptablePolicyErrors = 0,
                     bool sslCheckCertificateRevocation = false,
                     int batchPostingLimit = 50,
-                    System.TimeSpan period = default,
+                    System.TimeSpan bufferingTimeLimit = default,
                     int? queueLimit = default,
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int maxChannels = 64,
                     Serilog.Events.LogEventLevel levelSwitch = 0,
                     Serilog.Sinks.RabbitMQ.EmitEventFailureHandling emitEventFailure = 1,
-                    System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null) { }
+                    System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null,
+                    Serilog.Sinks.RabbitMQ.ISendMessageEvents? sendMessageEvents = null) { }
     }
 }
 namespace Serilog.Sinks.RabbitMQ
@@ -66,6 +68,11 @@ namespace Serilog.Sinks.RabbitMQ
         WriteToSelfLog = 1,
         WriteToFailureSink = 2,
         ThrowException = 4,
+    }
+    public interface ISendMessageEvents
+    {
+        string OnGetRoutingKey(Serilog.Events.LogEvent logEvent, string defaultRoutingKey);
+        void OnSetMessageProperties(Serilog.Events.LogEvent logEvent, RabbitMQ.Client.IBasicProperties properties);
     }
     public class RabbitMQClientConfiguration
     {
@@ -80,12 +87,12 @@ namespace Serilog.Sinks.RabbitMQ
         public int MaxChannels { get; set; }
         public string Password { get; set; }
         public int Port { get; set; }
-        public string RouteKey { get; set; }
-        public System.Func<Serilog.Events.LogEvent, string>? RouteKeyFunction { get; set; }
+        public string RoutingKey { get; set; }
+        public Serilog.Sinks.RabbitMQ.ISendMessageEvents? SendMessageEvents { get; set; }
         public RabbitMQ.Client.SslOption? SslOption { get; set; }
         public string Username { get; set; }
         public string VHost { get; set; }
-        public Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration From(Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration config) { }
+        public Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration Clone() { }
     }
     public enum RabbitMQDeliveryMode : byte
     {
@@ -103,8 +110,8 @@ namespace Serilog.Sinks.RabbitMQ
     {
         public RabbitMQSinkConfiguration() { }
         public int BatchPostingLimit { get; set; }
+        public System.TimeSpan BufferingTimeLimit { get; set; }
         public Serilog.Sinks.RabbitMQ.EmitEventFailureHandling EmitEventFailure { get; set; }
-        public System.TimeSpan Period { get; set; }
         public int? QueueLimit { get; set; }
         public Serilog.Events.LogEventLevel RestrictedToMinimumLevel { get; set; }
         public Serilog.Formatting.ITextFormatter TextFormatter { get; set; }

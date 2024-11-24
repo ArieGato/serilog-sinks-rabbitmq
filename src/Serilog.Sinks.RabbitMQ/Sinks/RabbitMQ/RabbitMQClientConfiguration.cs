@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using RabbitMQ.Client;
-using Serilog.Events;
 
 namespace Serilog.Sinks.RabbitMQ;
 
@@ -81,14 +80,7 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// The route key.
     /// </summary>
-    public string RouteKey { get; set; } = string.Empty;
-
-    /// <summary>
-    /// The route key function that allows to organize dynamic routing.
-    /// By default <see langword="null"/> and <see cref="RouteKey"/> option is used instead.
-    /// When set this option is used instead of fixed <see cref="RouteKey"/>.
-    /// </summary>
-    public Func<LogEvent, string>? RouteKeyFunction { get; set; }
+    public string RoutingKey { get; set; } = string.Empty;
 
     /// <summary>
     /// When set to <see langword="true"/>, auto create exchange.
@@ -102,28 +94,31 @@ public class RabbitMQClientConfiguration
     public int MaxChannels { get; set; } = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT;
 
     /// <summary>
-    /// Create options from other one.
+    /// Contains events for sending messages.
     /// </summary>
-    /// <param name="config">The source options.</param>
-    /// <returns>The created options.</returns>
-    public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config)
-    {
-        Username = config.Username;
-        Password = config.Password;
-        Exchange = config.Exchange;
-        ExchangeType = config.ExchangeType;
-        DeliveryMode = config.DeliveryMode;
-        RouteKey = config.RouteKey;
-        RouteKeyFunction = config.RouteKeyFunction;
-        Port = config.Port;
-        VHost = config.VHost;
-        ClientProvidedName = config.ClientProvidedName;
-        Heartbeat = config.Heartbeat;
-        SslOption = config.SslOption;
-        AutoCreateExchange = config.AutoCreateExchange;
-        MaxChannels = config.MaxChannels;
-        Hostnames = config.Hostnames.ToList();
+    public ISendMessageEvents? SendMessageEvents { get; set; }
 
-        return this;
-    }
+    /// <summary>
+    /// Create a deep clone.
+    /// </summary>
+    /// <returns>The created options.</returns>
+    public RabbitMQClientConfiguration Clone() =>
+        new()
+        {
+            AutoCreateExchange = AutoCreateExchange,
+            ClientProvidedName = ClientProvidedName,
+            DeliveryMode = DeliveryMode,
+            Exchange = Exchange,
+            ExchangeType = ExchangeType,
+            Heartbeat = Heartbeat,
+            Hostnames = Hostnames.ToList(),
+            MaxChannels = MaxChannels,
+            Password = Password,
+            Port = Port,
+            RoutingKey = RoutingKey,
+            SendMessageEvents = SendMessageEvents,
+            SslOption = SslOption,
+            Username = Username,
+            VHost = VHost,
+        };
 }

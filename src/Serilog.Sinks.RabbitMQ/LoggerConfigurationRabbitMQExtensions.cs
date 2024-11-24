@@ -36,7 +36,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <summary>
     /// Default value for the time to wait between checking for event batches.
     /// </summary>
-    internal static readonly TimeSpan _defaultPeriod = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan _defaultBufferingTimeLimit = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Adds a sink that lets you push log messages to RabbitMQ.
@@ -85,7 +85,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="exchange">The exchange name.</param>
     /// <param name="exchangeType">The exchange type.</param>
     /// <param name="deliveryMode">The delivery mode.</param>
-    /// <param name="routeKey">The routing key.</param>
+    /// <param name="routingKey">The routing key.</param>
     /// <param name="port">The port number.</param>
     /// <param name="vHost">The virtual host.</param>
     /// <param name="clientProvidedName">Client provided name to be used for connection.</param>
@@ -96,7 +96,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="sslAcceptablePolicyErrors">The acceptable SSL policy errors.</param>
     /// <param name="sslCheckCertificateRevocation">Indicates whether to check certificate revocation.</param>
     /// <param name="batchPostingLimit">The maximum number of events to include in a single batch.</param>
-    /// <param name="period">The time to wait between checking for event batches.</param>
+    /// <param name="bufferingTimeLimit">The time to wait between checking for event batches.</param>
     /// <param name="queueLimit">The batch internal queue limit.</param>
     /// <param name="formatter">The text formatter.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
@@ -104,6 +104,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="levelSwitch">The minimal log event level switch.</param>
     /// <param name="emitEventFailure">The handling of event failure.</param>
     /// <param name="failureSinkConfiguration">The failure sink configuration.</param>
+    /// <param name="sendMessageEvents">Contains events for sending messages.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
         this LoggerSinkConfiguration loggerConfiguration,
@@ -113,7 +114,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         string? exchange = null,
         string? exchangeType = null,
         RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
-        string? routeKey = null,
+        string? routingKey = null,
         int port = 0,
         string? vHost = null,
         string? clientProvidedName = null,
@@ -124,14 +125,15 @@ public static class LoggerConfigurationRabbitMQExtensions
         SslPolicyErrors sslAcceptablePolicyErrors = SslPolicyErrors.None,
         bool sslCheckCertificateRevocation = false,
         int batchPostingLimit = DEFAULT_BATCH_POSTING_LIMIT,
-        TimeSpan period = default,
+        TimeSpan bufferingTimeLimit = default,
         int? queueLimit = null,
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         EmitEventFailureHandling emitEventFailure = EmitEventFailureHandling.WriteToSelfLog,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
+        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null,
+        ISendMessageEvents? sendMessageEvents = null)
     {
         // setup configuration
         var clientConfiguration = new RabbitMQClientConfiguration
@@ -142,13 +144,14 @@ public static class LoggerConfigurationRabbitMQExtensions
             Exchange = exchange ?? string.Empty,
             ExchangeType = exchangeType ?? ExchangeType.Fanout,
             DeliveryMode = deliveryMode,
-            RouteKey = routeKey ?? string.Empty,
+            RoutingKey = routingKey ?? string.Empty,
             Port = port,
             VHost = vHost ?? string.Empty,
             ClientProvidedName = clientProvidedName,
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
             MaxChannels = maxChannels,
+            SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
         };
 
         if (sslEnabled && sslServerName is not null)
@@ -166,7 +169,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         var sinkConfiguration = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = batchPostingLimit == default ? DEFAULT_BATCH_POSTING_LIMIT : batchPostingLimit,
-            Period = period == default ? _defaultPeriod : period,
+            BufferingTimeLimit = bufferingTimeLimit == default ? _defaultBufferingTimeLimit : bufferingTimeLimit,
             QueueLimit = queueLimit,
             EmitEventFailure = emitEventFailure,
             RestrictedToMinimumLevel = levelSwitch,
@@ -222,7 +225,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="exchange">The exchange name.</param>
     /// <param name="exchangeType">The exchange type.</param>
     /// <param name="deliveryMode">The delivery mode.</param>
-    /// <param name="routeKey">The routing key.</param>
+    /// <param name="routingKey">The routing key.</param>
     /// <param name="port">The port number.</param>
     /// <param name="vHost">The virtual host.</param>
     /// <param name="clientProvidedName">Client provided name to be used for connection.</param>
@@ -236,6 +239,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="maxChannels">The maximum number of channels.</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
+    /// <param name="sendMessageEvents">Contains events for sending messages.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
         this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
@@ -245,7 +249,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         string? exchange = null,
         string? exchangeType = null,
         RabbitMQDeliveryMode deliveryMode = RabbitMQDeliveryMode.NonDurable,
-        string? routeKey = null,
+        string? routingKey = null,
         int port = 0,
         string? vHost = null,
         string? clientProvidedName = null,
@@ -258,7 +262,8 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
-        LogEventLevel levelSwitch = LogEventLevel.Verbose)
+        LogEventLevel levelSwitch = LogEventLevel.Verbose,
+        ISendMessageEvents? sendMessageEvents = null)
     {
         // setup configuration
         var clientConfiguration = new RabbitMQClientConfiguration
@@ -269,13 +274,14 @@ public static class LoggerConfigurationRabbitMQExtensions
             Exchange = exchange ?? string.Empty,
             ExchangeType = exchangeType ?? ExchangeType.Fanout,
             DeliveryMode = deliveryMode,
-            RouteKey = routeKey ?? string.Empty,
+            RoutingKey = routingKey ?? string.Empty,
             Port = port,
             VHost = vHost ?? string.Empty,
             ClientProvidedName = clientProvidedName,
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
             MaxChannels = maxChannels,
+            SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
         };
 
         if (sslEnabled && sslServerName is not null)
@@ -318,9 +324,9 @@ public static class LoggerConfigurationRabbitMQExtensions
             ? DEFAULT_BATCH_POSTING_LIMIT
             : sinkConfiguration.BatchPostingLimit;
 
-        sinkConfiguration.Period = sinkConfiguration.Period == default
-            ? _defaultPeriod
-            : sinkConfiguration.Period;
+        sinkConfiguration.BufferingTimeLimit = sinkConfiguration.BufferingTimeLimit == default
+            ? _defaultBufferingTimeLimit
+            : sinkConfiguration.BufferingTimeLimit;
 
         ValidateRabbitMQClientConfiguration(clientConfiguration);
 
@@ -360,7 +366,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         var periodicBatchingSinkOptions = new BatchingOptions
         {
             BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
-            BufferingTimeLimit = sinkConfiguration.Period,
+            BufferingTimeLimit = sinkConfiguration.BufferingTimeLimit,
             EagerlyEmitFirstEvent = true,
         };
 

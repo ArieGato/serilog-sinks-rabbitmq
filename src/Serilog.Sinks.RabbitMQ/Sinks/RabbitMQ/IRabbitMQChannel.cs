@@ -30,7 +30,8 @@ internal interface IRabbitMQChannel : IDisposable
     /// Publishes a message to RabbitMQ Exchange.
     /// </summary>
     /// <param name="address"><see cref="PublicationAddress"/>.</param>
+    /// <param name="basicProperties">The message properties.</param>
     /// <param name="body">Message body.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    ValueTask BasicPublishAsync(PublicationAddress address, ReadOnlyMemory<byte> body);
+    ValueTask BasicPublishAsync(PublicationAddress address, BasicProperties basicProperties, ReadOnlyMemory<byte> body);
 }
