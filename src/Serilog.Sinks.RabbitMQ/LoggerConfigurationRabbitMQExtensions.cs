@@ -281,6 +281,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
             MaxChannels = maxChannels,
+            SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
         };
 
         if (sslEnabled && sslServerName is not null)
