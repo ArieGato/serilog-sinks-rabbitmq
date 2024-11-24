@@ -21,7 +21,7 @@ namespace Net8AppsettingsJsonSample;
 /// <summary>
 /// A custom SendMessageEvents class to handle events before sending a message.
 /// </summary>
-public sealed class CustomSendMessageEvents : SendMessageEvents
+public sealed class CustomSendMessageEvents : ISendMessageEvents
 {
     private readonly string _defaultRoutingKey;
 
@@ -35,37 +35,31 @@ public sealed class CustomSendMessageEvents : SendMessageEvents
     }
 
     /// <inheritdoc />
-    public override Action<LogEvent, IBasicProperties> OnSetMessageProperties => (@event, properties) =>
+    public void OnSetMessageProperties(LogEvent logEvent, IBasicProperties properties)
     {
-        // this set the default properties, like persistent, etc.
-        base.OnSetMessageProperties(@event, properties);
-
-        // example of setting persistent property based on configuration
-        properties.Persistent = Configuration.DeliveryMode == RabbitMQDeliveryMode.Durable;
-
         // example of setting message headers based on log event properties
-        @event.Properties.TryGetValue("messageType", out var messageType);
+        logEvent.Properties.TryGetValue("messageType", out var messageType);
         properties.Headers = new Dictionary<string, object?>
         {
             { "messageType", messageType?.ToString() },
-            { "log-level", @event.Level.ToString() },
+            { "log-level", logEvent.Level.ToString() },
         };
 
         // example of setting correlation id based on log event properties
-        if (@event.Properties.TryGetValue(LogProperties.CORRELATION_ID, out var correlationId))
+        if (logEvent.Properties.TryGetValue(LogProperties.CORRELATION_ID, out var correlationId))
         {
             properties.CorrelationId = correlationId.ToString();
         }
-    };
+    }
 
     /// <inheritdoc />
-    public override Func<LogEvent, string> OnGetRoutingKey => @event =>
+    public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
     {
         // example of routing based on log level
-        return @event.Level switch
+        return logEvent.Level switch
         {
             LogEventLevel.Error => "error",
             _ => _defaultRoutingKey
         };
-    };
+    }
 }

@@ -104,6 +104,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="levelSwitch">The minimal log event level switch.</param>
     /// <param name="emitEventFailure">The handling of event failure.</param>
     /// <param name="failureSinkConfiguration">The failure sink configuration.</param>
+    /// <param name="sendMessageEvents">Contains events for sending messages.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
         this LoggerSinkConfiguration loggerConfiguration,
@@ -131,7 +132,8 @@ public static class LoggerConfigurationRabbitMQExtensions
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         EmitEventFailureHandling emitEventFailure = EmitEventFailureHandling.WriteToSelfLog,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
+        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null,
+        ISendMessageEvents? sendMessageEvents = null)
     {
         // setup configuration
         var clientConfiguration = new RabbitMQClientConfiguration
@@ -149,6 +151,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
             MaxChannels = maxChannels,
+            SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
         };
 
         if (sslEnabled && sslServerName is not null)
@@ -236,6 +239,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="maxChannels">The maximum number of channels.</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
+    /// <param name="sendMessageEvents">Contains events for sending messages.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
         this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
@@ -258,7 +262,8 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
-        LogEventLevel levelSwitch = LogEventLevel.Verbose)
+        LogEventLevel levelSwitch = LogEventLevel.Verbose,
+        ISendMessageEvents? sendMessageEvents = null)
     {
         // setup configuration
         var clientConfiguration = new RabbitMQClientConfiguration

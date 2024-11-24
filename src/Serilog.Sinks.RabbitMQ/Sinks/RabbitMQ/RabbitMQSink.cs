@@ -34,8 +34,9 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly IRabbitMQClient _client;
     private readonly ILogEventSink? _failureSink;
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
-    private readonly SendMessageEvents _sendMessageEvents;
+    private readonly ISendMessageEvents _sendMessageEvents;
     private readonly bool _persistent;
+    private readonly string _routingKey;
     private bool _disposedValue;
 
     internal RabbitMQSink(
@@ -48,10 +49,10 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
         _sendMessageEvents = rabbitMQClientConfiguration.SendMessageEvents ??
                              new SendMessageEvents();
-        _sendMessageEvents.Initialize(rabbitMQClientConfiguration);
 
         _failureSink = failureSink;
         _persistent = rabbitMQClientConfiguration.DeliveryMode == RabbitMQDeliveryMode.Durable;
+        _routingKey = rabbitMQClientConfiguration.RoutingKey;
     }
 
     /// <summary>
@@ -60,10 +61,11 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     internal RabbitMQSink(
         IRabbitMQClient client,
         ITextFormatter textFormatter,
-        SendMessageEvents sendMessageEvents,
+        ISendMessageEvents sendMessageEvents,
         EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
         ILogEventSink? failureSink = null,
-        bool persistent = false)
+        bool persistent = false,
+        string routingKey = "")
     {
         _client = client;
         _formatter = textFormatter;
@@ -71,6 +73,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _sendMessageEvents = sendMessageEvents;
         _failureSink = failureSink;
         _persistent = persistent;
+        _routingKey = routingKey;
     }
 
     /// <inheritdoc cref="ILogEventSink.Emit" />
@@ -142,7 +145,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         var basicProperties = new BasicProperties { Persistent = _persistent };
         _sendMessageEvents.OnSetMessageProperties(logEvent, basicProperties);
 
-        string routingKey = _sendMessageEvents.OnGetRoutingKey(logEvent);
+        string routingKey = _sendMessageEvents.OnGetRoutingKey(logEvent, _routingKey);
         return _client.PublishAsync(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), basicProperties, routingKey);
     }
 

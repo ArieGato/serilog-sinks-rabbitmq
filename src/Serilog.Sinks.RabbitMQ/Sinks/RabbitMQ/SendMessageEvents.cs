@@ -6,23 +6,13 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// A class to handle events before sending a message.
 /// </summary>
-public class SendMessageEvents
+internal sealed class SendMessageEvents : ISendMessageEvents
 {
-    /// <summary>
-    /// Configuration for RabbitMQ client.
-    /// </summary>
-    protected RabbitMQClientConfiguration Configuration { get; private set; } = default!;
+    /// <inheritdoc cref="ISendMessageEvents.OnGetRoutingKey"/>
+    public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey) => defaultRoutingKey;
 
-    internal void Initialize(RabbitMQClientConfiguration configuration) => Configuration = configuration.Clone();
-
-    /// <summary>
-    /// Get routing key for the message.
-    /// </summary>
-    public virtual Func<LogEvent, string> OnGetRoutingKey => _ => Configuration.RoutingKey;
-
-    /// <summary>
-    /// Set message properties before publish.
-    /// </summary>
-    public virtual Action<LogEvent, IBasicProperties> OnSetMessageProperties =>
-        (_, properties) => properties.Persistent = Configuration.DeliveryMode == RabbitMQDeliveryMode.Durable;
+    /// <inheritdoc cref="ISendMessageEvents.OnSetMessageProperties"/>
+    public void OnSetMessageProperties(LogEvent logEvent, IBasicProperties properties)
+    {
+    }
 }

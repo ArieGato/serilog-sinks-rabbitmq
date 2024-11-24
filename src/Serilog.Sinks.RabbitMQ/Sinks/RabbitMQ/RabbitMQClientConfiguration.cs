@@ -96,7 +96,7 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// Contains events for sending messages.
     /// </summary>
-    public SendMessageEvents? SendMessageEvents { get; set; }
+    public ISendMessageEvents? SendMessageEvents { get; set; }
 
     /// <summary>
     /// Create a deep clone.
