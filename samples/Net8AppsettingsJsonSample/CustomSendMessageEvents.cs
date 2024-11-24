@@ -21,10 +21,9 @@ namespace Net8AppsettingsJsonSample;
 /// <summary>
 /// A custom SendMessageEvents class to handle events before sending a message.
 /// </summary>
-public sealed class CustomSendMessageEvents : ISendMessageEvents
+public sealed class CustomSendMessageEvents : SendMessageEvents
 {
     private readonly string _defaultRoutingKey;
-    private bool _isPersistent;
 
     /// <summary>
     /// The constructor for the CustomSendMessageEvents class.
@@ -36,14 +35,13 @@ public sealed class CustomSendMessageEvents : ISendMessageEvents
     }
 
     /// <inheritdoc />
-    public void Initialize(RabbitMQClientConfiguration configuration) =>
-        _isPersistent = configuration.DeliveryMode == RabbitMQDeliveryMode.Durable;
-
-    /// <inheritdoc />
-    public Action<LogEvent, IBasicProperties> OnSetMessageProperties => (@event, properties) =>
+    public override Action<LogEvent, IBasicProperties> OnSetMessageProperties => (@event, properties) =>
     {
+        // this set the default properties, like persistent, etc.
+        base.OnSetMessageProperties(@event, properties);
+
         // example of setting persistent property based on configuration
-        properties.Persistent = _isPersistent;
+        properties.Persistent = Configuration.DeliveryMode == RabbitMQDeliveryMode.Durable;
 
         // example of setting message headers based on log event properties
         @event.Properties.TryGetValue("messageType", out var messageType);
@@ -61,7 +59,7 @@ public sealed class CustomSendMessageEvents : ISendMessageEvents
     };
 
     /// <inheritdoc />
-    public Func<LogEvent, string> OnGetRoutingKey => @event =>
+    public override Func<LogEvent, string> OnGetRoutingKey => @event =>
     {
         // example of routing based on log level
         return @event.Level switch

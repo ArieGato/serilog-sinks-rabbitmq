@@ -324,8 +324,42 @@ loggerFactory
 services.AddSingleton<ILoggerFactory>(loggerFactory);
 ```
 
+## Customize Message Properties and Routing Key
+
+In order to set message properties, you can create a custom implementation of the `SendMessageEvents` class.
+This class has two methods that you can override. The first is `OnSetMessageProperties` which is called before
+the message is sent to RabbitMQ. The second is `OnGetRoutingKey` which is called to determine the routing key for the message.
+
+```csharp
+public class CustomMessageEvents : SendMessageEvents
+{
+    public override Action<LogEvent, IBasicProperties> OnSetMessageProperties => (@event, properties) =>
+    {
+        // this set the default properties, like persistent, etc.
+        base.OnSetMessageProperties(@event, properties);
+
+        // set header properies
+        properties.Headers = new Dictionary<string, object>
+        {
+            { "custom-header", "custom-value" }
+        };
+    }
+
+    public override Func<LogEvent, string> OnGetRoutingKey => @event =>
+    {
+        // example of routing based on log level
+        return @event.Level switch
+        {
+            LogEventLevel.Error => "error",
+            _ => _defaultRoutingKey
+        };
+    };
+}
+```
+
 ## References
 
 - [Serilog](https://serilog.net/)
+- [RabbitMQ Client](https://github.com/rabbitmq/rabbitmq-dotnet-client)
 - [Logging in ASP.NET Core](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
 - [Dependency Injection in ASP.NET Core](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection)

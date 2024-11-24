@@ -96,31 +96,29 @@ public class RabbitMQClientConfiguration
     /// <summary>
     /// Contains events for sending messages.
     /// </summary>
-    public ISendMessageEvents? SendMessageEvents { get; set; }
+    public SendMessageEvents? SendMessageEvents { get; set; }
 
     /// <summary>
-    /// Create options from other one.
+    /// Create a deep clone.
     /// </summary>
-    /// <param name="config">The source options.</param>
     /// <returns>The created options.</returns>
-    public RabbitMQClientConfiguration From(RabbitMQClientConfiguration config)
-    {
-        Username = config.Username;
-        Password = config.Password;
-        Exchange = config.Exchange;
-        ExchangeType = config.ExchangeType;
-        DeliveryMode = config.DeliveryMode;
-        RoutingKey = config.RoutingKey;
-        Port = config.Port;
-        VHost = config.VHost;
-        ClientProvidedName = config.ClientProvidedName;
-        Heartbeat = config.Heartbeat;
-        SslOption = config.SslOption;
-        AutoCreateExchange = config.AutoCreateExchange;
-        MaxChannels = config.MaxChannels;
-        Hostnames = config.Hostnames.ToList();
-        SendMessageEvents = config.SendMessageEvents;
-
-        return this;
-    }
+    public RabbitMQClientConfiguration Clone() =>
+        new()
+        {
+            AutoCreateExchange = AutoCreateExchange,
+            ClientProvidedName = ClientProvidedName,
+            DeliveryMode = DeliveryMode,
+            Exchange = Exchange,
+            ExchangeType = ExchangeType,
+            Heartbeat = Heartbeat,
+            Hostnames = Hostnames.ToList(),
+            MaxChannels = MaxChannels,
+            Password = Password,
+            Port = Port,
+            RoutingKey = RoutingKey,
+            SendMessageEvents = SendMessageEvents,
+            SslOption = SslOption,
+            Username = Username,
+            VHost = VHost,
+        };
 }

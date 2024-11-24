@@ -67,12 +67,6 @@ namespace Serilog.Sinks.RabbitMQ
         WriteToFailureSink = 2,
         ThrowException = 4,
     }
-    public interface ISendMessageEvents
-    {
-        System.Func<Serilog.Events.LogEvent, string?> OnGetRoutingKey { get; }
-        System.Action<Serilog.Events.LogEvent, RabbitMQ.Client.IBasicProperties> OnSetMessageProperties { get; }
-        void Initialize(Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration configuration);
-    }
     public class RabbitMQClientConfiguration
     {
         public RabbitMQClientConfiguration() { }
@@ -87,11 +81,11 @@ namespace Serilog.Sinks.RabbitMQ
         public string Password { get; set; }
         public int Port { get; set; }
         public string RoutingKey { get; set; }
-        public Serilog.Sinks.RabbitMQ.ISendMessageEvents? SendMessageEvents { get; set; }
+        public Serilog.Sinks.RabbitMQ.SendMessageEvents? SendMessageEvents { get; set; }
         public RabbitMQ.Client.SslOption? SslOption { get; set; }
         public string Username { get; set; }
         public string VHost { get; set; }
-        public Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration From(Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration config) { }
+        public Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration Clone() { }
     }
     public enum RabbitMQDeliveryMode : byte
     {
@@ -114,5 +108,12 @@ namespace Serilog.Sinks.RabbitMQ
         public int? QueueLimit { get; set; }
         public Serilog.Events.LogEventLevel RestrictedToMinimumLevel { get; set; }
         public Serilog.Formatting.ITextFormatter TextFormatter { get; set; }
+    }
+    public class SendMessageEvents
+    {
+        public SendMessageEvents() { }
+        protected Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration Configuration { get; }
+        public virtual System.Func<Serilog.Events.LogEvent, string> OnGetRoutingKey { get; }
+        public virtual System.Action<Serilog.Events.LogEvent, RabbitMQ.Client.IBasicProperties> OnSetMessageProperties { get; }
     }
 }

@@ -40,7 +40,7 @@ public class RabbitMQSinkTests
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
             .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = new StubClient();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -66,7 +66,7 @@ public class RabbitMQSinkTests
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
             .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
 
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = new StubClient();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -87,7 +87,7 @@ public class RabbitMQSinkTests
         IReadOnlyCollection<LogEvent> logEvents = [];
 
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -104,7 +104,7 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -120,7 +120,7 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -138,7 +138,7 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -157,7 +157,7 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.Close())
             .Do(_ => throw new Exception("some-message"));
@@ -177,7 +177,7 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
@@ -204,7 +204,7 @@ public class RabbitMQSinkTests
         SelfLog.Enable(writer);
 
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
@@ -231,7 +231,7 @@ public class RabbitMQSinkTests
         SelfLog.Enable(writer);
 
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
@@ -258,7 +258,7 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new Exception("some-message"));
@@ -281,7 +281,7 @@ public class RabbitMQSinkTests
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var messageEvents = Substitute.For<SendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>()))
             .Do(_ => throw new Exception("some-message"));
@@ -314,7 +314,7 @@ public class RabbitMQSinkTests
         rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
 
         // configure default send message events
-        var messageEvents = new DefaultSendMessageEvents();
+        var messageEvents = new SendMessageEvents();
         messageEvents.Initialize(rabbitMQClientConfiguration);
 
         var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);

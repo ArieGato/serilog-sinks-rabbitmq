@@ -34,7 +34,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly IRabbitMQClient _client;
     private readonly ILogEventSink? _failureSink;
     private readonly EmitEventFailureHandling _emitEventFailureHandling;
-    private readonly ISendMessageEvents _sendMessageEvents;
+    private readonly SendMessageEvents _sendMessageEvents;
     private readonly bool _persistent;
     private bool _disposedValue;
 
@@ -47,7 +47,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         _client = new RabbitMQClient(rabbitMQClientConfiguration);
         _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
         _sendMessageEvents = rabbitMQClientConfiguration.SendMessageEvents ??
-                             new DefaultSendMessageEvents();
+                             new SendMessageEvents();
         _sendMessageEvents.Initialize(rabbitMQClientConfiguration);
 
         _failureSink = failureSink;
@@ -60,7 +60,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     internal RabbitMQSink(
         IRabbitMQClient client,
         ITextFormatter textFormatter,
-        ISendMessageEvents sendMessageEvents,
+        SendMessageEvents sendMessageEvents,
         EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
         ILogEventSink? failureSink = null,
         bool persistent = false)
@@ -142,7 +142,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         var basicProperties = new BasicProperties { Persistent = _persistent };
         _sendMessageEvents.OnSetMessageProperties(logEvent, basicProperties);
 
-        string? routingKey = _sendMessageEvents?.OnGetRoutingKey(logEvent);
+        string routingKey = _sendMessageEvents.OnGetRoutingKey(logEvent);
         return _client.PublishAsync(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), basicProperties, routingKey);
     }
 

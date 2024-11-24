@@ -50,3 +50,55 @@ The SSL support has been improved. Now all properties are used when creating the
 - Requires `Serilog.Sinks.PeriodicBatching` `4.0`. This could break other sinks that inherit from `PeriodicBatchingSink` from this package. This was obsolete code and it has been removed. See [release notes](https://github.com/serilog/serilog-sinks-periodicbatching/releases/tag/v4.0.0) for more information.
 
 ## 8.0.0
+
+### Added support for RabbitMQ.Client 7.0.0
+
+Add support for `RabbitMQ.Client` version `7.0.0`. Note that this is a breaking change. The `RabbitMQ.Client` `7.0.0` is not compatible with the `RabbitMQ.Client` `6.x`.
+
+### Added support for Serilog 4.1.0
+
+Removed reference to `Serilog.Sinks.PeriodicBatching` and use `Serilog.Sinks.Batch` instead.
+
+### Set message properties
+
+Add support for setting `BasicProperties` before publishing a message. Properties can be set by creating a class derived from `SendMessageEvents`.
+
+ ```csharp
+ public class CustomMessageProperties : SendMessageEvents
+ {
+     public override void OnMessageSending(BasicProperties properties, string message)
+     {
+        // this set the default properties, like persistent.
+        base.OnSetMessageProperties(@event, properties);
+
+        properties.Headers = new Dictionary<string, object>
+         {
+             { "custom-header", "custom-value" }
+         };
+     }
+ }
+ ```
+
+### Dynamic Routing Key
+
+Moved the logic for determining the routing key logic to the SendMessageEvents. This allows for more flexibility when setting the routing key.
+
+```csharp
+public override Func<LogEvent, string> OnGetRoutingKey => @event =>
+{
+    // example of routing based on log level
+    return @event.Level switch
+    {
+        LogEventLevel.Error => "error",
+        _ => _defaultRoutingKey
+    };
+};
+```
+
+### Breaking changes
+
+- Upgrade RabbitMQ.Client to `7.0.0`.
+- Upgrade Serilog to `4.1.0`.
+- Renamed `Period` to `BufferingTimeLimit`.
+- Renamed `RouteKey` to `RoutingKey`
+- Removed `RoutingFunc`
