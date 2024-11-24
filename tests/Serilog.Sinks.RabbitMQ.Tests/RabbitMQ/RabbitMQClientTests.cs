@@ -44,7 +44,7 @@ public class RabbitMQClientTests
         rabbitMQChannelObjectPoolPolicy.Received(1).Create();
         rabbitMQChannelObjectPoolPolicy.Received(1).Return(Arg.Is(rabbitMQChannel));
 
-        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>());
+        rabbitMQChannel.Received(1).BasicPublish(Arg.Any<PublicationAddress>(), Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<bool>());
     }
 
     [Fact]

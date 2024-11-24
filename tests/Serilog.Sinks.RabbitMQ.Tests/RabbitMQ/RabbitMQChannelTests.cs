@@ -50,8 +50,10 @@ public class RabbitMQChannelTests
         isOpen.ShouldBeTrue();
     }
 
-    [Fact]
-    public void BasicPublish_ShouldCallModelBasicPublish_WithCorrectParameters()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void BasicPublish_ShouldCallModelBasicPublish_WithCorrectParameters(bool isPersistent)
     {
         // Arrange
         var model = Substitute.For<IModel>();
@@ -64,9 +66,9 @@ public class RabbitMQChannelTests
         var sut = new RabbitMQChannel(model);
 
         // Act
-        sut.BasicPublish(address, body);
+        sut.BasicPublish(address, body, isPersistent);
 
         // Assert
-        model.Received(1).BasicPublish(address, Arg.Is(basicProperties), body);
+        model.Received(1).BasicPublish(address, Arg.Is<IBasicProperties>(obj => obj.Persistent == isPersistent), body);
     }
 }
