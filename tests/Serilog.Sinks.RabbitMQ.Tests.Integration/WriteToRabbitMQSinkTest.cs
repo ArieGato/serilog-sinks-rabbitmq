@@ -72,7 +72,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
 
         // Wait for consumer to receive the message.
-        await Task.Delay(1000);
+        await Task.Delay(2000);
 
         try
         {
