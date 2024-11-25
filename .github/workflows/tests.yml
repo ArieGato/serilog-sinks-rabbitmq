@@ -39,9 +39,9 @@ jobs:
                 break;
             }
             $val++
-            if ($val -ge 20)
+            if ($val -ge 40)
             {
-                Write-Host "RabbitMQ services not started after 20 attempts"
+                Write-Host "RabbitMQ services not started after 40 attempts"
                 break;
             }
             Write-Host "RabbitMQ services status: ssl-plain: $($status_ssl_plain) - ssl-cert: $($status_ssl_cert). Attempt $val. Retry in 1 second."
@@ -72,11 +72,11 @@ jobs:
 
     - name: Test solution [Debug]
       if: ${{ startsWith(matrix.os, 'ubuntu') }}
-      run: dotnet test --no-build -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+      run: dotnet test --no-build -p:TestTfmsInParallel=false -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
 
     - name: Test solution [Debug/Windows]
       if: ${{ startsWith(matrix.os, 'windows') }}
-      run: dotnet test --no-build --filter FullyQualifiedName\!~Serilog.Sinks.RabbitMQ.Tests.Integration
+      run: dotnet test --no-build -p:TestTfmsInParallel=false --filter FullyQualifiedName\!~Serilog.Sinks.RabbitMQ.Tests.Integration
 
     - name: Upload coverage reports to Codecov
       if: ${{ startsWith(matrix.os, 'ubuntu') }}
