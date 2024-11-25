@@ -34,14 +34,14 @@ jobs:
         while(1 -eq 1) {
             $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
             $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
-            if ($status_ssl_plain -eq "healthy" -and $status_ssl_cert -eq "healthy") {
+            if ($status_ssl_plain -eq '"healthy"' -and $status_ssl_cert -eq '"healthy"') {
                 Write-Host "RabbitMQ services started"
                 break;
             }
             $val++
-            if ($val -ge 20)
+            if ($val -ge 40)
             {
-                Write-Host "RabbitMQ services not started after 20 attempts"
+                Write-Host "RabbitMQ services not started after 40 attempts"
                 break;
             }
             Write-Host "RabbitMQ services status: ssl-plain: $($status_ssl_plain) - ssl-cert: $($status_ssl_cert). Attempt $val. Retry in 1 second."
@@ -54,6 +54,7 @@ jobs:
         dotnet-version: |
           6.0.x
           8.0.x
+          9.0.x
 
     - name: Restore dependencies
       run: dotnet restore
@@ -71,11 +72,11 @@ jobs:
 
     - name: Test solution [Debug]
       if: ${{ startsWith(matrix.os, 'ubuntu') }}
-      run: dotnet test --no-build -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+      run: dotnet test --no-build -p:TestTfmsInParallel=false -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
 
     - name: Test solution [Debug/Windows]
       if: ${{ startsWith(matrix.os, 'windows') }}
-      run: dotnet test --no-build --filter FullyQualifiedName\!~Serilog.Sinks.RabbitMQ.Tests.Integration
+      run: dotnet test --no-build -p:TestTfmsInParallel=false --filter FullyQualifiedName\!~Serilog.Sinks.RabbitMQ.Tests.Integration
 
     - name: Upload coverage reports to Codecov
       if: ${{ startsWith(matrix.os, 'ubuntu') }}

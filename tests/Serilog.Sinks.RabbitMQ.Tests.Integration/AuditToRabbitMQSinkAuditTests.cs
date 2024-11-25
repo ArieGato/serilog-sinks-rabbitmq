@@ -72,7 +72,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         logger.Information(messageTemplate, 1.0);
 
         // Wait for consumer to receive the message.
-        await Task.Delay(100);
+        await Task.Delay(200);
 
         receivedMessage.ShouldNotBeNull();
         receivedMessage["Level"].ShouldBe("Information");

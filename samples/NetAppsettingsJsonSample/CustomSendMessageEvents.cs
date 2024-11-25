@@ -16,7 +16,7 @@ using RabbitMQ.Client;
 using Serilog.Events;
 using Serilog.Sinks.RabbitMQ;
 
-namespace Net8AppsettingsJsonSample;
+namespace NetAppsettingsJsonSample;
 
 /// <summary>
 /// A custom SendMessageEvents class to handle events before sending a message.

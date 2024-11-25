@@ -87,7 +87,7 @@ public class RabbitMQFixture : IDisposable
     public async Task InitializeAsync(string? exchangeName = null)
     {
         // Initialize the exchanges and queues.
-        using var model = await GetConsumingModelAsync();
+        await using var model = await GetConsumingModelAsync();
 
         await model.ExchangeDeclareAsync(SerilogSinkExchange, SerilogSinkExchangeType, true);
         await model.QueueDeclareAsync(SerilogSinkQueueName, true, false, false);
@@ -104,7 +104,7 @@ public class RabbitMQFixture : IDisposable
 
         await model.CloseAsync();
 
-        await Task.Delay(1000);
+        await Task.Delay(500);
     }
 
     public void Dispose() => AsyncHelpers.RunSync(CleanupAsync);

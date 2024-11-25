@@ -1,4 +1,4 @@
-namespace Net8AppsettingsJsonSample;
+namespace NetAppsettingsJsonSample;
 
 /// <summary>
 /// A class to hold the log context properties.

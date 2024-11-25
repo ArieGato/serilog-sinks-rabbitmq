@@ -13,7 +13,7 @@
 // limitations under the License.
 
 using Microsoft.Extensions.Configuration;
-using Net8AppsettingsJsonSample;
+using NetAppsettingsJsonSample;
 using Serilog;
 using Serilog.Context;
 using Serilog.Debugging;

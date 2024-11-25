@@ -97,6 +97,10 @@ public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
 }
 ```
 
+### Added support for .net 9
+
+Add .net 9 to the target frameworks
+
 ### Breaking changes
 
 - Upgrade RabbitMQ.Client to `7.0.0`.
@@ -104,3 +108,4 @@ public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
 - Renamed `Period` to `BufferingTimeLimit`.
 - Renamed `RouteKey` to `RoutingKey`
 - Removed `RoutingFunc`
+- Removed `.net7.0` target framework
