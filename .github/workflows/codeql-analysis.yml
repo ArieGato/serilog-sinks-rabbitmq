@@ -16,10 +16,13 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v4
 
-    - name: Setup .NET SDK
+    - name: Setup .NET SDKs
       uses: actions/setup-dotnet@v4
       with:
-         dotnet-version: 8.0.x
+        dotnet-version: |
+          6.0.x
+          8.0.x
+          9.0.x
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
