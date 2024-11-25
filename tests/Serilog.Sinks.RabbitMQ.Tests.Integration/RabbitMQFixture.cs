@@ -104,7 +104,7 @@ public class RabbitMQFixture : IDisposable
 
         await model.CloseAsync();
 
-        await Task.Delay(1000);
+        await Task.Delay(2000);
     }
 
     public void Dispose() => AsyncHelpers.RunSync(CleanupAsync);
