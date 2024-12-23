@@ -55,13 +55,13 @@ The SSL support has been improved. Now all properties are used when creating the
 
 Add support for `RabbitMQ.Client` version `7.0.0`. Note that this is a breaking change. The `RabbitMQ.Client` `7.0.0` is not compatible with the `RabbitMQ.Client` `6.x`.
 
-### Added support for Serilog 4.1.0
+### Added support for Serilog 4.2.0
 
 Removed reference to `Serilog.Sinks.PeriodicBatching` and use `Serilog.Sinks.Batch` instead.
 
 ### Set message properties
 
-Add support for setting `BasicProperties` before publishing a message. Properties can be set by creating a class implemnenting `ISendMessageEvents`.
+Add support for setting `BasicProperties` before publishing a message. Properties can be set by creating a class implementing `ISendMessageEvents`.
 
  ```csharp
 public void OnSetMessageProperties(LogEvent logEvent, IBasicProperties properties)
@@ -104,7 +104,7 @@ Add .net 9 to the target frameworks
 ### Breaking changes
 
 - Upgrade RabbitMQ.Client to `7.0.0`.
-- Upgrade Serilog to `4.1.0`.
+- Upgrade Serilog to `4.2.0`.
 - Renamed `Period` to `BufferingTimeLimit`.
 - Renamed `RouteKey` to `RoutingKey`
 - Removed `RoutingFunc`
