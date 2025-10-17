@@ -10,7 +10,7 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables -->
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">True</ContinuousIntegrationBuild>
-    <Copyright>Copyright © Serilog Contributors 2019-2024</Copyright>
+    <Copyright>Copyright © Serilog Contributors 2019-2025</Copyright>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <SignAssembly>true</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
