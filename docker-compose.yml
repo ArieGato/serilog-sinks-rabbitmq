@@ -1,5 +1,3 @@
-version: "3.2"
-
 services:
   rabbitmq-cert:
     container_name: serilog.sinks.rabbitmq.ssl-cert
