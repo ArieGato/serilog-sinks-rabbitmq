@@ -22,7 +22,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// </summary>
 internal sealed class RabbitMQClient : IRabbitMQClient
 {
-    private readonly ObjectPool<IRabbitMQChannel> _modelObjectPool;
+    private readonly ObjectPool<IRabbitMQChannel> _channelObjectPool;
 
     /// <summary>
     /// Default value for the maximum number of channels.
@@ -43,7 +43,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         {
             MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DEFAULT_MAX_CHANNEL_COUNT,
         };
-        _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
+        _channelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
@@ -65,7 +65,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         {
             MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DEFAULT_MAX_CHANNEL_COUNT,
         };
-        _modelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
+        _channelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
 
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
@@ -75,7 +75,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         IRabbitMQChannel? channel = null;
         try
         {
-            channel = _modelObjectPool.Get();
+            channel = _channelObjectPool.Get();
             var address = routingKey == null
                 ? _publicationAddress
                 : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
@@ -85,7 +85,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         {
             if (channel != null)
             {
-                _modelObjectPool.Return(channel);
+                _channelObjectPool.Return(channel);
             }
         }
     }
@@ -124,7 +124,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
     {
         _closeTokenSource.Dispose();
 
-        if (_modelObjectPool is IDisposable disposable)
+        if (_channelObjectPool is IDisposable disposable)
         {
             disposable.Dispose();
         }

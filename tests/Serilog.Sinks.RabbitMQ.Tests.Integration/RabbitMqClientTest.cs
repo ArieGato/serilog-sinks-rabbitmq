@@ -38,7 +38,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         string message = Guid.NewGuid().ToString();
 
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         string? receivedMessage = null;
 
@@ -71,7 +71,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         string message = Guid.NewGuid().ToString();
 
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         string? receivedMessage = null;
 
@@ -118,7 +118,7 @@ public sealed class RabbitMQClientTest : IClassFixture<RabbitMQFixture>
 
         //// wait for message sent
         // await Task.Delay(1000);
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         try
         {

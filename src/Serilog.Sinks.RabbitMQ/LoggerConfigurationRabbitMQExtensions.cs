@@ -363,7 +363,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ILogEventSink? failureSink = null)
     {
         var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration, failureSink);
-        var periodicBatchingSinkOptions = new BatchingOptions
+        var options = new BatchingOptions
         {
             BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
             BufferingTimeLimit = sinkConfiguration.BufferingTimeLimit,
@@ -372,10 +372,10 @@ public static class LoggerConfigurationRabbitMQExtensions
 
         if (sinkConfiguration.QueueLimit.HasValue)
         {
-            periodicBatchingSinkOptions.QueueLimit = sinkConfiguration.QueueLimit.Value;
+            options.QueueLimit = sinkConfiguration.QueueLimit.Value;
         }
 
-        return LoggerSinkConfiguration.CreateSink(lc => lc.Sink(rabbitMQSink, periodicBatchingSinkOptions));
+        return LoggerSinkConfiguration.CreateSink(lc => lc.Sink(rabbitMQSink, options));
     }
 
     private static void ValidateRabbitMQClientConfiguration(RabbitMQClientConfiguration clientConfiguration)

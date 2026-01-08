@@ -57,7 +57,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         JObject? receivedMessage = null;
 
@@ -111,7 +111,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "This is a debug log message";
 
-        using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         JObject? receivedMessage = null;
 
@@ -148,11 +148,11 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
         const string logParallelMessageExchange = "log-parallel-message-exchange";
         const string logParallelMessageQueue = "log-parallel-message-queue";
 
-        using var model = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
-        await model.ExchangeDeclareAsync(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true);
-        await model.QueueDeclareAsync(logParallelMessageQueue, true, false, false);
-        await model.QueueBindAsync(logParallelMessageQueue, logParallelMessageExchange, string.Empty);
+        await channel.ExchangeDeclareAsync(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true);
+        await channel.QueueDeclareAsync(logParallelMessageQueue, true, false, false);
+        await channel.QueueBindAsync(logParallelMessageQueue, logParallelMessageExchange, string.Empty);
 
         var config = new RabbitMQClientConfiguration
         {
@@ -195,7 +195,7 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
             }
         });
 
-        while (await model.MessageCountAsync(logParallelMessageQueue) < 10000)
+        while (await channel.MessageCountAsync(logParallelMessageQueue) < 10000)
         {
             if (watch.ElapsedMilliseconds > 10000)
             {
@@ -207,6 +207,6 @@ public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
 
         watch.Stop();
 
-        await model.CloseAsync();
+        await channel.CloseAsync();
     }
 }
