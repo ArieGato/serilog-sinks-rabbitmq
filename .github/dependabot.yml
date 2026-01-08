@@ -2,7 +2,10 @@ version: 2
 updates:
 
 - package-ecosystem: "nuget"
-  directory: "/"
+  directories:
+    - src
+    - samples
+    - tests
   schedule:
     interval: "daily"
 
