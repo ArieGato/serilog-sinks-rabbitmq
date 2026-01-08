@@ -87,22 +87,22 @@ public class RabbitMQFixture : IDisposable
     public async Task InitializeAsync(string? exchangeName = null)
     {
         // Initialize the exchanges and queues.
-        await using var model = await GetConsumingModelAsync();
+        await using var channel = await GetConsumingChannelAsync();
 
-        await model.ExchangeDeclareAsync(SerilogSinkExchange, SerilogSinkExchangeType, true);
-        await model.QueueDeclareAsync(SerilogSinkQueueName, true, false, false);
-        await model.QueueBindAsync(SerilogSinkQueueName, SerilogSinkExchange, string.Empty);
+        await channel.ExchangeDeclareAsync(SerilogSinkExchange, SerilogSinkExchangeType, true);
+        await channel.QueueDeclareAsync(SerilogSinkQueueName, true, false, false);
+        await channel.QueueBindAsync(SerilogSinkQueueName, SerilogSinkExchange, string.Empty);
 
-        await model.ExchangeDeclareAsync(SerilogAuditSinkExchange, SerilogAuditSinkExchangeType, true);
-        await model.QueueDeclareAsync(SerilogAuditSinkQueueName, true, false, false);
-        await model.QueueBindAsync(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, string.Empty);
+        await channel.ExchangeDeclareAsync(SerilogAuditSinkExchange, SerilogAuditSinkExchangeType, true);
+        await channel.QueueDeclareAsync(SerilogAuditSinkQueueName, true, false, false);
+        await channel.QueueBindAsync(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, string.Empty);
 
         if (!string.IsNullOrEmpty(exchangeName))
         {
-            await model.ExchangeDeclareAsync(exchangeName!, SerilogSinkExchangeType, true);
+            await channel.ExchangeDeclareAsync(exchangeName!, SerilogSinkExchangeType, true);
         }
 
-        await model.CloseAsync();
+        await channel.CloseAsync();
 
         await Task.Delay(500);
     }
@@ -138,8 +138,8 @@ public class RabbitMQFixture : IDisposable
 
     public Task PublishAsync(string message) => _rabbitMQClient.PublishAsync(Encoding.UTF8.GetBytes(message), new BasicProperties());
 
-    // The IModel is not disposed automatically, so the calling member is responsible for disposing it.
-    public async Task<IChannel> GetConsumingModelAsync()
+    // The IChannel is not disposed automatically, so the calling member is responsible for disposing it.
+    public async Task<IChannel> GetConsumingChannelAsync()
     {
         int counter = 0;
         while (true)
