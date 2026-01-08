@@ -260,7 +260,7 @@ Log.Logger = new LoggerConfiguration()
         clientConfiguration.Exchange     = _config["RABBITMQ_EXCHANGE"];
         clientConfiguration.ExchangeType = _config["RABBITMQ_EXCHANGE_TYPE"];
         clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-        clientConfiguration.RoutingKey     = "Logs";
+        clientConfiguration.RoutingKey   = "Logs";
         clientConfiguration.Port         = 5672;
 
         foreach (string hostname in _config.GetSection("RABBITMQ_HOSTNAMES").Get<string[]>())
@@ -326,7 +326,7 @@ services.AddSingleton<ILoggerFactory>(loggerFactory);
 ```
 
 ## Customizing Message Properties and Routing Keys
-To customize message properties, a class can be created that implements the ISendMessageEvents interface. This interface defines two methods that require implementation:
+To customize message properties, a class can be created that implements the `ISendMessageEvents` interface. This interface defines two methods that require implementation:
 
 `OnSetMessageProperties`: This method is invoked before the message is sent to RabbitMQ and is used to configure the message's properties.
 

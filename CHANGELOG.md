@@ -57,7 +57,7 @@ Add support for `RabbitMQ.Client` version `7.0.0`. Note that this is a breaking 
 
 ### Added support for Serilog 4.2.0
 
-Removed reference to `Serilog.Sinks.PeriodicBatching` and use `Serilog.Sinks.Batch` instead.
+Removed reference to `Serilog.Sinks.PeriodicBatching` and use `Serilog.Core.Sinks.Batching.BatchingSink` instead.
 
 ### Set message properties
 
@@ -99,7 +99,7 @@ public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
 
 ### Added support for .net 9
 
-Add .net 9 to the target frameworks
+Add net9.0 to the target frameworks.
 
 ### Breaking changes
 

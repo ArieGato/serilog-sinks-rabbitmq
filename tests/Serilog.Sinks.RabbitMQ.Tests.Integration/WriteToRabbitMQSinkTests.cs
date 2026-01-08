@@ -57,7 +57,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         JObject? receivedMessage = null;
 
@@ -111,7 +111,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "This is a debug log message";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         JObject? receivedMessage = null;
 
@@ -148,7 +148,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
         const string logParallelMessageExchange = "log-parallel-message-exchange";
         const string logParallelMessageQueue = "log-parallel-message-queue";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingModelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
 
         await channel.ExchangeDeclareAsync(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true);
         await channel.QueueDeclareAsync(logParallelMessageQueue, true, false, false);

@@ -36,9 +36,9 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "W")
             .CreateLogger();
 
-        using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
-        await cleanupModel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
-        await cleanupModel.CloseAsync();
+        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
+        await cleanupChannel.CloseAsync();
 
         // should not throw
         logger.Dispose();
@@ -51,9 +51,9 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "H")
             .CreateLogger();
 
-        using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
-        await cleanupModel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
-        await cleanupModel.CloseAsync();
+        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
+        await cleanupChannel.CloseAsync();
 
         // should not throw
         logger.Dispose();
@@ -66,9 +66,9 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "A")
             .CreateLogger();
 
-        using var cleanupModel = await _rabbitMQFixture.GetConsumingModelAsync();
-        await cleanupModel.ExchangeDeleteAsync("serilog-settings-sink-audit-exchange");
-        await cleanupModel.CloseAsync();
+        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-audit-exchange");
+        await cleanupChannel.CloseAsync();
 
         // should not throw
         logger.Dispose();

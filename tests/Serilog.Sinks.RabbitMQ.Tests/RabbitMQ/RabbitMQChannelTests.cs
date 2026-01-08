@@ -17,31 +17,31 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 public class RabbitMQChannelTests
 {
     [Fact]
-    public async Task Dispose_ShouldNotThrowException_WhenIModelCloseThrowsException()
+    public async Task Dispose_ShouldNotThrowException_WhenIChannelCloseThrowsException()
     {
         // Arrange
-        var model = Substitute.For<IChannel>();
-        model.When(x => x.CloseAsync())
+        var channel = Substitute.For<IChannel>();
+        channel.When(x => x.CloseAsync())
             .Do(_ => throw new Exception("some-message"));
 
-        var sut = new RabbitMQChannel(model);
+        var sut = new RabbitMQChannel(channel);
 
         // Act
         sut.Dispose();
 
         // Assert
-        await model.Received(1).CloseAsync();
-        model.Received(1).Dispose();
+        await channel.Received(1).CloseAsync();
+        channel.Received(1).Dispose();
     }
 
     [Fact]
-    public void IsOpen_ShouldReturnTrue_WhenModelIsOpen()
+    public void IsOpen_ShouldReturnTrue_WhenChannelIsOpen()
     {
         // Arrange
-        var model = Substitute.For<IChannel>();
-        model.IsOpen.Returns(true);
+        var channel = Substitute.For<IChannel>();
+        channel.IsOpen.Returns(true);
 
-        var sut = new RabbitMQChannel(model);
+        var sut = new RabbitMQChannel(channel);
 
         // Act
         bool isOpen = sut.IsOpen;
@@ -51,22 +51,22 @@ public class RabbitMQChannelTests
     }
 
     [Fact]
-    public async Task BasicPublish_ShouldCallModelBasicPublish_WithCorrectParameters()
+    public async Task BasicPublish_ShouldCallChannelBasicPublish_WithCorrectParameters()
     {
         // Arrange
-        var model = Substitute.For<IChannel>();
+        var channel = Substitute.For<IChannel>();
         var basicProperties = new BasicProperties();
 
         var address = new PublicationAddress("exchangeType", "exchangeName", "routingKey");
         var body = new ReadOnlyMemory<byte>([1, 2, 3]);
 
-        var sut = new RabbitMQChannel(model);
+        var sut = new RabbitMQChannel(channel);
 
         // Act
         await sut.BasicPublishAsync(address, new BasicProperties(), body);
 
         // Assert
         var actual = Arg.Is<BasicProperties>(p => p.AppId == basicProperties.AppId);
-        await model.Received(1).BasicPublishAsync(address, actual, body);
+        await channel.Received(1).BasicPublishAsync(address, actual, body);
     }
 }
