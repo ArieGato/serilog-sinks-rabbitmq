@@ -70,10 +70,8 @@ public static class LoggerConfigurationRabbitMQExtensions
         this LoggerSinkConfiguration loggerConfiguration,
         RabbitMQClientConfiguration clientConfiguration,
         RabbitMQSinkConfiguration sinkConfiguration,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
-    {
-        return loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
-    }
+        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null) =>
+        loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
 
     /// <summary>
     /// Adds a sink that lets you push log messages to RabbitMQ.
@@ -210,10 +208,8 @@ public static class LoggerConfigurationRabbitMQExtensions
     public static LoggerConfiguration RabbitMQ(
         this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
         RabbitMQClientConfiguration clientConfiguration,
-        RabbitMQSinkConfiguration sinkConfiguration)
-    {
-        return loggerAuditSinkConfiguration.RegisterAuditSink(clientConfiguration, sinkConfiguration);
-    }
+        RabbitMQSinkConfiguration sinkConfiguration) =>
+        loggerAuditSinkConfiguration.RegisterAuditSink(clientConfiguration, sinkConfiguration);
 
     /// <summary>
     /// Adds an audit sink that lets you push log messages to RabbitMQ.
@@ -363,7 +359,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ILogEventSink? failureSink = null)
     {
         var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration, failureSink);
-        var periodicBatchingSinkOptions = new BatchingOptions
+        var options = new BatchingOptions
         {
             BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
             BufferingTimeLimit = sinkConfiguration.BufferingTimeLimit,
@@ -372,10 +368,10 @@ public static class LoggerConfigurationRabbitMQExtensions
 
         if (sinkConfiguration.QueueLimit.HasValue)
         {
-            periodicBatchingSinkOptions.QueueLimit = sinkConfiguration.QueueLimit.Value;
+            options.QueueLimit = sinkConfiguration.QueueLimit.Value;
         }
 
-        return LoggerSinkConfiguration.CreateSink(lc => lc.Sink(rabbitMQSink, periodicBatchingSinkOptions));
+        return LoggerSinkConfiguration.CreateSink(lc => lc.Sink(rabbitMQSink, options));
     }
 
     private static void ValidateRabbitMQClientConfiguration(RabbitMQClientConfiguration clientConfiguration)

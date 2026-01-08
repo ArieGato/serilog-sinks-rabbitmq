@@ -39,4 +39,7 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="9.0.10" />
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.1" />
+  </ItemGroup>
 </Project>

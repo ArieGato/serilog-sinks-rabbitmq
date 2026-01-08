@@ -1,0 +1,77 @@
+<Solution>
+  <Folder Name="/.github/">
+    <File Path=".github/codecov.yml" />
+    <File Path=".github/CODEOWNERS" />
+    <File Path=".github/dependabot.yml" />
+    <File Path=".github/labeler.yml" />
+  </Folder>
+  <Folder Name="/.github/ISSUE_TEMPLATE/">
+    <File Path=".github/ISSUE_TEMPLATE/bug_report.md" />
+    <File Path=".github/ISSUE_TEMPLATE/feature_request.md" />
+    <File Path=".github/ISSUE_TEMPLATE/question.md" />
+  </Folder>
+  <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/codeql-analysis.yml" />
+    <File Path=".github/workflows/label.yml" />
+    <File Path=".github/workflows/publish-prerelease.yml" />
+    <File Path=".github/workflows/publish-release.yml" />
+    <File Path=".github/workflows/tests.yml" />
+  </Folder>
+  <Folder Name="/.Solution Items/">
+    <File Path=".dockerignore" />
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="CHANGELOG.md" />
+    <File Path="CODE_OF_CONDUCT.md" />
+    <File Path="CONTRIBUTING.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="docker-compose.tests.yml" />
+    <File Path="docker-compose.yml" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+    <File Path="stylecop.json" />
+  </Folder>
+  <Folder Name="/assets/">
+    <File Path="assets/icon.png" />
+    <File Path="assets/Serilog.snk" />
+  </Folder>
+  <Folder Name="/docker/" />
+  <Folder Name="/docker/integration-test/">
+    <File Path="docker/integration-test/Dockerfile" />
+  </Folder>
+  <Folder Name="/docker/rabbitmq/">
+    <File Path="docker/rabbitmq/ca-cert.pem" />
+    <File Path="docker/rabbitmq/ca-key.pem" />
+    <File Path="docker/rabbitmq/client-cert.pem" />
+    <File Path="docker/rabbitmq/client-cert.pfx" />
+    <File Path="docker/rabbitmq/client-key.pem" />
+    <File Path="docker/rabbitmq/client-req.pem" />
+    <File Path="docker/rabbitmq/README.md" />
+    <File Path="docker/rabbitmq/server-cert.pem" />
+    <File Path="docker/rabbitmq/server-key.pem" />
+    <File Path="docker/rabbitmq/server-req.pem" />
+  </Folder>
+  <Folder Name="/docker/rabbitmq/ssl-cert/">
+    <File Path="docker/rabbitmq/ssl-cert/definitions.json" />
+    <File Path="docker/rabbitmq/ssl-cert/enabled_plugins" />
+    <File Path="docker/rabbitmq/ssl-cert/rabbitmq.conf" />
+  </Folder>
+  <Folder Name="/docker/rabbitmq/ssl-plain/">
+    <File Path="docker/rabbitmq/ssl-plain/definitions.json" />
+    <File Path="docker/rabbitmq/ssl-plain/enabled_plugins" />
+    <File Path="docker/rabbitmq/ssl-plain/rabbitmq.conf" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/NetAppsettingsJsonSample/NetAppsettingsJsonSample.csproj" />
+    <Project Path="samples/NetFrameworkAppSettingsConfigSample/NetFrameworkAppSettingsConfigSample.csproj" />
+    <Project Path="samples/NetFromCodeSample/NetFromCodeSample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Serilog.Sinks.RabbitMQ/Serilog.Sinks.RabbitMQ.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Serilog.Sinks.RabbitMQ.Tests.Integration/Serilog.Sinks.RabbitMQ.Tests.Integration.csproj" />
+    <Project Path="tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.csproj" />
+  </Folder>
+</Solution>
