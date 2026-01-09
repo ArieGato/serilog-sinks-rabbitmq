@@ -22,14 +22,11 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests'))">
-    <NoWarn>$(NoWarn);1701;1702;1591;SA1600;IDE1006</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;SA1600</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="StyleCop.Analyzers">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
     <AdditionalFiles Include="$(SolutionDir)/stylecop.json" Visible="false" Link="stylecop.json" />
   </ItemGroup>
 

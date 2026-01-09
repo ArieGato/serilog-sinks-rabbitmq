@@ -70,10 +70,8 @@ public static class LoggerConfigurationRabbitMQExtensions
         this LoggerSinkConfiguration loggerConfiguration,
         RabbitMQClientConfiguration clientConfiguration,
         RabbitMQSinkConfiguration sinkConfiguration,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
-    {
-        return loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
-    }
+        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null) =>
+        loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
 
     /// <summary>
     /// Adds a sink that lets you push log messages to RabbitMQ.
@@ -210,10 +208,8 @@ public static class LoggerConfigurationRabbitMQExtensions
     public static LoggerConfiguration RabbitMQ(
         this LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
         RabbitMQClientConfiguration clientConfiguration,
-        RabbitMQSinkConfiguration sinkConfiguration)
-    {
-        return loggerAuditSinkConfiguration.RegisterAuditSink(clientConfiguration, sinkConfiguration);
-    }
+        RabbitMQSinkConfiguration sinkConfiguration) =>
+        loggerAuditSinkConfiguration.RegisterAuditSink(clientConfiguration, sinkConfiguration);
 
     /// <summary>
     /// Adds an audit sink that lets you push log messages to RabbitMQ.

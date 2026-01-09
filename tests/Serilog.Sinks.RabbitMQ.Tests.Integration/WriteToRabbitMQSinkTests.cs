@@ -22,11 +22,11 @@ namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 /// Tests for using <see cref="RabbitMQSink" /> as WriteTo sink.
 /// </summary>
 [Collection("Sequential")]
-public sealed class WriteToRabbitMQSinkTest : IClassFixture<RabbitMQFixture>
+public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
 {
     private readonly RabbitMQFixture _rabbitMQFixture;
 
-    public WriteToRabbitMQSinkTest(RabbitMQFixture rabbitMQFixture)
+    public WriteToRabbitMQSinkTests(RabbitMQFixture rabbitMQFixture)
     {
         _rabbitMQFixture = rabbitMQFixture;
     }
