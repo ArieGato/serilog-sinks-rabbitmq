@@ -42,7 +42,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     internal RabbitMQSink(
         RabbitMQClientConfiguration rabbitMQClientConfiguration,
         RabbitMQSinkConfiguration rabbitMQSinkConfiguration,
-        ILogEventSink? failureSink = null)
+        ILogEventSink? failureSink)
     {
         _formatter = rabbitMQSinkConfiguration.TextFormatter;
         _client = new RabbitMQClient(rabbitMQClientConfiguration);
@@ -117,7 +117,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         catch (Exception exception)
         {
             // ignored
-            SelfLog.WriteLine("Exception occurred closing RabbitMQClient {0}", exception.Message);
+            SelfLog.WriteLine("Exception occurred while closing RabbitMQClient {0}", exception.Message);
         }
 
         // Dispose the failure sink if it's disposable.

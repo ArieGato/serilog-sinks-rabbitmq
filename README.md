@@ -115,13 +115,13 @@ Refer to the [Formatter](https://github.com/serilog/serilog/wiki/Formatting-Outp
 
 All sink features are configurable from code. Here is a typical example that works the same way for any .NET target.
 
-```C#
+```csharp
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.RabbitMQ(
         username: "usr",
         password: "pwd",
-        hostnames: new[] { "localhost" },
+        hostnames: ["localhost"],
         port: 5672,
         exchange = "LogExchange",
         formatter: new JsonFormatter()
@@ -248,7 +248,7 @@ ASP.NET has the possibility to encrypt connection string in the web.config.
 
 ## Configuration via code
 
-There are multiple ways for configuring the RabbitMQSink with the release of v3.0.0
+There are multiple ways for configuring the sink with the release of v3.0.0
 
 ```csharp
 Log.Logger = new LoggerConfiguration()

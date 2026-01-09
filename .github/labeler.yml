@@ -6,10 +6,7 @@ tests:
 CI:
 - changed-files:
   - any-glob-to-any-file:
-    - .github/workflows/**/*
-    - .github/dependabot.yml
-    - .github/codecov.yml
-    - .github/labeler.yml
+    - .github/**/*
 
 code style:
 - changed-files:

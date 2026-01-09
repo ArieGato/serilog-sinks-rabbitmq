@@ -25,7 +25,7 @@ RUN apt-get update \
     && apt-get install apt-transport-https -y \
     && apt-get update \
     && apt-get install -y dotnet-sdk-8.0 -y \
-	&& apt-get install -y dotnet-sdk-6.0 -y \
+    && apt-get install -y dotnet-sdk-6.0 -y \
     && rm -rf /usr/share/dotnet/sdk/NuGetFallbackFolder \
     && rm -rf /tmp/*
 
