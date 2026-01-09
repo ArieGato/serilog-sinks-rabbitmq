@@ -45,14 +45,14 @@ jobs:
                   Write-Host "RabbitMQ services not started after 20 attempts"
                   $logs_ssl_plain = docker logs serilog.sinks.rabbitmq.ssl-plain
                   $logs_ssl_cert = docker logs serilog.sinks.rabbitmq.ssl-cert
-                  Write-Host "serilog.sinks.rabbitmq.ssl-plain logs:"
-                  Write-Host $logs_ssl_plain
-                  Write-Host "serilog.sinks.rabbitmq.ssl-cert logs:"
-                  Write-Host $logs_ssl_cert
+                  Write-Host "serilog.sinks.rabbitmq.ssl-plain logs: $logs_ssl_plain"
+                  Write-Host "serilog.sinks.rabbitmq.ssl-cert logs: $logs_ssl_cert"
                   exit 1
               }
-              Write-Host "RabbitMQ services status: ssl-plain $($status_ssl_plain), ssl-cert $($status_ssl_cert). Attempt $val finished, waiting 1 second."
-              Start-Sleep -s 1
+              else {
+                  Write-Host "RabbitMQ services status: ssl-plain $($status_ssl_plain), ssl-cert $($status_ssl_cert). Attempt $val finished, waiting 1 second."
+                  Start-Sleep -s 1
+              }
           }
 
       - name: Setup .NET SDKs
