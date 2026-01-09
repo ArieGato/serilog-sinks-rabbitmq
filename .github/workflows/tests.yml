@@ -37,18 +37,12 @@ jobs:
               $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
               if ($status_ssl_plain -eq '"healthy"' -and $status_ssl_cert -eq '"healthy"') {
                   Write-Host "RabbitMQ services successfully started"
-                  $logs_ssl_plain = docker logs serilog.sinks.rabbitmq.ssl-plain
-                  $logs_ssl_cert = docker logs serilog.sinks.rabbitmq.ssl-cert
-                  Write-Host "serilog.sinks.rabbitmq.ssl-plain logs:"
-                  Write-Host $logs_ssl_plain
-                  Write-Host "serilog.sinks.rabbitmq.ssl-cert logs:"
-                  Write-Host $logs_ssl_cert
                   break;
               }
               $val++
               if ($val -ge 20)
               {
-                  Write-Host "RabbitMQ services not started after 40 attempts"
+                  Write-Host "RabbitMQ services not started after 20 attempts"
                   $logs_ssl_plain = docker logs serilog.sinks.rabbitmq.ssl-plain
                   $logs_ssl_cert = docker logs serilog.sinks.rabbitmq.ssl-cert
                   Write-Host "serilog.sinks.rabbitmq.ssl-plain logs:"

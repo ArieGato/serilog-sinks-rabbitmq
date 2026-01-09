@@ -3,10 +3,10 @@ services:
     container_name: serilog.sinks.rabbitmq.ssl-cert
     image: rabbitmq:3.12.12-management
     healthcheck:
-      test: rabbitmqctl status || exit 1
-      interval: 1s
+      test: rabbitmqctl status
+      interval: 2s
       timeout: 1s
-      retries: 1
+      retries: 5
     ports:
       - 5671:5671
       - 5672:5672
@@ -23,10 +23,10 @@ services:
     container_name: serilog.sinks.rabbitmq.ssl-plain
     image: rabbitmq:3.12.12-management
     healthcheck:
-      test: rabbitmqctl status || exit 1
-      interval: 1s
+      test: rabbitmqctl status
+      interval: 2s
       timeout: 1s
-      retries: 1
+      retries: 5
     ports:
       - 6671:6671
       - 6672:6672
