@@ -4,9 +4,9 @@ services:
     image: rabbitmq:3.12.12-management
     healthcheck:
       test: rabbitmqctl status || exit 1
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      interval: 1s
+      timeout: 1s
+      retries: 5
     ports:
       - 5671:5671
       - 5672:5672
@@ -24,9 +24,9 @@ services:
     image: rabbitmq:3.12.12-management
     healthcheck:
       test: rabbitmqctl status || exit 1
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      interval: 1s
+      timeout: 1s
+      retries: 5
     ports:
       - 6671:6671
       - 6672:6672
