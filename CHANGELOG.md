@@ -46,14 +46,18 @@ The SSL support has been improved. Now all properties are used when creating the
 
 - Renamed `LoggerConfigurationRabbitMqExtension` to `LoggerConfigurationRabbitMQExtensions`.
 - Renamed `hostname` to `hostnames` in configuration.
-- Default text formatter is `CompactJsonFormatter`. The `RawFromatter` was removed from Serilog.
-- Requires `Serilog.Sinks.PeriodicBatching` `4.0`. This could break other sinks that inherit from `PeriodicBatchingSink` from this package. This was obsolete code and it has been removed. See [release notes](https://github.com/serilog/serilog-sinks-periodicbatching/releases/tag/v4.0.0) for more information.
+- Default text formatter is `CompactJsonFormatter`. The `RawFormatter` was removed from Serilog.
+- Requires `Serilog.Sinks.PeriodicBatching` `4.0`. This could break other sinks that inherit from
+`PeriodicBatchingSink` from this package. This was obsolete code and it has been removed. See
+[release notes](https://github.com/serilog/serilog-sinks-periodicbatching/releases/tag/v4.0.0)
+for more information.
 
 ## 8.0.0
 
 ### Added support for RabbitMQ.Client 7.0.0
 
-Add support for `RabbitMQ.Client` version `7.0.0`. Note that this is a breaking change. The `RabbitMQ.Client` `7.0.0` is not compatible with the `RabbitMQ.Client` `6.x`.
+Add support for `RabbitMQ.Client` version `7.0.0`. Note that this is a breaking change.
+The `RabbitMQ.Client` `7.0.0` is not compatible with the `RabbitMQ.Client` `6.x`.
 
 ### Added support for Serilog 4.2.0
 
@@ -83,7 +87,8 @@ public void OnSetMessageProperties(LogEvent logEvent, IBasicProperties propertie
 
 ### Dynamic Routing Key
 
-Moved the logic for determining the routing key logic to the `ISendMessageEvents`. This allows for more flexibility when setting the routing key.
+Moved the logic for determining the routing key logic to the `ISendMessageEvents`.
+This allows for more flexibility when setting the routing key.
 
 ```csharp
 public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
@@ -99,7 +104,7 @@ public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
 
 ### Added support for .net 9
 
-Add net9.0 to the target frameworks.
+Add `net9.0` to the target frameworks.
 
 ### Breaking changes
 
@@ -109,3 +114,13 @@ Add net9.0 to the target frameworks.
 - Renamed `RouteKey` to `RoutingKey`
 - Removed `RoutingFunc`
 - Removed `.net7.0` target framework
+
+## 9.0.0 [not published]
+
+### Added support for .net 10
+
+Add `net10.0` to the target frameworks.
+
+### Breaking changes
+
+- Removed `net6.0` and `.net9.0` target framework

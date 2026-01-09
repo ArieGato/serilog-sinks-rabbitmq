@@ -349,8 +349,7 @@ public static class LoggerConfigurationRabbitMQExtensions
 
         ValidateRabbitMQClientConfiguration(clientConfiguration);
 
-        return loggerAuditSinkConfiguration
-            .Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
+        return loggerAuditSinkConfiguration.Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration, null), sinkConfiguration.RestrictedToMinimumLevel);
     }
 
     private static ILogEventSink GetPeriodicBatchingSink(

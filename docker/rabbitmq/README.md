@@ -46,5 +46,5 @@ openssl x509 -req -days 365000 -set_serial 01 -in client-req.pem -out client-cer
 openssl pkcs12 -inkey client-key.pem -in client-cert.pem -export -out client-cert.pfx
 ```
 
-The passsword for the pfx file in this repository is `RabbitMQClient`.
+The password for the pfx file in this repository is `RabbitMQClient`.
 

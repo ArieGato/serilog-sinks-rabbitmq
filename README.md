@@ -115,13 +115,13 @@ Refer to the [Formatter](https://github.com/serilog/serilog/wiki/Formatting-Outp
 
 All sink features are configurable from code. Here is a typical example that works the same way for any .NET target.
 
-```C#
+```csharp
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.RabbitMQ(
         username: "usr",
         password: "pwd",
-        hostnames: new[] { "localhost" },
+        hostnames: ["localhost"],
         port: 5672,
         exchange = "LogExchange",
         formatter: new JsonFormatter()
@@ -248,7 +248,7 @@ ASP.NET has the possibility to encrypt connection string in the web.config.
 
 ## Configuration via code
 
-There are multiple ways for configuring the RabbitMQSink with the release of v3.0.0
+There are multiple ways for configuring the sink with the release of v3.0.0
 
 ```csharp
 Log.Logger = new LoggerConfiguration()
@@ -274,16 +274,16 @@ Log.Logger = new LoggerConfiguration()
 // Or
 var config = new RabbitMQClientConfiguration
 {
-    Port            = 5672,
-    DeliveryMode    = RabbitMQ.RabbitMQDeliveryMode.Durable,
-    Exchange        = "test_exchange",
-    Username        = "guest",
-    Password        = "guest",
-    ExchangeType    = "fanout"
+    Port         = 5672,
+    DeliveryMode = RabbitMQ.RabbitMQDeliveryMode.Durable,
+    Exchange     = "test_exchange",
+    Username     = "guest",
+    Password     = "guest",
+    ExchangeType = "fanout"
 };
 
 foreach (string hostname in _config["RABBITMQ_HOSTNAMES"])
-    config .Hostnames.Add(hostname);
+    config.Hostnames.Add(hostname);
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
@@ -331,12 +331,6 @@ To customize message properties, a class can be created that implements the `ISe
 `OnSetMessageProperties`: This method is invoked before the message is sent to RabbitMQ and is used to configure the message's properties.
 
 `OnGetRoutingKey`: This method determines the routing key for the message, ensuring proper delivery to the intended queue.
-
-## Customize Message Properties and Routing Key
-
-In order to set message properties, you can create a class which implements `ISendMessageEvents`.
-This interface describes two methods that you must implement. The first is `OnSetMessageProperties` which is called before
-the message is sent to RabbitMQ. The second is `OnGetRoutingKey` which is called to determine the routing key for the message.
 
 ```csharp
 public class CustomMessageEvents : ISendMessageEvents
