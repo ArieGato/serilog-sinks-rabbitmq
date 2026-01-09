@@ -26,7 +26,6 @@
     <File Path="CONTRIBUTING.md" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
-    <File Path="docker-compose.tests.yml" />
     <File Path="docker-compose.yml" />
     <File Path="LICENSE" />
     <File Path="README.md" />
@@ -37,9 +36,6 @@
     <File Path="assets/Serilog.snk" />
   </Folder>
   <Folder Name="/docker/" />
-  <Folder Name="/docker/integration-test/">
-    <File Path="docker/integration-test/Dockerfile" />
-  </Folder>
   <Folder Name="/docker/rabbitmq/">
     <File Path="docker/rabbitmq/ca-cert.pem" />
     <File Path="docker/rabbitmq/ca-key.pem" />
