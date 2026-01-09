@@ -6,7 +6,7 @@ services:
       test: rabbitmqctl status || exit 1
       interval: 1s
       timeout: 1s
-      retries: 5
+      retries: 2
     ports:
       - 5671:5671
       - 5672:5672
@@ -26,7 +26,7 @@ services:
       test: rabbitmqctl status || exit 1
       interval: 1s
       timeout: 1s
-      retries: 5
+      retries: 2
     ports:
       - 6671:6671
       - 6672:6672
