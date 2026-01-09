@@ -46,7 +46,7 @@ jobs:
                   break;
               }
               $val++
-              if ($val -ge 40)
+              if ($val -ge 20)
               {
                   Write-Host "RabbitMQ services not started after 40 attempts"
                   $logs_ssl_plain = docker logs serilog.sinks.rabbitmq.ssl-plain
