@@ -18,7 +18,6 @@
     <File Path=".github/workflows/tests.yml" />
   </Folder>
   <Folder Name="/.Solution Items/">
-    <File Path=".dockerignore" />
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
     <File Path="CHANGELOG.md" />

@@ -30,29 +30,14 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         shell: pwsh
         run: |
-          docker compose up -d --quiet-pull
-          $val = 0
-          while ($true) {
-              $status_ssl_plain = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-plain
-              $status_ssl_cert = docker inspect --format "{{json .State.Health.Status }}" serilog.sinks.rabbitmq.ssl-cert
-              if ($status_ssl_plain -eq '"healthy"' -and $status_ssl_cert -eq '"healthy"') {
-                  Write-Host "RabbitMQ services successfully started"
-                  break;
-              }
-              $val++
-              if ($val -ge 20)
-              {
-                  Write-Host "RabbitMQ services not started after 20 attempts"
-                  $logs_ssl_plain = docker logs serilog.sinks.rabbitmq.ssl-plain
-                  $logs_ssl_cert = docker logs serilog.sinks.rabbitmq.ssl-cert
-                  Write-Host "serilog.sinks.rabbitmq.ssl-plain logs: $logs_ssl_plain"
-                  Write-Host "serilog.sinks.rabbitmq.ssl-cert logs: $logs_ssl_cert"
-                  exit 1
-              }
-              else {
-                  Write-Host "RabbitMQ services status: ssl-plain $($status_ssl_plain), ssl-cert $($status_ssl_cert). Attempt $val finished, waiting 1 second."
-                  Start-Sleep -s 1
-              }
+          docker compose up --quiet-pull --wait --wait-timeout 30
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "RabbitMQ services successfully started"
+          }
+          else {
+              Write-Host "docker compose up failed with exit code $LASTEXITCODE."
+              Write-Host "$(docker compose logs)"
+              exit $LASTEXITCODE
           }
 
       - name: Setup .NET SDKs
