@@ -21,9 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="$(AssemblyName).Tests.Integration" />
-    <InternalsVisibleTo Include="$(AssemblyName).Tests" />
-    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    <InternalsVisibleTo Include="$(AssemblyName).Tests.Integration, PublicKey=$(PublicKey)" />
+    <InternalsVisibleTo Include="$(AssemblyName).Tests, PublicKey=$(PublicKey)" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2, PublicKey=$(PublicKey)" />
   </ItemGroup>
 
   <ItemGroup>
