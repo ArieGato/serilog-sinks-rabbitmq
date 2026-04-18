@@ -339,6 +339,31 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task Dispose_WhileCreateChannelIsAwaiting_StopsWarmUp()
+    {
+        // Arrange — CreateChannelAsync hangs on the cancellation token. When the pool
+        // is disposed the token cancels and Task.Delay throws OperationCanceledException
+        // from inside the warm-up's outer try, exercising the
+        // 'catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)' arm.
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(async call =>
+            {
+                var ct = call.ArgAt<CancellationToken>(1);
+                await Task.Delay(Timeout.Infinite, ct);
+                return CreateOpenChannel();
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await Task.Delay(50);
+
+        // Act + Assert
+        Should.NotThrow(() => pool.Dispose());
+    }
+
+    [Fact]
     public async Task Dispose_WhileWarmUpIsRetrying_ExitsCleanly()
     {
         // Arrange — every CreateChannelAsync attempt fails so warm-up loops on the
