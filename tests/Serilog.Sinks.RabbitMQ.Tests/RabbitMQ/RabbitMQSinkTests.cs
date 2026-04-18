@@ -176,7 +176,8 @@ public class RabbitMQSinkTests
         // Sink.Dispose swallows exceptions into SelfLog, so we also capture SelfLog to
         // detect silent regressions where the outer context got invoked.
         var selfLogBuilder = new StringBuilder();
-        SelfLog.Enable(new StringWriter(selfLogBuilder));
+        using var selfLogWriter = new StringWriter(selfLogBuilder);
+        SelfLog.Enable(selfLogWriter);
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
