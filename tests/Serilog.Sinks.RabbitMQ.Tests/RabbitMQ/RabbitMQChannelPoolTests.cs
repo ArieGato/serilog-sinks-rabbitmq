@@ -321,6 +321,96 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task Warmup_DeclaresExchangeOnce_UnderConcurrentWarmup()
+    {
+        // Deterministic reproducer for the exchange-declare race on _exchangeDeclared.
+        // The first channel's ExchangeDeclareAsync blocks on a gate; while blocked, a
+        // parallel Task.Run(WarmUpAsync(1)) is spawned via ReturnAsync(brokenChannel).
+        // On master both warmups see _exchangeDeclared == false and each declare the
+        // exchange — declareCalls == 2, test fails. After the fix, the second path
+        // serialises on the guard and sees the flag set, so declareCalls == 1.
+        // TaskCompletionSource non-generic is .NET 5+; use bool variant for net48.
+        var gate = new TaskCompletionSource<bool>();
+        var createdChannels = new List<IChannel>();
+
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            var channel = CreateOpenChannel();
+            channel.ExchangeDeclareAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<IDictionary<string, object?>?>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(gate.Task);
+
+            lock (createdChannels)
+            {
+                createdChannels.Add(channel);
+            }
+
+            return channel;
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            Exchange = "x",
+            ExchangeType = "topic",
+            AutoCreateExchange = true,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until the first channel has entered ExchangeDeclareAsync (now blocked on the gate).
+        await WaitForAsync(() =>
+        {
+            lock (createdChannels)
+            {
+                return createdChannels.Any(c => c.ReceivedCalls()
+                    .Any(call => call.GetMethodInfo().Name == nameof(IChannel.ExchangeDeclareAsync)));
+            }
+        });
+
+        // Spawn a parallel warmup. ReturnAsync of a broken channel triggers
+        // Task.Run(WarmUpAsync(1)); while the initial warmup is blocked inside
+        // ExchangeDeclareAsync, _exchangeDeclared is still false, so the buggy
+        // code enters the declare branch a second time.
+        var brokenChannel = Substitute.For<IRabbitMQChannel>();
+        brokenChannel.IsOpen.Returns(false);
+        await pool.ReturnAsync(brokenChannel);
+
+        // Wait until the second channel has been created so we know the parallel
+        // WarmUpAsync has reached CreateChannelAsync's declare check.
+        await WaitForAsync(() =>
+        {
+            lock (createdChannels)
+            {
+                return createdChannels.Count >= 2;
+            }
+        });
+
+        // Give the second warmup time to enter the declare branch if the race fires.
+        await Task.Delay(150);
+
+        gate.SetResult(true);
+
+        IChannel[] snapshot;
+        lock (createdChannels)
+        {
+            snapshot = createdChannels.ToArray();
+        }
+
+        var declareCalls = snapshot.Sum(c => c.ReceivedCalls()
+            .Count(call => call.GetMethodInfo().Name == nameof(IChannel.ExchangeDeclareAsync)));
+
+        declareCalls.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Constructor_DefaultsToSixtyFourChannels_WhenChannelCountIsZero()
     {
         // Arrange
