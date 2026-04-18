@@ -185,7 +185,7 @@ public class RabbitMQChannelPoolTests
         var connectionFactory = BuildConnectionFactory(connection);
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 3 };
 
-        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         await WaitForAsync(() => connection.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IConnection.CreateChannelAsync)) == 3);
 
         // Act

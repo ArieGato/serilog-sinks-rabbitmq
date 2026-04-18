@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using RabbitMQ.Client;
 using Serilog.Debugging;
 
@@ -95,7 +96,11 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         {
             _shutdownCts.Cancel();
         }
-        catch (Exception ex)
+        catch (ObjectDisposedException ex)
+        {
+            SelfLog.WriteLine("Error cancelling RabbitMQ channel pool warm-up: {0}", ex);
+        }
+        catch (AggregateException ex)
         {
             SelfLog.WriteLine("Error cancelling RabbitMQ channel pool warm-up: {0}", ex);
         }
@@ -109,6 +114,10 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         _shutdownCts.Dispose();
     }
 
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Warm-up retries on any transient broker error so the pool can recover from network or broker hiccups without taking the sink down.")]
     private async Task WarmUpAsync(int count, CancellationToken cancellationToken)
     {
         for (int i = 0; i < count; i++)
