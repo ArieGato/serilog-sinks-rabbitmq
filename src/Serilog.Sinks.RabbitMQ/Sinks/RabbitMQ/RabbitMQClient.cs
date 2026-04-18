@@ -123,7 +123,7 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         }
 
         await _channelPool.DisposeAsync().ConfigureAwait(false);
-        _rabbitMQConnectionFactory.Dispose();
+        await _rabbitMQConnectionFactory.DisposeAsync().ConfigureAwait(false);
         _closeTokenSource.Dispose();
     }
 }
