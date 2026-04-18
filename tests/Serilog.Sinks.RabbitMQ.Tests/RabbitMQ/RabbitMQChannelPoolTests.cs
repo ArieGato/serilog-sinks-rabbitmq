@@ -198,6 +198,33 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task DisposeAsync_SwallowsExceptions_WhenRetainedChannelDisposeThrows()
+    {
+        // Arrange — warm the pool, then smuggle in a throwing channel via ReturnAsync.
+        // Pool.DisposeAsync must absorb per-channel failures so one bad channel does not
+        // leak the pool's SemaphoreSlim or CancellationTokenSource.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => connection.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IConnection.CreateChannelAsync)) == 1);
+
+        // Rent the warmed-up channel first so the substituted throwing channel can be
+        // returned without overflowing the pool's SemaphoreSlim (capped at ChannelCount).
+        _ = await pool.GetAsync();
+
+        var throwingChannel = Substitute.For<IRabbitMQChannel>();
+        throwingChannel.IsOpen.Returns(true);
+        throwingChannel.When(x => x.DisposeAsync()).Do(_ => throw new InvalidOperationException("boom"));
+        await pool.ReturnAsync(throwingChannel);
+
+        // Act + Assert — drains the throwing channel; catch swallows the exception.
+        await Should.NotThrowAsync(async () => await pool.DisposeAsync());
+        await throwingChannel.Received(1).DisposeAsync();
+    }
+
+    [Fact]
     public async Task Warmup_DeclaresExchangeOnce_EvenAcrossReplacements()
     {
         // Arrange
