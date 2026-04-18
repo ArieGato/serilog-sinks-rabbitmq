@@ -40,13 +40,13 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
         => _channel.BasicPublishAsync(address, basicProperties, body);
 
     /// <inheritdoc />
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         try
         {
             // Disposing channel and connection objects is not enough,
             // they must be explicitly closed with the API methods.
-            _channel.CloseAsync();
+            await _channel.CloseAsync().ConfigureAwait(false);
         }
         catch
         {

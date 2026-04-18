@@ -65,27 +65,38 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     }
 
     /// <inheritdoc />
-    public void Return(IRabbitMQChannel channel)
+    public ValueTask ReturnAsync(IRabbitMQChannel channel)
     {
         if (Volatile.Read(ref _disposed) != 0)
         {
-            channel.Dispose();
-            return;
+            return channel.DisposeAsync();
         }
 
         if (channel.IsOpen)
         {
             _available.Add(channel);
             _signal.Release();
-            return;
+            return default;
         }
 
-        channel.Dispose();
-        _ = Task.Run(() => WarmUpAsync(1, _shutdownCts.Token));
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await channel.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                SelfLog.WriteLine("Failed to dispose broken RabbitMQ channel during return: {0}", ex.Message);
+            }
+
+            await WarmUpAsync(1, _shutdownCts.Token).ConfigureAwait(false);
+        });
+        return default;
     }
 
     /// <inheritdoc />
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
@@ -96,7 +107,14 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 
         while (_available.TryTake(out var channel))
         {
-            channel.Dispose();
+            try
+            {
+                await channel.DisposeAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // best effort during shutdown
+            }
         }
 
         _signal.Dispose();

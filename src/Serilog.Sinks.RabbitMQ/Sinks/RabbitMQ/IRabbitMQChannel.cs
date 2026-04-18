@@ -19,7 +19,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// The RabbitMQ Channel interface.
 /// </summary>
-internal interface IRabbitMQChannel : IDisposable
+internal interface IRabbitMQChannel : IAsyncDisposable
 {
     /// <summary>
     /// Returns <see langword="true"/> when the channel is open.

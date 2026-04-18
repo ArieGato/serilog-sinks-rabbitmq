@@ -17,7 +17,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// Pool of <see cref="IRabbitMQChannel"/> instances.
 /// </summary>
-internal interface IRabbitMQChannelPool : IDisposable
+internal interface IRabbitMQChannelPool : IAsyncDisposable
 {
     /// <summary>
     /// Rents a channel from the pool, awaiting one if all channels are currently in use.
@@ -27,8 +27,10 @@ internal interface IRabbitMQChannelPool : IDisposable
     ValueTask<IRabbitMQChannel> GetAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns a previously rented channel to the pool.
+    /// Returns a previously rented channel to the pool. Broken channels are disposed
+    /// asynchronously and the pool refills in the background.
     /// </summary>
     /// <param name="channel">The channel to return.</param>
-    void Return(IRabbitMQChannel channel);
+    /// <returns>A <see cref="ValueTask"/> that completes once any inline disposal finishes.</returns>
+    ValueTask ReturnAsync(IRabbitMQChannel channel);
 }

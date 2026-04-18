@@ -132,8 +132,7 @@ public class RabbitMQFixture : IDisposable
 
         _consumingConnection?.Dispose();
 
-        await _rabbitMQClient.CloseAsync();
-        _rabbitMQClient.Dispose();
+        await _rabbitMQClient.DisposeAsync();
     }
 
     public Task PublishAsync(string message) => _rabbitMQClient.PublishAsync(Encoding.UTF8.GetBytes(message), new BasicProperties());

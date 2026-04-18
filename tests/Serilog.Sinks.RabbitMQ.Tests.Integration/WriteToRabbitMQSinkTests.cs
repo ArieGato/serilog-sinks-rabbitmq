@@ -165,7 +165,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
             Password = RabbitMQFixture.Password,
             Hostnames = [RabbitMQFixture.SslCertHostName],
         };
-        using var rabbitMQClient = new RabbitMQClient(config);
+        await using var rabbitMQClient = new RabbitMQClient(config);
 
         using var logger = new LoggerConfiguration()
             .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>

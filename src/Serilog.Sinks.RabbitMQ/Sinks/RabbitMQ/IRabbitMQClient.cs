@@ -19,7 +19,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// RabbitMQ Client interface.
 /// </summary>
-internal interface IRabbitMQClient : IDisposable
+internal interface IRabbitMQClient : IAsyncDisposable
 {
     /// <summary>
     /// Publishes a message to RabbitMQ Exchange.
@@ -29,12 +29,6 @@ internal interface IRabbitMQClient : IDisposable
     /// <param name="routingKey">Optional routing key.</param>
     /// <returns>Returns a task representing the asynchronous operation.</returns>
     Task PublishAsync(ReadOnlyMemory<byte> message, BasicProperties basicProperties, string? routingKey = null);
-
-    /// <summary>
-    /// Close the connection and all channels to RabbitMQ.
-    /// </summary>
-    /// <exception cref="AggregateException">In case of any error when closing.</exception>
-    void Close();
 
     /// <summary>
     /// Close the connection and all channels to RabbitMQ.

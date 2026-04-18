@@ -76,13 +76,10 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         {
             if (channel != null)
             {
-                _channelPool.Return(channel);
+                await _channelPool.ReturnAsync(channel).ConfigureAwait(false);
             }
         }
     }
-
-    /// <inheritdoc />
-    public void Close() => AsyncHelpers.RunSync(CloseAsync);
 
     /// <inheritdoc />
     public async Task CloseAsync()
@@ -114,10 +111,19 @@ internal sealed class RabbitMQClient : IRabbitMQClient
     }
 
     /// <inheritdoc />
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        _closeTokenSource.Dispose();
-        _channelPool.Dispose();
+        try
+        {
+            await CloseAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // DisposeAsync is best-effort; callers wanting to observe errors should use CloseAsync directly.
+        }
+
+        await _channelPool.DisposeAsync().ConfigureAwait(false);
         _rabbitMQConnectionFactory.Dispose();
+        _closeTokenSource.Dispose();
     }
 }

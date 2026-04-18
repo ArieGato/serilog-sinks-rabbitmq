@@ -19,11 +19,9 @@ public class RabbitMQSinkTests
             return Task.CompletedTask;
         }
 
-        public void Close() => throw new NotImplementedException();
-
         public Task CloseAsync() => throw new NotImplementedException();
 
-        public void Dispose() => throw new NotImplementedException();
+        public ValueTask DisposeAsync() => throw new NotImplementedException();
 
         public List<string> Messages { get; } = [];
     }
@@ -115,7 +113,7 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public void Dispose_ShouldCloseAndDisposeRabbitMQClient()
+    public async Task Dispose_ShouldDisposeRabbitMQClient()
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
@@ -128,12 +126,11 @@ public class RabbitMQSinkTests
         sut.Dispose();
 
         // Assert
-        rabbitMQClient.Received(1).Close();
-        rabbitMQClient.Received(1).Dispose();
+        await rabbitMQClient.Received(1).DisposeAsync();
     }
 
     [Fact]
-    public void Dispose_ShouldNotThrowException_WhenCalledTwice()
+    public async Task Dispose_ShouldNotThrowException_WhenCalledTwice()
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
@@ -147,18 +144,17 @@ public class RabbitMQSinkTests
         sut.Dispose();
 
         // Assert
-        rabbitMQClient.Received(1).Close();
-        rabbitMQClient.Received(1).Dispose();
+        await rabbitMQClient.Received(1).DisposeAsync();
     }
 
     [Fact]
-    public void Dispose_ShouldNotThrowException_WhenRabbitMQClientCloseThrowsException()
+    public async Task Dispose_ShouldNotThrowException_WhenRabbitMQClientDisposeThrowsException()
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Close())
+        rabbitMQClient.When(x => x.DisposeAsync())
             .Do(_ => throw new Exception("some-message"));
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -167,8 +163,73 @@ public class RabbitMQSinkTests
         sut.Dispose();
 
         // Assert
-        rabbitMQClient.Received(1).Close();
-        rabbitMQClient.Received(1).Dispose();
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public void Dispose_ShouldNotDeadlock_WhenCalledOnSingleThreadedSynchronizationContext()
+    {
+        // AsyncHelpers.RunSync must fully isolate async continuations from the caller's
+        // SynchronizationContext, otherwise Dispose() will deadlock under a single-threaded
+        // UI-style context (WinForms/WPF). We install an outer context whose Post throws —
+        // any continuation routed through it is a bug in the sync-over-async bridge.
+        // Sink.Dispose swallows exceptions into SelfLog, so we also capture SelfLog to
+        // detect silent regressions where the outer context got invoked.
+        var selfLogBuilder = new StringBuilder();
+        using var selfLogWriter = new StringWriter(selfLogBuilder);
+        SelfLog.Enable(selfLogWriter);
+
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = new YieldingDisposeClient();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        var disposeThread = new Thread(() =>
+        {
+            SynchronizationContext.SetSynchronizationContext(new ThrowingSynchronizationContext());
+            sut.Dispose();
+        })
+        {
+            IsBackground = true,
+        };
+        disposeThread.Start();
+
+        disposeThread.Join(TimeSpan.FromSeconds(5)).ShouldBeTrue(
+            "RabbitMQSink.Dispose deadlocked on a single-threaded SynchronizationContext.");
+        selfLogBuilder.ToString().ShouldBeEmpty();
+        rabbitMQClient.DisposeAsyncCallCount.ShouldBe(1);
+    }
+
+    private sealed class YieldingDisposeClient : IRabbitMQClient
+    {
+        public int DisposeAsyncCallCount { get; private set; }
+
+        public Task PublishAsync(ReadOnlyMemory<byte> message, BasicProperties basicProperties, string? routingKey = null) => Task.CompletedTask;
+
+        public Task CloseAsync() => Task.CompletedTask;
+
+        public async ValueTask DisposeAsync()
+        {
+            DisposeAsyncCallCount++;
+
+            // Task.Yield without ConfigureAwait(false) forces the continuation through the
+            // captured SynchronizationContext.Current. RunSync must install its pumped
+            // context before invoking DisposeAsync so the yield lands in the pump, not the
+            // outer single-threaded context.
+            await Task.Yield();
+            await Task.Delay(10).ConfigureAwait(false);
+        }
+    }
+
+    private sealed class ThrowingSynchronizationContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? state)
+            => throw new InvalidOperationException(
+                "Continuation posted to outer SynchronizationContext; AsyncHelpers.RunSync failed to isolate.");
+
+        public override void Send(SendOrPostCallback d, object? state)
+            => throw new NotSupportedException();
     }
 
     [Fact]
