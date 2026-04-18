@@ -14,6 +14,8 @@
 
 using System.Diagnostics;
 
+using Serilog.Debugging;
+
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
 public class RabbitMQChannelPoolTests
@@ -150,6 +152,40 @@ public class RabbitMQChannelPoolTests
             .Any(c => c.GetMethodInfo().Name == nameof(IAsyncDisposable.DisposeAsync)));
         await WaitForAsync(() => Volatile.Read(ref created) == 2);
         await brokenChannel.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReturnAsync_WhenBrokenChannelDisposeThrows_StillRefillsPoolAndLogs()
+    {
+        // Arrange — the broken channel's DisposeAsync throws. The fire-and-forget
+        // replacement task must catch the exception (so it is not unobserved),
+        // log it to SelfLog, and still run WarmUpAsync to refill the pool.
+        var selfLogBuilder = new StringBuilder();
+        SelfLog.Enable(new StringWriter(selfLogBuilder));
+
+        int created = 0;
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            Interlocked.Increment(ref created);
+            return CreateOpenChannel();
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        _ = await pool.GetAsync();
+
+        var brokenChannel = Substitute.For<IRabbitMQChannel>();
+        brokenChannel.IsOpen.Returns(false);
+        brokenChannel.When(x => x.DisposeAsync()).Do(_ => throw new InvalidOperationException("dispose-boom"));
+
+        // Act
+        await pool.ReturnAsync(brokenChannel);
+
+        // Assert — the replacement still happens and SelfLog records the swallowed error.
+        await WaitForAsync(() => Volatile.Read(ref created) == 2);
+        await brokenChannel.Received(1).DisposeAsync();
+        selfLogBuilder.ToString().ShouldContain("dispose-boom");
     }
 
     [Fact]

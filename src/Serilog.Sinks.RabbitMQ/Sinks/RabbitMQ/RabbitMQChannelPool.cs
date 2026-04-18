@@ -81,7 +81,15 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 
         _ = Task.Run(async () =>
         {
-            await channel.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                await channel.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                SelfLog.WriteLine("Failed to dispose broken RabbitMQ channel during return: {0}", ex.Message);
+            }
+
             await WarmUpAsync(1, _shutdownCts.Token).ConfigureAwait(false);
         });
         return default;
