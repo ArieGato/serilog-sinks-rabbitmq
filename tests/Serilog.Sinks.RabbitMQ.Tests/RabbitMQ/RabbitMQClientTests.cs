@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Microsoft.Extensions.ObjectPool;
-
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
 public class RabbitMQClientTests
 {
     [Fact]
-    public async Task Publish_ShouldCreateAndReturnChannelToPool()
+    public async Task Publish_ShouldGetAndReturnChannelToPool()
     {
         // Arrange
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -29,26 +27,25 @@ public class RabbitMQClientTests
             RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
 
         var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
-        rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
-        rabbitMQChannelObjectPoolPolicy.Return(Arg.Is(rabbitMQChannel)).Returns(true);
+        channelPool.GetAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<IRabbitMQChannel>(rabbitMQChannel));
 
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
         // Act
         await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"), new BasicProperties());
 
         // Assert
-        rabbitMQChannelObjectPoolPolicy.Received(1).Create();
-        rabbitMQChannelObjectPoolPolicy.Received(1).Return(Arg.Is(rabbitMQChannel));
+        await channelPool.Received(1).GetAsync(Arg.Any<CancellationToken>());
+        channelPool.Received(1).Return(Arg.Is(rabbitMQChannel));
 
         await rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<BasicProperties>(), Arg.Any<ReadOnlyMemory<byte>>());
     }
 
     [Fact]
-    public void Close_ShouldCreateAndReturnChannelToPool()
+    public void Close_ShouldCloseConnection()
     {
         // Arrange
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -58,9 +55,9 @@ public class RabbitMQClientTests
             RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
 
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
         // Act
         sut.Close();
@@ -82,9 +79,9 @@ public class RabbitMQClientTests
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         rabbitMQConnectionFactory.When(x => x.CloseAsync()).Do(_ => throw new InvalidOperationException("some-exception"));
 
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
 
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
         // Need to dispose the client, so the close will throw two exceptions
         sut.Dispose();
@@ -99,7 +96,7 @@ public class RabbitMQClientTests
     }
 
     [Fact]
-    public async Task Dispose_ShouldDisposeConnectionAndChannel()
+    public void Dispose_ShouldDisposePoolAndConnectionFactory()
     {
         // Arrange
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -109,22 +106,15 @@ public class RabbitMQClientTests
             RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
 
-        var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
-        rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
-        rabbitMQChannelObjectPoolPolicy.Return(Arg.Is(rabbitMQChannel)).Returns(true);
-
-        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
-
-        // Need to publish a message first to create the channel in the Pool
-        await sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"), new BasicProperties());
+        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
         // Act
         sut.Dispose();
 
         // Assert
-        rabbitMQChannel.Received(1).Dispose();
+        channelPool.Received(1).Dispose();
         rabbitMQConnectionFactory.Received(1).Dispose();
     }
 }

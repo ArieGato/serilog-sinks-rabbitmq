@@ -98,7 +98,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="queueLimit">The batch internal queue limit.</param>
     /// <param name="formatter">The text formatter.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
-    /// <param name="maxChannels">The maximum number of channels.</param>
+    /// <param name="channelCount">Number of channels held in the pool. Channels are opened eagerly at startup.</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
     /// <param name="emitEventFailure">The handling of event failure.</param>
     /// <param name="failureSinkConfiguration">The failure sink configuration.</param>
@@ -127,7 +127,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         int? queueLimit = null,
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
-        int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
+        int channelCount = RabbitMQClient.DEFAULT_CHANNEL_COUNT,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         EmitEventFailureHandling emitEventFailure = EmitEventFailureHandling.WriteToSelfLog,
         Action<LoggerSinkConfiguration>? failureSinkConfiguration = null,
@@ -148,7 +148,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             ClientProvidedName = clientProvidedName,
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
-            MaxChannels = maxChannels,
+            ChannelCount = channelCount,
             SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
         };
 
@@ -233,7 +233,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="sslCheckCertificateRevocation">Indicates whether to check certificate revocation.</param>
     /// <param name="formatter">The text formatter.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
-    /// <param name="maxChannels">The maximum number of channels.</param>
+    /// <param name="channelCount">Number of channels held in the pool. Channels are opened eagerly at startup.</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
     /// <param name="sendMessageEvents">Contains events for sending messages.</param>
     /// <returns>The logger configuration.</returns>
@@ -257,7 +257,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         bool sslCheckCertificateRevocation = false,
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
-        int maxChannels = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT,
+        int channelCount = RabbitMQClient.DEFAULT_CHANNEL_COUNT,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         ISendMessageEvents? sendMessageEvents = null)
     {
@@ -276,7 +276,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             ClientProvidedName = clientProvidedName,
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
-            MaxChannels = maxChannels,
+            ChannelCount = channelCount,
             SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
         };
 

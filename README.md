@@ -1,7 +1,6 @@
-# serilog-sinks-rabbitmq
+# Serilog.Sinks.RabbitMQ
 
 ![License](https://img.shields.io/github/license/ArieGato/serilog-sinks-rabbitmq)
-
 [![codecov](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq/graph/badge.svg?token=4uZ4oaOQUE)](https://codecov.io/gh/ArieGato/serilog-sinks-rabbitmq)
 [![Nuget](https://img.shields.io/nuget/dt/Serilog.Sinks.RabbitMQ)](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ)
 [![Nuget](https://img.shields.io/nuget/v/Serilog.Sinks.RabbitMQ)](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ)
@@ -20,208 +19,148 @@
 [![Publish release to Nuget registry](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-release.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-release.yml)
 [![CodeQL analysis](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/codeql-analysis.yml)
 
-## Purpose
+> A [Serilog](https://serilog.net/) sink that publishes log events to RabbitMQ via the
+> official [RabbitMQ.Client](https://www.nuget.org/packages/RabbitMQ.Client) library.
 
-This project is to allow Serilog to log to RabbitMQ using the [RabbitMQ.Client](https://www.nuget.org/packages/RabbitMQ.Client) package.
-The aim is to expose RabbitMQ.Client functionality, in a logical way, and not to build in additional logic into the sink. So expect pure
-RabbitMQ.Client behavior, but perhaps a little bit simpler interface.
+The aim of this sink is to expose `RabbitMQ.Client` functionality in an idiomatic Serilog
+way without burying it behind extra abstractions. Expect plain RabbitMQ behaviour with a
+slightly simpler surface.
 
-## Versioning
+## Table of contents
 
-As of v3.0.0 we use [Semantic Versioning](https://semver.org) to express changes in the API. 
+- [Features](#features)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+  - [Programmatic](#programmatic)
+  - [appsettings.json](#appsettingsjson)
+  - [App.config](#appconfig)
+- [Configuration reference](#configuration-reference)
+  - [Connection](#connection)
+  - [Exchange and routing](#exchange-and-routing)
+  - [TLS / SSL](#tls--ssl)
+  - [Channel pool](#channel-pool)
+  - [Batching](#batching)
+  - [Failure handling](#failure-handling)
+- [Audit sink](#audit-sink)
+- [Customising message properties and routing keys](#customising-message-properties-and-routing-keys)
+- [Multi-host configuration](#multi-host-configuration)
+- [Samples](#samples)
+- [Compatibility matrix](#compatibility-matrix)
+- [Migrating to 9.0.0](#migrating-to-900)
+- [References](#references)
+- [License](#license)
 
-### Dependencies
+## Features
 
-|Serilog.Sinks.RabbitMQ|.NETStandard|.NETFramework|Serilog|RabbitMQ.Client|
-|---|---|---|---|---|
-|2.0.0|1.6.0|4.5.1|2.3.0|4.\*|
-|3.0.0|1.6.1|4.5.1|2.8.0|5.\*|
-|6.0.0|2.0.0|4.7.2|2.8.0|6.\*|
-|7.0.0|2.0.0|-|3.1.1|6.8.\*|
-|8.0.0|2.0.0|-|4.2.0|7.0|
+- Publishes log events through `RabbitMQ.Client` v7.
+- Supports both `WriteTo` (batched) and `AuditTo` (synchronous, throws on failure) sinks.
+- Eagerly opens a fixed pool of channels at startup; broken channels are replaced in the
+  background.
+- Optional automatic exchange declaration.
+- TLS / SSL support, multi-host clusters, dynamic routing keys, custom message properties.
+- Pluggable failure sinks for fan-out on emit errors.
+- Targets `netstandard2.0`, `net8.0`, and `net10.0`.
 
 ## Installation
 
-Using [Nuget](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ/):
-
+```bash
+dotnet add package Serilog.Sinks.RabbitMQ
 ```
+
+Or via the Package Manager Console:
+
+```powershell
 Install-Package Serilog.Sinks.RabbitMQ
 ```
 
-## Release Notes
+## Quick start
 
-See [changelog](CHANGELOG.md).
+```csharp
+using Serilog;
+using Serilog.Sinks.RabbitMQ;
 
-## Topics
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.RabbitMQ(
+        hostnames: ["localhost"],
+        username: "guest",
+        password: "guest",
+        exchange: "logs",
+        exchangeType: "topic",
+        autoCreateExchange: true)
+    .CreateLogger();
 
-* [Sink Configuration Options](#sink-configuration-options)
-* [External configuration using Serilog.Settings.AppSettings](#external-configuration-using-serilogsettingsappsettings)
-* [External configuration using Serilog.Settings.Configuration](#external-configuration-using-serilogsettingsconfiguration)
-* [Audit Sink Configuration](#audit-sink-configuration)
-* [Multihost configuration](#multihost-configuration)
-* [Configuration via code](#configuration-via-code)
+Log.Information("Hello RabbitMQ");
+Log.CloseAndFlush();
+```
 
-### Sink Configuration Options
+The sink eagerly opens 64 channels in the background at startup. See
+[Channel pool](#channel-pool) to tune.
 
-The sink can be configured completely through code, by using configuration files (or other types of configuration providers), 
-a combination of both, or by using the various Serilog configuration packages. 
-The sink is configured with a typical Serilog `WriteTo` configuration method (or `AuditTo`, or similar variations).
+## Configuration
 
-All sink configuration methods accept the following arguments, though not necessarily in this order. 
-Use of named arguments is strongly recommended.
+The sink can be configured from code, from `appsettings.json` (via
+[Serilog.Settings.Configuration](https://github.com/serilog/serilog-settings-configuration)),
+or from `App.config` (via
+[Serilog.Settings.AppSettings](https://github.com/serilog/serilog-settings-appsettings)).
+All approaches accept the same set of options — see [Configuration reference](#configuration-reference).
 
-* `hostnames`
-* `username`
-* `password`
-* `exchange`
-* `exchangeType`
-* `deliveryMode`
-* `routingKey`
-* `port`
-* `vHost`
-* `heartbeat`
-* `sslEnabled`
-* `sslServerName`
-* `sslVersion`
-* `sslAcceptablePolicyErrors`
-* `sslCheckCertificateRevocation`
-* `batchPostingLimit`
-* `bufferingTimeLimit`
-* `queueLimit`
-* `formatter`
-* `autoCreateExchange`
-* `maxChannels`
-* `levelSwitch`
+### Programmatic
 
-### Arguments
-
-Parameters `exchange`, `exchangeType`, `deliveryMode`, `routingKey` provide additional configuration when connecting to RabbitMQ.
-If `autoCreateExchange` is `true`, the sink will create the exchange if an exchange by that name doesn't exist.
-Exchange is not created by default.
-
-If `sslEnabled` is `true`, the sink will use secure connection to server.
-By default, the server name is the same as the host name, no TLS version is specified, no server certificate errors are accepted,
-and certificate revocation checking is disabled. You can change server name through by setting the `sslServerName`, `sslVersion`,
-`sslAcceptablePolicyErrors`, `sslCheckCertificateRevocation` arguments.
-
-This is a "periodic batching sink." The sink will queue a certain number of log events before they're actually written to RabbitMQ. 
-There is also a timeout period so that the batch is always written even if it has not been filled. 
-By default, the batch size is 50 rows and the timeout is 2 seconds. 
-You can change these through by setting the `batchPostingLimit` and `bufferingTimeLimit` arguments.
-
-Refer to the [Formatter](https://github.com/serilog/serilog/wiki/Formatting-Output#formatting-json) for details about the _formatter_ arguments.
-
-### Code-Only (any .NET target)
-
-All sink features are configurable from code. Here is a typical example that works the same way for any .NET target.
+The recommended way is the action-based overload, which gives strongly typed access to both
+the client and the sink configuration:
 
 ```csharp
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
-    .WriteTo.RabbitMQ(
-        username: "usr",
-        password: "pwd",
-        hostnames: ["localhost"],
-        port: 5672,
-        exchange = "LogExchange",
-        formatter: new JsonFormatter()
-    ).CreateLogger();
+    .WriteTo.RabbitMQ((client, sink) =>
+    {
+        client.Hostnames    = ["localhost"];
+        client.Username     = "guest";
+        client.Password     = "guest";
+        client.Exchange     = "logs";
+        client.ExchangeType = "topic";
+        client.DeliveryMode = RabbitMQDeliveryMode.Durable;
+        client.RoutingKey   = "log";
+        client.ChannelCount = 32;
+
+        sink.TextFormatter      = new Serilog.Formatting.Json.JsonFormatter();
+        sink.BatchPostingLimit  = 100;
+        sink.BufferingTimeLimit = TimeSpan.FromSeconds(2);
+    })
+    .CreateLogger();
 ```
 
-## External configuration using Serilog.Settings.AppSettings
+A flat-parameter overload is also available for simple setups (see [Quick start](#quick-start)).
 
-Refer to the [Serilog.Settings.AppSettings](https://github.com/serilog/serilog-settings-appsettings/blob/dev/README.md) package documentation
-for complete details about sink configuration. This is an example of setting some of the configuration parameters for this sink.
-
-```xml
-<add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
-<add key="serilog:write-to:RabbitMQ.username" value="user"/>
-<add key="serilog:write-to:RabbitMQ.password" value="pwd"/>
-<add key="serilog:write-to:RabbitMQ.hostnames" value="server1,server2"/>
-<add key="serilog:write-to:RabbitMQ.exchange" value="LogExchange"/>
-<add key="serilog:write-to:RabbitMQ.batchPostingLimit" value="1000"/>
-<add key="serilog:write-to:RabbitMQ.bufferingTimeLimit" value="0.00:00:02.00"/>
-```
-
-## External configuration using Serilog.Settings.Configuration
-
-Refer to the [Serilog.Settings.Configuration](https://github.com/serilog/serilog-settings-configuration/blob/dev/README.md) package documentation
-for complete details about sink configuration. Keys and values are not case-sensitive. This is an example of configuring the sink arguments.
+### appsettings.json
 
 ```json
 {
   "Serilog": {
-    "Using":  ["Serilog.Sinks.RabbitMQ"],
-    "MinimumLevel": "Debug",
+    "Using": [ "Serilog.Sinks.RabbitMQ" ],
+    "MinimumLevel": "Information",
     "WriteTo": [
       {
         "Name": "RabbitMQ",
         "Args": {
-          "username": "usr",
-          "password": "pwd",
-          "hostnames": [
-            "localhost"
-          ],
-          "port": 5672,
-          "exchange": "LogExchange",
-          "autoCreateExchange": true,
-          "batchPostingLimit": 1000,
-          "bufferingTimeLimit": "0.00.00.02.00"
-        } 
-      }
-    ]
-  }
-}
-```
-
-## Audit Sink Configuration
-
-A Serilog audit sink writes log events which are of such importance that they must succeed, and that verification of a successful write is more
-important than write performance. Unlike the regular sink, an audit sink _does not_ fail silently - it can throw exceptions. You should wrap
-audit logging output in a `try/catch` block. The usual example is bank account withdrawal events - a bank would certainly not want to allow a
-failure to record those transactions to fail silently.
-
-The constructor accepts most of the same arguments, and like other Serilog audit sinks, you configure one by using `AuditTo` instead of `WriteTo`.
-
-* `hostnames`
-* `username`
-* `password`
-* `exchange`
-* `exchangeType`
-* `deliveryMode`
-* `routingKey`
-* `port`
-* `vHost`
-* `heartbeat`
-* `sslEnabled`
-* `sslServerName`
-* `sslVersion`
-* `sslAcceptablePolicyErrors`
-* `sslCheckCertificateRevocation`
-* `formatter`
-* `autoCreateExchange`
-* `maxChannels`
-* `levelSwitch`
-
-The _batchPostingLimit_ and _bufferingTimeLimit_ parameters are not available because the audit sink writes log events immediately.
-
-```json
-{
-  "Serilog": {
-    "Using":  ["Serilog.Sinks.RabbitMQ"],
-    "MinimumLevel": "Debug",
-    "AuditTo": [
-      {
-        "Name": "RabbitMQ",
-        "Args": {
-          "username": "usr",
-          "password": "pwd",
-          "hostnames": [
-            "localhost"
-          ],
-          "port": 5672,
-          "exchange": "LogExchange",
-          "autoCreateExchange": true
+          "clientConfiguration": {
+            "hostnames": [ "localhost" ],
+            "username": "guest",
+            "password": "guest",
+            "exchange": "logs",
+            "exchangeType": "topic",
+            "deliveryMode": "Durable",
+            "routingKey": "log",
+            "autoCreateExchange": true,
+            "channelCount": 32
+          },
+          "sinkConfiguration": {
+            "batchPostingLimit": 100,
+            "bufferingTimeLimit": "00:00:02",
+            "textFormatter": "Serilog.Formatting.Json.JsonFormatter, Serilog"
+          }
         }
       }
     ]
@@ -229,144 +168,224 @@ The _batchPostingLimit_ and _bufferingTimeLimit_ parameters are not available be
 }
 ```
 
-## Multihost Configuration
+Keys are case-insensitive.
 
-The sink can be configured taking multiple host names.  
-To keep the _Serilog.Setting.ApSettings_ external configuration, additional hosts are added to the `hostnames` argument separated by commas.
-This is an example of configuring the multihost using _Serilog.Settings.AppSettings_.
+### App.config
 
 ```xml
-<add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ"/>
-<add key="serilog:write-to:RabbitMQ.hostnames" value="host1,host2"/>
-<add key="serilog:write-to:RabbitMQ.username" value="user"/>
-<add key="serilog:write-to:RabbitMQ.pasword" value="pwd"/>
+<add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ" />
+<add key="serilog:write-to:RabbitMQ.hostnames" value="server1,server2" />
+<add key="serilog:write-to:RabbitMQ.username" value="guest" />
+<add key="serilog:write-to:RabbitMQ.password" value="guest" />
+<add key="serilog:write-to:RabbitMQ.exchange" value="logs" />
+<add key="serilog:write-to:RabbitMQ.batchPostingLimit" value="100" />
+<add key="serilog:write-to:RabbitMQ.bufferingTimeLimit" value="00:00:02" />
 ```
 
-## Use protected configuration (ASP.NET)
+## Configuration reference
 
-ASP.NET has the possibility to encrypt connection string in the web.config. 
+### Connection
 
-## Configuration via code
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `hostnames` | `string[]` | _required_ | One or more broker hostnames. See [Multi-host configuration](#multi-host-configuration). |
+| `username` | `string` | _required_ | Authentication user. |
+| `password` | `string` | _required_ | Authentication password. |
+| `port` | `int` | `0` | Broker port. `0` defaults to the RabbitMQ.Client default (5672 / 5671). |
+| `vHost` | `string` | `""` | Virtual host. |
+| `heartbeat` | `ushort` | `0` (broker default) | Heartbeat interval in milliseconds. |
+| `clientProvidedName` | `string?` | `null` | Connection name shown in the RabbitMQ Management UI. |
 
-There are multiple ways for configuring the sink with the release of v3.0.0
+### Exchange and routing
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `exchange` | `string` | `""` | Target exchange name. |
+| `exchangeType` | `string` | `"fanout"` | Exchange type (`direct`, `fanout`, `topic`, `headers`). |
+| `deliveryMode` | `RabbitMQDeliveryMode` | `NonDurable` | Persistence of published messages. |
+| `routingKey` | `string` | `""` | Default routing key. Can be overridden per event via `ISendMessageEvents`. |
+| `autoCreateExchange` | `bool` | `false` | Declare the exchange on startup if it does not exist. |
+
+### TLS / SSL
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `sslEnabled` | `bool` | `false` | Enable TLS for broker connections. |
+| `sslServerName` | `string?` | first hostname | Server name used for certificate validation. |
+| `sslVersion` | `SslProtocols` | `None` | TLS protocol version. |
+| `sslAcceptablePolicyErrors` | `SslPolicyErrors` | `None` | Tolerated certificate validation errors. |
+| `sslCheckCertificateRevocation` | `bool` | `false` | Check certificate revocation status. |
+
+### Channel pool
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `channelCount` | `int` | `64` | Number of channels held in the pool. Channels are opened eagerly in the background at startup; broken channels are replaced automatically. When all channels are in use, additional publish calls await until one is returned. |
+
+> **Deprecated:** `maxChannels` (parameter) and `MaxChannels` (property) are kept as
+> `[Obsolete]` shims that forward to `channelCount` / `ChannelCount`. They will be removed in
+> a future major version. See [Migrating to 9.0.0](#migrating-to-900).
+
+### Batching
+
+These options apply to `WriteTo.RabbitMQ` only. Audit sinks write each event synchronously
+and ignore them.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `batchPostingLimit` | `int` | `50` | Maximum events written per batch. |
+| `bufferingTimeLimit` | `TimeSpan` | `2s` | Flush interval for partial batches. |
+| `queueLimit` | `int?` | `null` | Maximum buffered events. `null` = unbounded. |
+
+### Failure handling
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `emitEventFailure` | `EmitEventFailureHandling` | `WriteToSelfLog` | Combination of `Ignore`, `WriteToSelfLog`, `WriteToFailureSink`, `ThrowException`. |
+| `failureSinkConfiguration` | `Action<LoggerSinkConfiguration>?` | `null` | Sink(s) that receive events when the primary sink fails. Used together with `WriteToFailureSink`. |
+| `formatter` | `ITextFormatter?` | `CompactJsonFormatter` | Formatter used to render the event into the message body. |
+| `levelSwitch` | `LogEventLevel` | `Verbose` | Minimum level for events emitted by the sink. |
+| `sendMessageEvents` | `ISendMessageEvents?` | `null` | Hooks for customising message properties and routing keys (see below). |
+
+Example with a console failure sink:
 
 ```csharp
 Log.Logger = new LoggerConfiguration()
-    .Enrich.FromLogContext()
-    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
-    {
-        clientConfiguration.Username     = _config["RABBITMQ_USER"];
-        clientConfiguration.Password     = _config["RABBITMQ_PASSWORD"];
-        clientConfiguration.Exchange     = _config["RABBITMQ_EXCHANGE"];
-        clientConfiguration.ExchangeType = _config["RABBITMQ_EXCHANGE_TYPE"];
-        clientConfiguration.DeliveryMode = RabbitMQDeliveryMode.Durable;
-        clientConfiguration.RoutingKey   = "Logs";
-        clientConfiguration.Port         = 5672;
+    .WriteTo.RabbitMQ(
+        configure: (client, sink) =>
+        {
+            client.Hostnames = ["localhost"];
+            client.Username  = "guest";
+            client.Password  = "guest";
+            client.Exchange  = "logs";
 
-        foreach (string hostname in _config.GetSection("RABBITMQ_HOSTNAMES").Get<string[]>())
-            clientConfiguration.Hostnames.Add(hostname);
-
-        sinkConfiguration.TextFormatter  = new JsonFormatter();
-    }).CreateLogger();
+            sink.EmitEventFailure = EmitEventFailureHandling.WriteToSelfLog
+                                  | EmitEventFailureHandling.WriteToFailureSink;
+        },
+        failureSinkConfiguration: failure => failure.Console())
+    .CreateLogger();
 ```
 
+## Audit sink
+
+A Serilog audit sink writes events that must succeed and surfaces exceptions to the caller.
+Use `AuditTo.RabbitMQ` instead of `WriteTo.RabbitMQ`. Wrap audit logging calls in
+`try/catch` to handle failures.
+
 ```csharp
-// Or
-var config = new RabbitMQClientConfiguration
-{
-    Port         = 5672,
-    DeliveryMode = RabbitMQ.RabbitMQDeliveryMode.Durable,
-    Exchange     = "test_exchange",
-    Username     = "guest",
-    Password     = "guest",
-    ExchangeType = "fanout"
-};
-
-foreach (string hostname in _config["RABBITMQ_HOSTNAMES"])
-    config.Hostnames.Add(hostname);
-
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
+    .AuditTo.RabbitMQ((client, sink) =>
     {
-        clientConfiguration.From(config);
-        sinkConfiguration.TextFormatter = new JsonFormatter();
-    }) .CreateLogger();
+        client.Hostnames    = ["localhost"];
+        client.Username     = "guest";
+        client.Password     = "guest";
+        client.Exchange     = "audit";
+        client.DeliveryMode = RabbitMQDeliveryMode.Durable;
+    })
+    .CreateLogger();
 ```
 
-```csharp
-// Or
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
-    {
-        clientConfiguration.From(Configuration.Bind("RabbitMQClientConfiguration", new RabbitMQClientConfiguration()));
-        sinkConfiguration.TextFormatter = new JsonFormatter();
-    }).CreateLogger();
-```
+The audit sink supports the same options as the regular sink **except** the batching options
+(`batchPostingLimit`, `bufferingTimeLimit`, `queueLimit`).
 
-```csharp
-// Or
-LoggerConfiguration loggerConfiguration = new LoggerConfiguration();
-IConfigurationSection rabbitMqSection = configuration.GetSection("log:rabbitMq");
-loggerConfiguration = loggerConfiguration
-    .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
-    {
-        rabbitMqSection.Bind(clientConfiguration);
-        sinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Warning;
-    });
-```    
-   
-```csharp
-// At last, don't forget to register the logger into the services
-var loggerFactory = new LoggerFactory();
-loggerFactory
-  .AddSerilog() // if you are not assigning the logger to Log.Logger, then you need to add your logger here.
-  .AddConsole(LogLevel.Information);
+## Customising message properties and routing keys
 
-services.AddSingleton<ILoggerFactory>(loggerFactory);
-```
-
-## Customizing Message Properties and Routing Keys
-To customize message properties, a class can be created that implements the `ISendMessageEvents` interface. This interface defines two methods that require implementation:
-
-`OnSetMessageProperties`: This method is invoked before the message is sent to RabbitMQ and is used to configure the message's properties.
-
-`OnGetRoutingKey`: This method determines the routing key for the message, ensuring proper delivery to the intended queue.
+Implement `ISendMessageEvents` to set per-event message properties or compute a routing key
+from the log event.
 
 ```csharp
 public class CustomMessageEvents : ISendMessageEvents
 {
-    /// <inheritdoc />
     public void OnSetMessageProperties(LogEvent logEvent, IBasicProperties properties)
     {
-        // example of setting message header based on log event level
         properties.Headers = new Dictionary<string, object?>
         {
-            { "log-level", logEvent.Level.ToString() },
+            ["log-level"] = logEvent.Level.ToString(),
         };
 
-        // example of setting correlation id based on log event properties
-        if (logEvent.Properties.TryGetValue(LogProperties.CORRELATION_ID, out var correlationId))
+        if (logEvent.Properties.TryGetValue("CorrelationId", out var correlationId))
         {
             properties.CorrelationId = correlationId.ToString();
         }
     }
 
-    /// <inheritdoc />
-    public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
-    {
-        // example of routing based on log level
-        return logEvent.Level switch
+    public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey) =>
+        logEvent.Level switch
         {
             LogEventLevel.Error => "error",
-            _ => defaultRoutingKey
+            _ => defaultRoutingKey,
         };
-    }
 }
 ```
+
+Wire it up via `RabbitMQClientConfiguration.SendMessageEvents`:
+
+```csharp
+client.SendMessageEvents = new CustomMessageEvents();
+```
+
+## Multi-host configuration
+
+Pass multiple hostnames to connect to a RabbitMQ cluster. The client will attempt each in
+turn until one succeeds.
+
+```xml
+<add key="serilog:using:RabbitMQ" value="Serilog.Sinks.RabbitMQ" />
+<add key="serilog:write-to:RabbitMQ.hostnames" value="host1,host2,host3" />
+<add key="serilog:write-to:RabbitMQ.username" value="guest" />
+<add key="serilog:write-to:RabbitMQ.password" value="guest" />
+```
+
+## Samples
+
+Three runnable sample projects live under [`samples/`](samples/):
+
+| Sample | Configuration style | Target |
+|---|---|---|
+| [`NetFromCodeSample`](samples/NetFromCodeSample/) | Pure code, includes audit sink and failure sink | `net10.0` |
+| [`NetAppsettingsJsonSample`](samples/NetAppsettingsJsonSample/) | `appsettings.json` via `Serilog.Settings.Configuration`, includes a custom `ISendMessageEvents` | `net10.0` |
+| [`NetFrameworkAppSettingsConfigSample`](samples/NetFrameworkAppSettingsConfigSample/) | `App.config` via `Serilog.Settings.AppSettings` | `net48` |
+
+A `docker-compose.yml` at the repo root brings up a RabbitMQ broker for running the samples
+and integration tests.
+
+## Compatibility matrix
+
+| Serilog.Sinks.RabbitMQ | .NETStandard | .NETFramework | Serilog | RabbitMQ.Client |
+|---|---|---|---|---|
+| 2.0.0 | 1.6.0 | 4.5.1 | 2.3.0 | 4.* |
+| 3.0.0 | 1.6.1 | 4.5.1 | 2.8.0 | 5.* |
+| 6.0.0 | 2.0.0 | 4.7.2 | 2.8.0 | 6.* |
+| 7.0.0 | 2.0.0 | — | 3.1.1 | 6.8.* |
+| 8.0.0 | 2.0.0 | — | 4.2.0 | 7.0 |
+| 9.0.0 | 2.0.0 | — | 4.3.x | 7.2.x |
+
+## Migrating to 9.0.0
+
+- **`MaxChannels` is now `ChannelCount`.** The property and the `maxChannels` parameter on
+  `WriteTo.RabbitMQ` / `AuditTo.RabbitMQ` have been renamed to `ChannelCount` and
+  `channelCount`. The property keeps an `[Obsolete]` shim so existing code compiles with a
+  warning; the parameter is a hard rename — update `appsettings.json` / `App.config` keys
+  from `maxChannels` to `channelCount`.
+- **Channel pool semantics changed.** The pool is now fixed-size and pre-opens all channels
+  in the background at startup. When all channels are in use, additional publish calls
+  await until one is returned (previous behaviour grew the pool on demand). Broken channels
+  are replaced automatically in the background.
+- **`Microsoft.Extensions.ObjectPool` dependency removed.** No action needed unless your
+  application referenced it transitively through this package.
+- **Target frameworks:** `net6.0` and `net9.0` were removed. Supported targets are
+  `netstandard2.0`, `net8.0`, and `net10.0`.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the full release notes.
 
 ## References
 
 - [Serilog](https://serilog.net/)
-- [RabbitMQ Client](https://github.com/rabbitmq/rabbitmq-dotnet-client)
+- [RabbitMQ .NET client](https://github.com/rabbitmq/rabbitmq-dotnet-client)
+- [Serilog.Settings.Configuration](https://github.com/serilog/serilog-settings-configuration)
+- [Serilog.Settings.AppSettings](https://github.com/serilog/serilog-settings-appsettings)
 - [Logging in ASP.NET Core](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging)
-- [Dependency Injection in ASP.NET Core](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection)
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).

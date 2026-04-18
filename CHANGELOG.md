@@ -121,6 +121,30 @@ Add `net9.0` to the target frameworks.
 
 Add `net10.0` to the target frameworks.
 
+### Replaced channel pool implementation
+
+The dependency on `Microsoft.Extensions.ObjectPool` has been removed. The sink now uses an
+internal channel pool that opens channels asynchronously and eagerly pre-opens the
+configured number of channels in the background at startup.
+
+The pool is fixed-size: when all channels are in use, additional publish calls wait for one
+to be returned. Channels that close unexpectedly are disposed and replaced in the background
+to keep the pool full.
+
+### Renamed `MaxChannels` to `ChannelCount`
+
+`RabbitMQClientConfiguration.MaxChannels` has been renamed to `ChannelCount` to reflect that
+it is the actual number of channels held in the pool, not an upper bound. The old
+`MaxChannels` property remains as a `[Obsolete]` shim that forwards to `ChannelCount` and
+will be removed in a future major version.
+
+The `maxChannels` parameter on `WriteTo.RabbitMQ(...)` and `AuditTo.RabbitMQ(...)` has been
+renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `maxChannels` to
+`channelCount`.
+
 ### Breaking changes
 
 - Removed `net6.0` and `.net9.0` target framework
+- Removed dependency on `Microsoft.Extensions.ObjectPool`
+- `WriteTo.RabbitMQ` / `AuditTo.RabbitMQ` parameter `maxChannels` renamed to `channelCount`
+- `RabbitMQClientConfiguration.MaxChannels` is now `[Obsolete]`; use `ChannelCount`
