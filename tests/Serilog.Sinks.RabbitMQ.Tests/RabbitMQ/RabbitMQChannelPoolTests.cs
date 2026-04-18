@@ -255,4 +255,104 @@ public class RabbitMQChannelPoolTests
 
         declareCalls.ShouldBe(1);
     }
+
+    [Fact]
+    public async Task Constructor_DefaultsToSixtyFourChannels_WhenChannelCountIsZero()
+    {
+        // Arrange
+        int created = 0;
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            Interlocked.Increment(ref created);
+            return CreateOpenChannel();
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 0 };
+
+        // Act
+        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => Volatile.Read(ref created) == 64);
+
+        // Assert
+        Volatile.Read(ref created).ShouldBe(64);
+    }
+
+    [Fact]
+    public void Return_AfterDispose_DisposesChannel()
+    {
+        // Arrange
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        pool.Dispose();
+
+        var channel = Substitute.For<IRabbitMQChannel>();
+
+        // Act
+        pool.Return(channel);
+
+        // Assert
+        channel.Received(1).Dispose();
+    }
+
+    [Fact]
+    public void Dispose_IsIdempotent()
+    {
+        // Arrange
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Act + Assert: second Dispose is a no-op and must not throw.
+        pool.Dispose();
+        Should.NotThrow(() => pool.Dispose());
+    }
+
+    [Fact]
+    public async Task WarmUp_RetriesAfterTransientFailure()
+    {
+        // Arrange
+        int attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                int attempt = Interlocked.Increment(ref attempts);
+                return attempt == 1
+                    ? throw new InvalidOperationException("transient")
+                    : Task.FromResult(CreateOpenChannel());
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        // Act
+        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        var channel = await pool.GetAsync();
+
+        // Assert
+        channel.ShouldNotBeNull();
+        Volatile.Read(ref attempts).ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task Dispose_WhileWarmUpIsRetrying_ExitsCleanly()
+    {
+        // Arrange — every CreateChannelAsync attempt fails so warm-up loops on the
+        // retry delay; Dispose should cancel the loop without hanging.
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ => throw new InvalidOperationException("permanent"));
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await Task.Delay(50);
+
+        // Act + Assert
+        Should.NotThrow(() => pool.Dispose());
+    }
 }

@@ -92,18 +92,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             return;
         }
 
-        try
-        {
-            _shutdownCts.Cancel();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            SelfLog.WriteLine("Error cancelling RabbitMQ channel pool warm-up: {0}", ex);
-        }
-        catch (AggregateException ex)
-        {
-            SelfLog.WriteLine("Error cancelling RabbitMQ channel pool warm-up: {0}", ex);
-        }
+        _shutdownCts.Cancel();
 
         while (_available.TryTake(out var channel))
         {
