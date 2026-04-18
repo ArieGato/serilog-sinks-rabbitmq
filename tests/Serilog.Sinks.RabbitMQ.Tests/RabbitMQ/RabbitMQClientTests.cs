@@ -58,7 +58,8 @@ public class RabbitMQClientTests
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
         var channelPool = Substitute.For<IRabbitMQChannelPool>();
         channelPool.GetAsync(Arg.Any<CancellationToken>())
-            .Returns<ValueTask<IRabbitMQChannel>>(_ => ValueTask.FromException<IRabbitMQChannel>(new InvalidOperationException("no channels")));
+            .Returns<ValueTask<IRabbitMQChannel>>(_ =>
+                new ValueTask<IRabbitMQChannel>(Task.FromException<IRabbitMQChannel>(new InvalidOperationException("no channels"))));
 
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
