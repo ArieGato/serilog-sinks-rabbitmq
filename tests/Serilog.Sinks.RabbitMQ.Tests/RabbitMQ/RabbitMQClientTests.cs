@@ -45,6 +45,30 @@ public class RabbitMQClientTests
     }
 
     [Fact]
+    public async Task PublishAsync_WhenGetAsyncThrows_DoesNotReturnChannel()
+    {
+        // Arrange — GetAsync throws before the local `channel` is assigned, so the
+        // `finally` block must take the `channel == null` path and skip ReturnAsync.
+        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        {
+            Exchange = "some-exchange",
+            ExchangeType = "some-exchange-type",
+            RoutingKey = "some-route-key",
+        };
+        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
+        channelPool.GetAsync(Arg.Any<CancellationToken>())
+            .Returns<ValueTask<IRabbitMQChannel>>(_ => ValueTask.FromException<IRabbitMQChannel>(new InvalidOperationException("no channels")));
+
+        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
+
+        // Act + Assert
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"), new BasicProperties()));
+        await channelPool.DidNotReceive().ReturnAsync(Arg.Any<IRabbitMQChannel>());
+    }
+
+    [Fact]
     public async Task CloseAsync_ShouldCloseConnection()
     {
         // Arrange
