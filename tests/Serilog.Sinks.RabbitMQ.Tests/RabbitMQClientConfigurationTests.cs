@@ -18,7 +18,7 @@ public class RabbitMQClientConfigurationTests
             ExchangeType = "direct",
             RoutingKey = "log",
             DeliveryMode = RabbitMQDeliveryMode.NonDurable,
-            MaxChannels = 65,
+            ChannelCount = 65,
             Port = 5673,
             AutoCreateExchange = true,
             Heartbeat = 21,
@@ -41,4 +41,18 @@ public class RabbitMQClientConfigurationTests
         // Assert
         copy.ShouldBeEquivalentTo(original);
     }
+
+    [Fact]
+#pragma warning disable CS0618 // Type or member is obsolete
+    public void MaxChannels_ShimForwardsToChannelCount()
+    {
+        var sut = new RabbitMQClientConfiguration();
+
+        sut.MaxChannels = 17;
+        sut.ChannelCount.ShouldBe(17);
+
+        sut.ChannelCount = 23;
+        sut.MaxChannels.ShouldBe(23);
+    }
+#pragma warning restore CS0618
 }

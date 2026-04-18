@@ -133,7 +133,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             Heartbeat = 21,
             Hostnames = [RabbitMQFixture.SslCertHostName],
-            MaxChannels = 32,
+            ChannelCount = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
             RoutingKey = string.Empty,
@@ -184,7 +184,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             ExchangeType = RabbitMQFixture.SerilogSinkExchangeType,
             Heartbeat = 21,
             Hostnames = [RabbitMQFixture.SslCertHostName],
-            MaxChannels = 32,
+            ChannelCount = 32,
             Password = RabbitMQFixture.Password,
             Port = 5672,
             RoutingKey = string.Empty,
@@ -228,7 +228,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
                     rabbitMQClientConfiguration.Heartbeat = 21;
                     rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
-                    rabbitMQClientConfiguration.MaxChannels = 32;
+                    rabbitMQClientConfiguration.ChannelCount = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
                     rabbitMQClientConfiguration.RoutingKey = string.Empty;
@@ -267,7 +267,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQClientConfiguration.ExchangeType = RabbitMQFixture.SerilogSinkExchangeType;
                     rabbitMQClientConfiguration.Heartbeat = 21;
                     rabbitMQClientConfiguration.Hostnames = [RabbitMQFixture.SslCertHostName];
-                    rabbitMQClientConfiguration.MaxChannels = 32;
+                    rabbitMQClientConfiguration.ChannelCount = 32;
                     rabbitMQClientConfiguration.Password = RabbitMQFixture.Password;
                     rabbitMQClientConfiguration.Port = 5672;
                     rabbitMQClientConfiguration.RoutingKey = string.Empty;

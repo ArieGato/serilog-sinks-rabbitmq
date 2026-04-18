@@ -39,6 +39,12 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly string _routingKey;
     private bool _disposedValue;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RabbitMQSink"/> class.
+    /// </summary>
+    /// <param name="rabbitMQClientConfiguration">The RabbitMQ client configuration.</param>
+    /// <param name="rabbitMQSinkConfiguration">The sink configuration.</param>
+    /// <param name="failureSink">Optional sink that receives events when emission fails.</param>
     internal RabbitMQSink(
         RabbitMQClientConfiguration rabbitMQClientConfiguration,
         RabbitMQSinkConfiguration rabbitMQSinkConfiguration,
@@ -56,8 +62,15 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <summary>
-    /// Constructor for testing purposes.
+    /// Initializes a new instance of the <see cref="RabbitMQSink"/> class. Used for testing purposes.
     /// </summary>
+    /// <param name="client">The RabbitMQ client used to publish events.</param>
+    /// <param name="textFormatter">The text formatter used to render log events.</param>
+    /// <param name="sendMessageEvents">Hooks for customising message properties and routing key.</param>
+    /// <param name="emitEventFailureHandling">How to handle failures when emitting events.</param>
+    /// <param name="failureSink">Optional sink that receives events when emission fails.</param>
+    /// <param name="persistent">Whether messages should be marked persistent.</param>
+    /// <param name="routingKey">The default routing key.</param>
     internal RabbitMQSink(
         IRabbitMQClient client,
         ITextFormatter textFormatter,

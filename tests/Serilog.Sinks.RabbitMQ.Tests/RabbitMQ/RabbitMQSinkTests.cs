@@ -1,4 +1,3 @@
-using Microsoft.Extensions.ObjectPool;
 using Serilog.Configuration;
 using Serilog.Core;
 using Serilog.Debugging;
@@ -309,14 +308,14 @@ public class RabbitMQSinkTests
             RoutingKey = "some-route-key",
         };
         var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
-        var rabbitMQChannelObjectPoolPolicy = Substitute.For<IPooledObjectPolicy<IRabbitMQChannel>>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
         var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
-        rabbitMQChannelObjectPoolPolicy.Create().Returns(rabbitMQChannel);
+        channelPool.GetAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<IRabbitMQChannel>(rabbitMQChannel));
 
         // configure default send message events
         var messageEvents = new SendMessageEvents();
 
-        var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, rabbitMQChannelObjectPoolPolicy);
+        var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
         var sut = new RabbitMQSink(rabbitMQClient, new CompactJsonFormatter(), messageEvents, routingKey: "some-route-key");
 
