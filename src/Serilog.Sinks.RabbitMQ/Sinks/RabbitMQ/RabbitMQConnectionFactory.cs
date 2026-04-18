@@ -150,16 +150,23 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     }
 
     /// <inheritdoc />
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         try
         {
-            _connectionLock.Dispose();
-            _connection?.Dispose();
+            if (_connection is not null)
+            {
+                await _connection.CloseAsync().ConfigureAwait(false);
+                _connection.Dispose();
+            }
         }
         catch (Exception exception)
         {
             SelfLog.WriteLine(exception.Message);
+        }
+        finally
+        {
+            _connectionLock.Dispose();
         }
     }
 }

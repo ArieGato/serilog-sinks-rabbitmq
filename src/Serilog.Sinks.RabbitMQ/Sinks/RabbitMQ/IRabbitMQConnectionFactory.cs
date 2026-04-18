@@ -19,7 +19,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// The RabbitMQ connection factory interface.
 /// </summary>
-internal interface IRabbitMQConnectionFactory : IDisposable
+internal interface IRabbitMQConnectionFactory : IAsyncDisposable
 {
     /// <summary>
     /// Returns the connection. Creates a new connection if none exists.

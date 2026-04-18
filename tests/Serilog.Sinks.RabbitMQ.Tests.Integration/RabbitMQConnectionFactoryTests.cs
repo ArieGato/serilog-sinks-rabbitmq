@@ -28,7 +28,7 @@ public class RabbitMQConnectionFactoryTests
 
         await sut.CloseAsync();
 
-        sut.Dispose();
+        await sut.DisposeAsync();
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class RabbitMQConnectionFactoryTests
         var rabbitMQClientConfiguration = RabbitMQFixture.GetRabbitMQClientConfiguration();
         rabbitMQClientConfiguration.Port = 5673;
 
-        using var sut = new RabbitMQConnectionFactory(rabbitMQClientConfiguration, new CancellationTokenSource());
+        await using var sut = new RabbitMQConnectionFactory(rabbitMQClientConfiguration, new CancellationTokenSource());
 
         var act = () => sut.GetConnectionAsync();
         (await Should.ThrowAsync<BrokerUnreachableException>(act)).GetType().ShouldBe(typeof(BrokerUnreachableException));
@@ -57,7 +57,7 @@ public class RabbitMQConnectionFactoryTests
 
         await sut.CloseAsync();
 
-        sut.Dispose();
+        await sut.DisposeAsync();
     }
 
     [Fact]
@@ -92,6 +92,6 @@ public class RabbitMQConnectionFactoryTests
         connection.IsOpen.ShouldBeTrue();
 
         await sut.CloseAsync();
-        sut.Dispose();
+        await sut.DisposeAsync();
     }
 }

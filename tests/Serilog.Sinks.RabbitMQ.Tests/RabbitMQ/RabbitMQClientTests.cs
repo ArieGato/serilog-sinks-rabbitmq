@@ -141,6 +141,6 @@ public class RabbitMQClientTests
 
         // Assert
         await channelPool.Received(1).DisposeAsync();
-        rabbitMQConnectionFactory.Received(1).Dispose();
+        await rabbitMQConnectionFactory.Received(1).DisposeAsync();
     }
 }
