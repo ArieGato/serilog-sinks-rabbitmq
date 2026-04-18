@@ -34,7 +34,7 @@ jobs:
       run: dotnet pack --no-build -c Release -o dist/packages
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: nuget-packages
         path: dist/packages
