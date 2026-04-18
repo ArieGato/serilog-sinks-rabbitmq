@@ -30,6 +30,9 @@ using System.Runtime.ExceptionServices;
 
 namespace Serilog.Sinks.RabbitMQ;
 
+/// <summary>
+/// Helpers for executing asynchronous code from synchronous contexts.
+/// </summary>
 [ExcludeFromCodeCoverage]
 internal static class AsyncHelpers
 {

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ;
@@ -22,29 +21,26 @@ namespace Serilog.Sinks.RabbitMQ;
 /// </summary>
 internal sealed class RabbitMQClient : IRabbitMQClient
 {
-    private readonly ObjectPool<IRabbitMQChannel> _channelObjectPool;
+    private readonly IRabbitMQChannelPool _channelPool;
 
     /// <summary>
-    /// Default value for the maximum number of channels.
+    /// Default number of channels held in the pool.
     /// </summary>
-    internal const int DEFAULT_MAX_CHANNEL_COUNT = 64;
+    internal const int DEFAULT_CHANNEL_COUNT = 64;
 
     private readonly CancellationTokenSource _closeTokenSource = new();
 
     private readonly PublicationAddress _publicationAddress;
     private readonly IRabbitMQConnectionFactory _rabbitMQConnectionFactory;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RabbitMQClient"/> class.
+    /// </summary>
+    /// <param name="configuration">The RabbitMQ client configuration.</param>
     public RabbitMQClient(RabbitMQClientConfiguration configuration)
     {
         _rabbitMQConnectionFactory = new RabbitMQConnectionFactory(configuration, _closeTokenSource);
-
-        var pooledObjectPolicy = new RabbitMQChannelObjectPoolPolicy(configuration, _rabbitMQConnectionFactory);
-        var defaultObjectPoolProvider = new DefaultObjectPoolProvider
-        {
-            MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DEFAULT_MAX_CHANNEL_COUNT,
-        };
-        _channelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
-
+        _channelPool = new RabbitMQChannelPool(configuration, _rabbitMQConnectionFactory);
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
 
@@ -53,29 +49,24 @@ internal sealed class RabbitMQClient : IRabbitMQClient
     /// </summary>
     /// <param name="configuration">The RabbitMQ configuration.</param>
     /// <param name="connectionFactory">The RabbitMQ connection factory.</param>
-    /// <param name="pooledObjectPolicy">The pooled object policy for creating channels.</param>
+    /// <param name="channelPool">The channel pool.</param>
     internal RabbitMQClient(
         RabbitMQClientConfiguration configuration,
         IRabbitMQConnectionFactory connectionFactory,
-        IPooledObjectPolicy<IRabbitMQChannel> pooledObjectPolicy)
+        IRabbitMQChannelPool channelPool)
     {
         _rabbitMQConnectionFactory = connectionFactory;
-
-        var defaultObjectPoolProvider = new DefaultObjectPoolProvider
-        {
-            MaximumRetained = configuration.MaxChannels > 0 ? configuration.MaxChannels : DEFAULT_MAX_CHANNEL_COUNT,
-        };
-        _channelObjectPool = defaultObjectPoolProvider.Create(pooledObjectPolicy);
-
+        _channelPool = channelPool;
         _publicationAddress = new PublicationAddress(configuration.ExchangeType, configuration.Exchange, configuration.RoutingKey);
     }
 
+    /// <inheritdoc />
     public async Task PublishAsync(ReadOnlyMemory<byte> message, BasicProperties basicProperties, string? routingKey = null)
     {
         IRabbitMQChannel? channel = null;
         try
         {
-            channel = _channelObjectPool.Get();
+            channel = await _channelPool.GetAsync(_closeTokenSource.Token).ConfigureAwait(false);
             var address = routingKey == null
                 ? _publicationAddress
                 : new PublicationAddress(_publicationAddress.ExchangeType, _publicationAddress.ExchangeName, routingKey);
@@ -85,13 +76,15 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         {
             if (channel != null)
             {
-                _channelObjectPool.Return(channel);
+                _channelPool.Return(channel);
             }
         }
     }
 
+    /// <inheritdoc />
     public void Close() => AsyncHelpers.RunSync(CloseAsync);
 
+    /// <inheritdoc />
     public async Task CloseAsync()
     {
         var exceptions = new List<Exception>();
@@ -120,15 +113,11 @@ internal sealed class RabbitMQClient : IRabbitMQClient
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         _closeTokenSource.Dispose();
-
-        if (_channelObjectPool is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
-
+        _channelPool.Dispose();
         _rabbitMQConnectionFactory.Dispose();
     }
 }

@@ -88,10 +88,22 @@ public class RabbitMQClientConfiguration
     public bool AutoCreateExchange { get; set; }
 
     /// <summary>
-    /// Maximum number of channels in the channel pool.
+    /// Number of channels held in the pool. Channels are opened eagerly at startup.
+    /// When all channels are in use, additional publish calls wait until one is returned.
     /// Default is 64.
     /// </summary>
-    public int MaxChannels { get; set; } = RabbitMQClient.DEFAULT_MAX_CHANNEL_COUNT;
+    public int ChannelCount { get; set; } = RabbitMQClient.DEFAULT_CHANNEL_COUNT;
+
+    /// <summary>
+    /// Deprecated alias for <see cref="ChannelCount"/>. The pool size has always been a fixed
+    /// count rather than a maximum; the property has been renamed to reflect that.
+    /// </summary>
+    [Obsolete("Use ChannelCount instead. MaxChannels will be removed in a future major version.")]
+    public int MaxChannels
+    {
+        get => ChannelCount;
+        set => ChannelCount = value;
+    }
 
     /// <summary>
     /// Contains events for sending messages.
@@ -112,7 +124,7 @@ public class RabbitMQClientConfiguration
             ExchangeType = ExchangeType,
             Heartbeat = Heartbeat,
             Hostnames = Hostnames.ToList(),
-            MaxChannels = MaxChannels,
+            ChannelCount = ChannelCount,
             Password = Password,
             Port = Port,
             RoutingKey = RoutingKey,

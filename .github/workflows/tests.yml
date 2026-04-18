@@ -17,7 +17,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -60,9 +60,13 @@ jobs:
       - name: Build solution [Debug]
         run: dotnet build --no-restore -c Debug
 
+      # net48 is skipped on Linux because Mono cannot load the IL produced by
+      # coverlet.msbuild 10's instrumentation tracker. Windows still tests net48.
       - name: Test solution [Debug]
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: dotnet test --no-restore --no-build -p:TestTfmsInParallel=false -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+        run: |
+          dotnet test --framework net8.0 --no-restore --no-build -p:TestTfmsInParallel=false -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+          dotnet test --framework net10.0 --no-restore --no-build -p:TestTfmsInParallel=false -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
 
       - name: Test solution [Debug/Windows]
         if: ${{ startsWith(matrix.os, 'windows') }}
@@ -78,7 +82,7 @@ jobs:
   buildcheck:
     needs:
       - test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: always()
     steps:
       - name: Pass build check

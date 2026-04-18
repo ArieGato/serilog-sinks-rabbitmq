@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Microsoft.Extensions.ObjectPool;
 using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ;
 
 /// <summary>
-/// A wrapper class for <see cref="IChannel"/> to be used in <see cref="ObjectPool{T}"/>.
+/// A wrapper class for <see cref="IChannel"/> used by <see cref="RabbitMQChannelPool"/>.
 /// </summary>
 internal sealed class RabbitMQChannel : IRabbitMQChannel
 {
@@ -33,11 +32,14 @@ internal sealed class RabbitMQChannel : IRabbitMQChannel
         _channel = channel;
     }
 
+    /// <inheritdoc />
     public bool IsOpen => _channel.IsOpen;
 
+    /// <inheritdoc />
     public ValueTask BasicPublishAsync(PublicationAddress address, BasicProperties basicProperties, ReadOnlyMemory<byte> body)
         => _channel.BasicPublishAsync(address, basicProperties, body);
 
+    /// <inheritdoc />
     public void Dispose()
     {
         try

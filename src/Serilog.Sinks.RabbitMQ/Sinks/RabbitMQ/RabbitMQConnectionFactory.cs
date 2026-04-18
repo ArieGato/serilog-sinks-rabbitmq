@@ -17,6 +17,10 @@ using Serilog.Debugging;
 
 namespace Serilog.Sinks.RabbitMQ;
 
+/// <summary>
+/// Default <see cref="IRabbitMQConnectionFactory"/> implementation that lazily creates
+/// and caches a single <see cref="IConnection"/>.
+/// </summary>
 internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
 {
     private readonly RabbitMQClientConfiguration _config;
@@ -26,6 +30,11 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
 
     private IConnection? _connection;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RabbitMQConnectionFactory"/> class.
+    /// </summary>
+    /// <param name="rabbitMQConfiguration">The RabbitMQ client configuration.</param>
+    /// <param name="cancellationTokenSource">Token source used to cancel pending connection attempts on shutdown.</param>
     public RabbitMQConnectionFactory(
         RabbitMQClientConfiguration rabbitMQConfiguration,
         CancellationTokenSource cancellationTokenSource)
@@ -35,6 +44,7 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         _connectionFactory = GetConnectionFactory();
     }
 
+    /// <inheritdoc />
     public async Task<IConnection> GetConnectionAsync()
     {
         if (_connection != null)
@@ -129,6 +139,7 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         return connectionFactory;
     }
 
+    /// <inheritdoc />
     public async Task CloseAsync()
     {
         await _connectionLock.WaitAsync(10).ConfigureAwait(false);
@@ -138,6 +149,7 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         try

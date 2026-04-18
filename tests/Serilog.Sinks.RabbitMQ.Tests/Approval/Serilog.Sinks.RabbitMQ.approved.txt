@@ -26,7 +26,7 @@ namespace Serilog
                     bool sslCheckCertificateRevocation = false,
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
-                    int maxChannels = 64,
+                    int channelCount = 64,
                     Serilog.Events.LogEventLevel levelSwitch = 0,
                     Serilog.Sinks.RabbitMQ.ISendMessageEvents? sendMessageEvents = null) { }
         public static Serilog.LoggerConfiguration RabbitMQ(
@@ -52,7 +52,7 @@ namespace Serilog
                     int? queueLimit = default,
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
-                    int maxChannels = 64,
+                    int channelCount = 64,
                     Serilog.Events.LogEventLevel levelSwitch = 0,
                     Serilog.Sinks.RabbitMQ.EmitEventFailureHandling emitEventFailure = 1,
                     System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null,
@@ -78,12 +78,14 @@ namespace Serilog.Sinks.RabbitMQ
     {
         public RabbitMQClientConfiguration() { }
         public bool AutoCreateExchange { get; set; }
+        public int ChannelCount { get; set; }
         public string? ClientProvidedName { get; set; }
         public Serilog.Sinks.RabbitMQ.RabbitMQDeliveryMode DeliveryMode { get; set; }
         public string Exchange { get; set; }
         public string ExchangeType { get; set; }
         public ushort Heartbeat { get; set; }
         public System.Collections.Generic.IList<string> Hostnames { get; set; }
+        [System.Obsolete("Use ChannelCount instead. MaxChannels will be removed in a future major version.")]
         public int MaxChannels { get; set; }
         public string Password { get; set; }
         public int Port { get; set; }
