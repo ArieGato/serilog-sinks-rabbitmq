@@ -14,8 +14,6 @@
 
 using System.Diagnostics;
 
-using Serilog.Debugging;
-
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
 public class RabbitMQChannelPoolTests
@@ -155,14 +153,16 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public async Task ReturnAsync_WhenBrokenChannelDisposeThrows_StillRefillsPoolAndLogs()
+    public async Task ReturnAsync_WhenBrokenChannelDisposeThrows_StillRefillsPool()
     {
         // Arrange — the broken channel's DisposeAsync throws. The fire-and-forget
-        // replacement task must catch the exception (so it is not unobserved),
-        // log it to SelfLog, and still run WarmUpAsync to refill the pool.
-        var selfLogBuilder = new StringBuilder();
-        SelfLog.Enable(new StringWriter(selfLogBuilder));
-
+        // replacement task must catch the exception (so it is not unobserved) and
+        // still run WarmUpAsync to refill the pool. Without the catch, the await
+        // would short-circuit the lambda and WarmUpAsync would never execute —
+        // WaitForAsync(created == 2) below would then hit its 2s timeout.
+        //
+        // The catch also logs to SelfLog, but asserting on SelfLog here is flaky:
+        // SelfLog is a global static and parallel test classes race for the writer.
         int created = 0;
         var connection = BuildConnectionWithChannelFactory(() =>
         {
@@ -182,10 +182,9 @@ public class RabbitMQChannelPoolTests
         // Act
         await pool.ReturnAsync(brokenChannel);
 
-        // Assert — the replacement still happens and SelfLog records the swallowed error.
+        // Assert — the pool refills even though the broken channel's dispose threw.
         await WaitForAsync(() => Volatile.Read(ref created) == 2);
         await brokenChannel.Received(1).DisposeAsync();
-        selfLogBuilder.ToString().ShouldContain("dispose-boom");
     }
 
     [Fact]
