@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/check-coauthor.py"
+          }
+        ]
+      }
+    ]
+  }
+}

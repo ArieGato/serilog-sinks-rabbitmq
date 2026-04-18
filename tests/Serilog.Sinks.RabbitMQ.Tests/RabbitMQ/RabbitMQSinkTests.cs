@@ -19,11 +19,9 @@ public class RabbitMQSinkTests
             return Task.CompletedTask;
         }
 
-        public void Close() => throw new NotImplementedException();
-
         public Task CloseAsync() => throw new NotImplementedException();
 
-        public void Dispose() => throw new NotImplementedException();
+        public ValueTask DisposeAsync() => throw new NotImplementedException();
 
         public List<string> Messages { get; } = [];
     }
@@ -115,7 +113,7 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public void Dispose_ShouldCloseAndDisposeRabbitMQClient()
+    public async Task Dispose_ShouldDisposeRabbitMQClient()
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
@@ -128,12 +126,11 @@ public class RabbitMQSinkTests
         sut.Dispose();
 
         // Assert
-        rabbitMQClient.Received(1).Close();
-        rabbitMQClient.Received(1).Dispose();
+        await rabbitMQClient.Received(1).DisposeAsync();
     }
 
     [Fact]
-    public void Dispose_ShouldNotThrowException_WhenCalledTwice()
+    public async Task Dispose_ShouldNotThrowException_WhenCalledTwice()
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
@@ -147,18 +144,17 @@ public class RabbitMQSinkTests
         sut.Dispose();
 
         // Assert
-        rabbitMQClient.Received(1).Close();
-        rabbitMQClient.Received(1).Dispose();
+        await rabbitMQClient.Received(1).DisposeAsync();
     }
 
     [Fact]
-    public void Dispose_ShouldNotThrowException_WhenRabbitMQClientCloseThrowsException()
+    public async Task Dispose_ShouldNotThrowException_WhenRabbitMQClientDisposeThrowsException()
     {
         // Arrange
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.Close())
+        rabbitMQClient.When(x => x.DisposeAsync())
             .Do(_ => throw new Exception("some-message"));
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
@@ -167,8 +163,7 @@ public class RabbitMQSinkTests
         sut.Dispose();
 
         // Assert
-        rabbitMQClient.Received(1).Close();
-        rabbitMQClient.Received(1).Dispose();
+        await rabbitMQClient.Received(1).DisposeAsync();
     }
 
     [Fact]

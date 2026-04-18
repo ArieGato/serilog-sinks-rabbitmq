@@ -113,7 +113,7 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
             AutoCreateExchange = true,
         };
 
-        using var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
+        await using var rabbitMQClient = new RabbitMQClient(rabbitMQClientConfiguration);
         await rabbitMQClient.PublishAsync("a message"u8.ToArray(), new BasicProperties());
 
         //// wait for message sent
@@ -152,7 +152,7 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
             Password = RabbitMQFixture.Password,
             Hostnames = [RabbitMQFixture.SslCertHostName],
         };
-        using var rabbitMQClient = new RabbitMQClient(config);
+        await using var rabbitMQClient = new RabbitMQClient(config);
 
         string message = Guid.NewGuid().ToString();
 

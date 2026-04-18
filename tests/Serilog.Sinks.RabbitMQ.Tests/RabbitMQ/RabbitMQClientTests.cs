@@ -39,13 +39,13 @@ public class RabbitMQClientTests
 
         // Assert
         await channelPool.Received(1).GetAsync(Arg.Any<CancellationToken>());
-        channelPool.Received(1).Return(Arg.Is(rabbitMQChannel));
+        await channelPool.Received(1).ReturnAsync(Arg.Is(rabbitMQChannel));
 
         await rabbitMQChannel.Received(1).BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<BasicProperties>(), Arg.Any<ReadOnlyMemory<byte>>());
     }
 
     [Fact]
-    public void Close_ShouldCloseConnection()
+    public async Task CloseAsync_ShouldCloseConnection()
     {
         // Arrange
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -60,16 +60,18 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
         // Act
-        sut.Close();
+        await sut.CloseAsync();
 
         // Assert
-        rabbitMQConnectionFactory.Received(1).CloseAsync();
+        await rabbitMQConnectionFactory.Received(1).CloseAsync();
     }
 
     [Fact]
-    public void Close_ShouldThrowAggregateException_WhenExceptionsOccur()
+    public async Task CloseAsync_ShouldThrowAggregateException_WhenExceptionsOccur()
     {
-        // Arrange
+        // Arrange — after DisposeAsync, the internal cancellation-token source is disposed,
+        // so a subsequent CloseAsync call observes exceptions from both Cancel() and the
+        // connection factory's CloseAsync, which should be surfaced as an AggregateException.
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
         {
             Exchange = "some-exchange",
@@ -83,20 +85,19 @@ public class RabbitMQClientTests
 
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
-        // Need to dispose the client, so the close will throw two exceptions
-        sut.Dispose();
+        await sut.DisposeAsync();
 
         // Act
-        var act = () => sut.Close();
+        var act = async () => await sut.CloseAsync();
 
         // Assert
-        var ex = Should.Throw<AggregateException>(act);
+        var ex = await Should.ThrowAsync<AggregateException>(act);
         ex.Message.ShouldStartWith($"Exceptions occurred while closing {nameof(RabbitMQClient)}");
         ex.InnerExceptions.Count.ShouldBe(2);
     }
 
     [Fact]
-    public void Dispose_ShouldDisposePoolAndConnectionFactory()
+    public async Task DisposeAsync_ShouldDisposePoolAndConnectionFactory()
     {
         // Arrange
         var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
@@ -111,10 +112,10 @@ public class RabbitMQClientTests
         var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
 
         // Act
-        sut.Dispose();
+        await sut.DisposeAsync();
 
         // Assert
-        channelPool.Received(1).Dispose();
+        await channelPool.Received(1).DisposeAsync();
         rabbitMQConnectionFactory.Received(1).Dispose();
     }
 }

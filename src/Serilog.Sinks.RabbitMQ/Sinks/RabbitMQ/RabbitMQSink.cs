@@ -125,12 +125,12 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         {
             // Disposing channel and connection objects is not enough, they must be explicitly closed with the API methods.
             // https://www.rabbitmq.com/dotnet-api-guide.html#disconnecting
-            _client.Close();
+            // Bridge to async disposal here — this is the sync entry point Serilog invokes.
+            AsyncHelpers.RunSync(() => _client.DisposeAsync().AsTask());
         }
         catch (Exception exception)
         {
-            // ignored
-            SelfLog.WriteLine("Exception occurred while closing RabbitMQClient {0}", exception.Message);
+            SelfLog.WriteLine("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
         }
 
         // Dispose the failure sink if it's disposable.
@@ -138,8 +138,6 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
         {
             disposableFailureSink.Dispose();
         }
-
-        _client.Dispose();
 
         _disposedValue = true;
     }

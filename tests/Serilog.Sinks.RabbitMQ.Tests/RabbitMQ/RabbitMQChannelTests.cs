@@ -17,7 +17,7 @@ namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 public class RabbitMQChannelTests
 {
     [Fact]
-    public async Task Dispose_ShouldNotThrowException_WhenIChannelCloseThrowsException()
+    public async Task DisposeAsync_ShouldNotThrowException_WhenIChannelCloseThrowsException()
     {
         // Arrange
         var channel = Substitute.For<IChannel>();
@@ -27,7 +27,7 @@ public class RabbitMQChannelTests
         var sut = new RabbitMQChannel(channel);
 
         // Act
-        sut.Dispose();
+        await sut.DisposeAsync();
 
         // Assert
         await channel.Received(1).CloseAsync();

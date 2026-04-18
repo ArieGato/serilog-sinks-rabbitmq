@@ -69,7 +69,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 4 };
 
         // Act
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         await WaitForAsync(() => Volatile.Read(ref created) == 4);
 
         // Assert
@@ -89,7 +89,7 @@ public class RabbitMQChannelPoolTests
         var connectionFactory = BuildConnectionFactory(connection);
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 2 };
 
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         await WaitForAsync(() => Volatile.Read(ref created) == 2);
 
         // Act
@@ -108,7 +108,7 @@ public class RabbitMQChannelPoolTests
         var connectionFactory = BuildConnectionFactory(connection);
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         var first = await pool.GetAsync();
 
         // Act
@@ -116,7 +116,7 @@ public class RabbitMQChannelPoolTests
         await Task.Delay(50);
         pending.IsCompleted.ShouldBeFalse();
 
-        pool.Return(first);
+        await pool.ReturnAsync(first);
         var second = await pending;
 
         // Assert
@@ -124,7 +124,7 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public async Task Return_WhenChannelIsClosed_DisposesAndTriggersReplacement()
+    public async Task ReturnAsync_WhenChannelIsClosed_DisposesAndTriggersReplacement()
     {
         // Arrange
         int created = 0;
@@ -136,18 +136,20 @@ public class RabbitMQChannelPoolTests
         var connectionFactory = BuildConnectionFactory(connection);
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         _ = await pool.GetAsync();
 
         var brokenChannel = Substitute.For<IRabbitMQChannel>();
         brokenChannel.IsOpen.Returns(false);
 
         // Act
-        pool.Return(brokenChannel);
+        await pool.ReturnAsync(brokenChannel);
 
-        // Assert
-        brokenChannel.Received(1).Dispose();
+        // Assert — dead channel is disposed asynchronously by the replacement task.
+        await WaitForAsync(() => brokenChannel.ReceivedCalls()
+            .Any(c => c.GetMethodInfo().Name == nameof(IAsyncDisposable.DisposeAsync)));
         await WaitForAsync(() => Volatile.Read(ref created) == 2);
+        await brokenChannel.Received(1).DisposeAsync();
     }
 
     [Fact]
@@ -158,7 +160,7 @@ public class RabbitMQChannelPoolTests
         var connectionFactory = BuildConnectionFactory(connection);
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         _ = await pool.GetAsync();
 
         using var cts = new CancellationTokenSource();
@@ -172,7 +174,7 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public async Task Dispose_DisposesRetainedChannels()
+    public async Task DisposeAsync_DisposesRetainedChannels()
     {
         // Arrange
         var disposedChannels = new List<IChannel>();
@@ -185,13 +187,13 @@ public class RabbitMQChannelPoolTests
         var connectionFactory = BuildConnectionFactory(connection);
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 3 };
 
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         await WaitForAsync(() => connection.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IConnection.CreateChannelAsync)) == 3);
 
         // Act
-        pool.Dispose();
+        await pool.DisposeAsync();
 
-        // Assert
+        // Assert — RabbitMQChannel.DisposeAsync closes then Dispose()s the underlying IChannel.
         disposedChannels.Count.ShouldBe(3);
     }
 
@@ -219,7 +221,7 @@ public class RabbitMQChannelPoolTests
             AutoCreateExchange = true,
         };
 
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         await WaitForAsync(() =>
         {
             lock (createdChannels)
@@ -234,7 +236,7 @@ public class RabbitMQChannelPoolTests
         brokenChannel.IsOpen.Returns(false);
 
         // Act
-        pool.Return(brokenChannel);
+        await pool.ReturnAsync(brokenChannel);
         await WaitForAsync(() =>
         {
             lock (createdChannels)
@@ -270,7 +272,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 0 };
 
         // Act
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         await WaitForAsync(() => Volatile.Read(ref created) == 64);
 
         // Assert
@@ -278,7 +280,7 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public void Return_AfterDispose_DisposesChannel()
+    public async Task ReturnAsync_AfterDispose_DisposesChannel()
     {
         // Arrange
         var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
@@ -286,19 +288,19 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        pool.Dispose();
+        await pool.DisposeAsync();
 
         var channel = Substitute.For<IRabbitMQChannel>();
 
         // Act
-        pool.Return(channel);
+        await pool.ReturnAsync(channel);
 
         // Assert
-        channel.Received(1).Dispose();
+        await channel.Received(1).DisposeAsync();
     }
 
     [Fact]
-    public void Dispose_IsIdempotent()
+    public async Task DisposeAsync_IsIdempotent()
     {
         // Arrange
         var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
@@ -307,9 +309,9 @@ public class RabbitMQChannelPoolTests
 
         var pool = new RabbitMQChannelPool(configuration, connectionFactory);
 
-        // Act + Assert: second Dispose is a no-op and must not throw.
-        pool.Dispose();
-        Should.NotThrow(() => pool.Dispose());
+        // Act + Assert: second DisposeAsync is a no-op and must not throw.
+        await pool.DisposeAsync();
+        await Should.NotThrowAsync(async () => await pool.DisposeAsync());
     }
 
     [Fact]
@@ -330,7 +332,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         // Act
-        using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
         var channel = await pool.GetAsync();
 
         // Assert
@@ -339,12 +341,12 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public async Task Dispose_WhileCreateChannelIsAwaiting_StopsWarmUp()
+    public async Task DisposeAsync_WhileCreateChannelIsAwaiting_StopsWarmUp()
     {
         // Arrange — CreateChannelAsync hangs on the cancellation token. When the pool
         // is disposed the token cancels and Task.Delay throws OperationCanceledException
-        // from inside the warm-up's outer try, exercising the
-        // 'catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)' arm.
+        // from inside the warm-up's outer try, exercising the cancellation-observing arm
+        // of the catch for OperationCanceledException.
         var connection = Substitute.For<IConnection>();
         connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
             .Returns<Task<IChannel>>(async call =>
@@ -360,11 +362,11 @@ public class RabbitMQChannelPoolTests
         await Task.Delay(50);
 
         // Act + Assert
-        Should.NotThrow(() => pool.Dispose());
+        await Should.NotThrowAsync(async () => await pool.DisposeAsync());
     }
 
     [Fact]
-    public async Task Dispose_WhileWarmUpIsRetrying_ExitsCleanly()
+    public async Task DisposeAsync_WhileWarmUpIsRetrying_ExitsCleanly()
     {
         // Arrange — every CreateChannelAsync attempt fails so warm-up loops on the
         // retry delay; Dispose should cancel the loop without hanging.
@@ -378,6 +380,6 @@ public class RabbitMQChannelPoolTests
         await Task.Delay(50);
 
         // Act + Assert
-        Should.NotThrow(() => pool.Dispose());
+        await Should.NotThrowAsync(async () => await pool.DisposeAsync());
     }
 }
