@@ -78,13 +78,13 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 
         if (channel.IsOpen)
         {
-            // TryWrite returns false only when the writer has been completed (disposal
-            // raced with the return). Capacity overflow is impossible — the pool hands
-            // out at most _size channels, so the bounded channel can always accept them
-            // back. A failed write means the pool is closing; dispose the channel.
+            // TryWrite returns false when the writer has been completed (disposal raced
+            // with the return) or when the queue is full (caller returned more channels
+            // than they rented). Either way, the pool cannot take the channel; dispose
+            // it and log so accidental over-returns are visible rather than silent.
             if (!_channels.Writer.TryWrite(channel))
             {
-                return channel.DisposeAsync();
+                return DisposeSurplusChannelAsync(channel);
             }
 
             return default;
@@ -104,6 +104,19 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             await WarmUpAsync(1, _shutdownCts.Token).ConfigureAwait(false);
         });
         return default;
+    }
+
+    private static async ValueTask DisposeSurplusChannelAsync(IRabbitMQChannel channel)
+    {
+        SelfLog.WriteLine("Returned channel could not be re-pooled (pool full or closed); disposing.");
+        try
+        {
+            await channel.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            SelfLog.WriteLine("Failed to dispose surplus RabbitMQ channel: {0}", ex.Message);
+        }
     }
 
     /// <inheritdoc />

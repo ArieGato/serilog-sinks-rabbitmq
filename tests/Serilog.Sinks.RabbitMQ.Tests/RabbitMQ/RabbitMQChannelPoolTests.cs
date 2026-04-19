@@ -411,6 +411,91 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task GetAsync_AfterDispose_ThrowsInvalidOperationException()
+    {
+        // Covers the new ChannelClosedException-to-InvalidOperationException mapping
+        // in GetAsync, which replaces the old OperationCanceledException signalling
+        // for pool disposal.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => connection.ReceivedCalls()
+            .Any(c => c.GetMethodInfo().Name == nameof(IConnection.CreateChannelAsync)));
+
+        await pool.DisposeAsync();
+
+        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+    }
+
+    [Fact]
+    public async Task ReturnAsync_WhenPoolIsFull_DisposesSurplusChannel()
+    {
+        // Covers the new surplus-channel branch in ReturnAsync: Writer.TryWrite returns
+        // false when the bounded Channel<T> is at capacity and no GetAsync has drained
+        // it. The channel should be disposed via DisposeSurplusChannelAsync rather than
+        // leaking.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => connection.ReceivedCalls()
+            .Any(c => c.GetMethodInfo().Name == nameof(IConnection.CreateChannelAsync)));
+
+        // Queue is full (capacity 1, warmed with 1 channel). Returning another open
+        // channel cannot be re-pooled — TryWrite fails and we take the dispose path.
+        var surplusChannel = Substitute.For<IRabbitMQChannel>();
+        surplusChannel.IsOpen.Returns(true);
+
+        await pool.ReturnAsync(surplusChannel);
+
+        await surplusChannel.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task WarmUp_DisposesOrphanChannel_WhenPoolClosesBeforeTryWrite()
+    {
+        // Covers the orphan-dispose branch in WarmUpSingleAsync: CreateChannelAsync
+        // completes AFTER the pool has been disposed, so Writer.TryWrite returns false
+        // and the newly-created channel must be disposed rather than leaked.
+        var gate = new TaskCompletionSource<bool>();
+        var channelCreationEntered = new TaskCompletionSource<bool>();
+        var disposedChannels = new List<IChannel>();
+
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                channelCreationEntered.TrySetResult(true);
+                await gate.Task;
+                var ch = CreateOpenChannel();
+                ch.When(c => c.Dispose()).Do(_ => disposedChannels.Add(ch));
+                return ch;
+            });
+
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until WarmUp has entered CreateChannelAsync (now blocked on the gate).
+        await channelCreationEntered.Task;
+
+        // Dispose the pool while the channel is still being "created". This calls
+        // Writer.TryComplete(), so the eventual TryWrite in WarmUpSingleAsync fails.
+        await pool.DisposeAsync();
+
+        // Release the gate: CreateChannelAsync now returns, WarmUpSingleAsync attempts
+        // TryWrite, fails, and should dispose the orphan channel.
+        gate.SetResult(true);
+
+        await WaitForAsync(() => disposedChannels.Count >= 1);
+        disposedChannels.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Constructor_DefaultsToSixtyFourChannels_WhenChannelCountIsZero()
     {
         // Arrange
