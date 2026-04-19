@@ -18,26 +18,39 @@ namespace Serilog.Sinks.RabbitMQ;
 /// Specifies options for handling failures when emitting the events to RabbitMQ.
 /// Can be a combination of options.
 /// </summary>
+/// <remarks>
+/// These flags apply to the batched pipeline used by <c>WriteTo.RabbitMQ(...)</c>.
+/// The audit path (<c>AuditTo.RabbitMQ(...)</c>) always propagates publish exceptions —
+/// <see cref="WriteToFailureSink"/> and <see cref="WriteToSelfLog"/> have no effect there
+/// because audit semantics require failures to surface to the caller.
+/// </remarks>
 [Flags]
 public enum EmitEventFailureHandling
 {
     /// <summary>
-    /// Ignore the failure and continue.
+    /// Let publish exceptions propagate to the surrounding pipeline (for
+    /// <c>WriteTo.RabbitMQ</c>, that is <c>BatchingSink</c>'s
+    /// <see cref="Serilog.Core.ILoggingFailureListener"/> machinery). This is the default
+    /// and composes with <c>WriteTo.Fallback(...)</c>.
     /// </summary>
     Ignore = 0,
 
     /// <summary>
-    /// Send the error to the <see cref="Debugging.SelfLog"/>.
+    /// Send the error to the <see cref="Debugging.SelfLog"/> before propagating.
     /// </summary>
     WriteToSelfLog = 1,
 
     /// <summary>
-    /// Write the events to another sink. Make sure to configure this one.
+    /// Legacy: catch publish exceptions and emit the failed events to a separately-configured
+    /// failure sink. The exception is not propagated unless combined with
+    /// <see cref="ThrowException"/>. Consider <c>WriteTo.Fallback(...)</c> for new code.
     /// </summary>
     WriteToFailureSink = 2,
 
     /// <summary>
-    /// Throw the exception to the caller.
+    /// Force the publish exception to be rethrown even when combined with
+    /// <see cref="WriteToFailureSink"/>. Redundant on its own — the default path
+    /// already rethrows.
     /// </summary>
     ThrowException = 4,
 }

@@ -25,7 +25,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// Serilog RabbitMQ Sink - lets you log to RabbitMQ using Serilog.
 /// </summary>
-public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
+public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLoggingFailureListener, IDisposable
 {
     private static readonly RecyclableMemoryStreamManager _manager = new();
     private static readonly Encoding _utf8NoBOM = new UTF8Encoding(false);
@@ -37,6 +37,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly ISendMessageEvents _sendMessageEvents;
     private readonly bool _persistent;
     private readonly string _routingKey;
+    private ILoggingFailureListener? _failureListener;
     private bool _disposedValue;
 
     /// <summary>
@@ -90,7 +91,39 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <inheritdoc cref="ILogEventSink.Emit" />
-    public void Emit(LogEvent logEvent) => AsyncHelpers.RunSync(() => EmitAsync(logEvent));
+    public void Emit(LogEvent logEvent)
+    {
+        try
+        {
+            AsyncHelpers.RunSync(() => EmitAsync(logEvent));
+        }
+        catch (Exception ex) when (_failureListener is not null)
+        {
+            // The `when (_failureListener is not null)` filter above means this catch frame
+            // is not entered at all when no listener is registered — the exception propagates
+            // with its original stack intact, and we avoid the LogEvent[] allocation on the
+            // hot no-listener path.
+            //
+            // Audit path: notify the listener before propagating so a Fallback-wrapped audit
+            // pipeline sees the failed event. The `throw;` below preserves the original stack.
+            NotifyListener(new[] { logEvent }, ex);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public void SetFailureListener(ILoggingFailureListener failureListener)
+    {
+        // Per ISetLoggingFailureListener contract this is called once during
+        // initialization on the init thread, before logging starts. Plain field
+        // assignment is sufficient; no synchronisation required.
+        //
+        // Note: for the batched pipeline (WriteTo.RabbitMQ) Serilog's BatchingSink
+        // receives the listener and does not forward it — so _failureListener stays
+        // null there and the native BatchingSink handling does the work. This matters
+        // for the audit path (AuditTo.RabbitMQ) and for direct-construct users.
+        _failureListener = failureListener;
+    }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
     public async Task EmitBatchAsync(IReadOnlyCollection<LogEvent> batch)
@@ -165,7 +198,13 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     /// </summary>
     /// <param name="ex">Occurred exception.</param>
     /// <param name="events">Batch of log events.</param>
-    /// <returns>true when exception has been handled.</returns>
+    /// <returns>
+    /// <see langword="true"/> when the exception has been fully handled and must not be
+    /// rethrown (legacy catch-and-route). <see langword="false"/> when the caller should
+    /// rethrow so Serilog's <see cref="IBatchedLogEventSink"/> pipeline (typically
+    /// <c>BatchingSink</c>) observes the failure and routes it through its own listener
+    /// machinery — this is how <c>WriteTo.Fallback(...)</c> composes.
+    /// </returns>
     private bool HandleException(Exception ex, LogEvent[] events)
     {
         if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToSelfLog))
@@ -193,7 +232,43 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             }
         }
 
-        // Return true if the exception has been handled. e.g. when the exception doesn't need to be rethrown.
-        return !_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.ThrowException);
+        // Rethrow unless the user has opted into the legacy catch-and-route path
+        // (WriteToFailureSink) without also forcing ThrowException. Default — and every
+        // combination that does not set WriteToFailureSink — propagates the exception so
+        // BatchingSink's listener plumbing observes it. WriteToFailureSink + ThrowException
+        // is the explicit "route to failure sink AND still throw" combination.
+        bool legacyCatchOnly = _emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink)
+                            && !_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.ThrowException);
+        return legacyCatchOnly;
+    }
+
+    /// <summary>
+    /// Notifies the Serilog 4.1+ <see cref="ILoggingFailureListener"/> that a publish has
+    /// failed. Only meaningful for the sync <see cref="Emit(LogEvent)"/> audit path — the
+    /// batched pipeline routes failures through <c>BatchingSink</c>'s own listener, which
+    /// <see cref="ISetLoggingFailureListener"/> does not forward to inner sinks.
+    /// </summary>
+    /// <param name="events">Log events associated with the failure.</param>
+    /// <param name="ex">Original publish exception.</param>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A throwing failure listener must not recurse or break the sink; swallow and log to SelfLog. The original publish exception is propagated by the caller.")]
+    private void NotifyListener(IReadOnlyCollection<LogEvent> events, Exception ex)
+    {
+        try
+        {
+            _failureListener!.OnLoggingFailed(
+                this,
+                LoggingFailureKind.Permanent,
+                "RabbitMQ publish failed.",
+                events,
+                ex);
+        }
+        catch (Exception exListener)
+        {
+            // A throwing listener must not recurse; drop to SelfLog and continue.
+            SelfLog.WriteLine("Failure listener threw: {0}", exListener);
+        }
     }
 }

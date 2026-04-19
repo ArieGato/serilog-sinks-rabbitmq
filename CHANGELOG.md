@@ -161,6 +161,38 @@ are on an internal interface; no public API change.
 the broker on each retry; repeated failures could accumulate up to the connection's
 `channel_max` limit and then stop opening new channels entirely.
 
+### Aligned failure handling with Serilog's `BatchingSink` model
+
+`RabbitMQSink.EmitBatchAsync` no longer silently swallows publish failures by default.
+Exceptions now propagate to Serilog's `BatchingSink`, whose listener plumbing
+observes the failure — this is what makes `WriteTo.Fallback(s => s.RabbitMQ(...), fallback: s => s.File(...))`
+route failed events to the fallback sink.
+
+The `EmitEventFailureHandling` flags still work and compose as follows:
+
+| Flags set                                | Behaviour                                                                 |
+|------------------------------------------|---------------------------------------------------------------------------|
+| *(default: `Ignore`)*                    | Rethrow. `BatchingSink` catches, notifies its listener. **(CHANGED — was silent swallow.)** |
+| `WriteToSelfLog`                         | Log to `SelfLog`, then rethrow. **(CHANGED — was log-and-swallow.)**      |
+| `WriteToFailureSink` *(legacy routing)*  | Emit events to the configured failure sink, **do not rethrow** (unchanged). |
+| `WriteToFailureSink | WriteToSelfLog`    | Log + emit, **do not rethrow** (unchanged).                               |
+| `ThrowException`                         | Rethrow (unchanged).                                                      |
+| `WriteToFailureSink | ThrowException`    | Emit events to the failure sink **and** rethrow (unchanged).              |
+
+**Behaviour change to flag:** users on the `Ignore` default who did not wire
+`failureSinkConfiguration` previously saw silent failures. Publish errors now
+surface via `BatchingSink`'s default listener (`SelfLog`), or via the listener set
+by a `WriteTo.Fallback(...)` wrapper. Consider this an observability upgrade —
+silent logging failures are almost always undesirable. To preserve the old
+silent behaviour you can set `emitEventFailure = WriteToFailureSink` and wire
+`failureSinkConfiguration` to a no-op sink.
+
+`RabbitMQSink` also now implements `ISetLoggingFailureListener` — this is only
+relevant for the audit path (`AuditTo.RabbitMQ(...)`) and direct-construct users.
+`BatchingSink` does not forward `SetFailureListener` to its inner sink by design,
+so the batched pipeline still routes via `BatchingSink`'s own listener as
+described above.
+
 ### Fixed SSL `ServerName` leaking across hostnames
 
 When `Hostnames` contained more than one entry and `SslOption` was enabled, every
@@ -210,3 +242,6 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
 - `RabbitMQClientConfiguration.MaxChannels` is now `[Obsolete]`; use `ChannelCount`
 - `RabbitMQSinkConfiguration.QueueLimit` must be greater than zero when set; zero or
   negative values now throw `ArgumentOutOfRangeException` at configuration time
+- `RabbitMQSink.EmitBatchAsync` propagates publish exceptions by default instead of
+  silently swallowing them. Use `EmitEventFailureHandling.WriteToFailureSink` to keep
+  legacy catch-and-route behaviour.

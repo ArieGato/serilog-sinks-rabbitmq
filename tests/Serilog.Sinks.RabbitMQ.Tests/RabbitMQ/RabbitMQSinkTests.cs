@@ -256,9 +256,11 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public async Task EmitBatchAsync_ShouldWriteExceptionToSelfLog_WhenPublishThrowsException()
+    public async Task EmitBatchAsync_ShouldWriteExceptionToSelfLogAndRethrow_WhenPublishThrowsException()
     {
-        // Arrange
+        // Arrange — WriteToSelfLog logs to SelfLog first, then rethrows so BatchingSink
+        // (or any Fallback wrapper) can route the failure via its own listener plumbing.
+        // Previously the flag also caused silent swallow; that default no longer applies.
         var selfLogStringBuilder = new StringBuilder();
         var writer = new StringWriter(selfLogStringBuilder);
         SelfLog.Enable(writer);
@@ -275,9 +277,11 @@ public class RabbitMQSinkTests
         // Act
         var logEvent1 = LogEventBuilder.Create().Build();
         var logEvent2 = LogEventBuilder.Create().Build();
-        await sut.EmitBatchAsync([logEvent1, logEvent2]);
+        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2]);
 
         // Assert
+        var thrown = await Should.ThrowAsync<Exception>(act);
+        thrown.Message.ShouldBe("some-message");
         selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
         failureSink.Received(0).Emit(Arg.Any<LogEvent>());
     }
@@ -337,9 +341,12 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public async Task EmitBatchAsync_ShouldNotThrowException_WhenPublishThrowsException()
+    public async Task EmitBatchAsync_ShouldNotThrow_WhenWriteToFailureSinkIsConfigured()
     {
-        // Arrange
+        // After the 9.0 alignment with Serilog's BatchingSink model, WriteToFailureSink is
+        // the only flag combination that suppresses the exception. Everything else (default
+        // Ignore, WriteToSelfLog alone, ThrowException) rethrows so BatchingSink can route
+        // through its listener plumbing.
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
@@ -347,14 +354,91 @@ public class RabbitMQSinkTests
             .Do(_ => throw new Exception("some-message"));
 
         var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.Ignore, failureSink);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
 
-        // Act
         var logEvent1 = LogEventBuilder.Create().Build();
         var act = () => sut.EmitBatchAsync([logEvent1]);
 
-        // Assert
         await Should.NotThrowAsync(act);
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_ShouldRethrow_WhenHandlingIsIgnoreAndPublishFails()
+    {
+        // Default handling (Ignore) now propagates publish failures so BatchingSink sees
+        // them. This is the behaviour change that makes WriteTo.Fallback(...) work for
+        // the batched pipeline.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
+            .Do(_ => throw new InvalidOperationException("publish-fail"));
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.Ignore);
+
+        var logEvent = LogEventBuilder.Create().Build();
+        var act = () => sut.EmitBatchAsync([logEvent]);
+
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(act);
+        thrown.Message.ShouldBe("publish-fail");
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_ShouldLogToSelfLogAndEmitToFailureSinkWithoutRethrowing_WhenWriteToFailureSinkAndWriteToSelfLogAreCombined()
+    {
+        // Pins the WriteToFailureSink | WriteToSelfLog row of the behaviour matrix: both
+        // the SelfLog entry and the per-event emit to the failure sink run, and the
+        // exception is swallowed (WriteToFailureSink suppresses the rethrow).
+        var selfLogStringBuilder = new StringBuilder();
+        using var writer = new StringWriter(selfLogStringBuilder);
+        SelfLog.Enable(writer);
+
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
+            .Do(_ => throw new InvalidOperationException("publish-fail"));
+
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = new RabbitMQSink(
+            rabbitMQClient,
+            textFormatter,
+            messageEvents,
+            EmitEventFailureHandling.WriteToSelfLog | EmitEventFailureHandling.WriteToFailureSink,
+            failureSink);
+
+        var logEvent = LogEventBuilder.Create().Build();
+        var act = () => sut.EmitBatchAsync([logEvent]);
+
+        await Should.NotThrowAsync(act);
+        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
+        failureSink.Received(1).Emit(logEvent);
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_ShouldRouteToFailureSinkAndStillRethrow_WhenWriteToFailureSinkIsCombinedWithThrowException()
+    {
+        // The combination "route events to my failure sink AND still throw" — covers users
+        // who want legacy routing AND want BatchingSink's listener to fire too.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
+            .Do(_ => throw new InvalidOperationException("publish-fail"));
+
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = new RabbitMQSink(
+            rabbitMQClient,
+            textFormatter,
+            messageEvents,
+            EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.ThrowException,
+            failureSink);
+
+        var logEvent = LogEventBuilder.Create().Build();
+        var act = () => sut.EmitBatchAsync([logEvent]);
+
+        await Should.ThrowAsync<InvalidOperationException>(act);
+        failureSink.Received(1).Emit(logEvent);
     }
 
     [Fact]
@@ -400,5 +484,71 @@ public class RabbitMQSinkTests
     {
         LoggerAuditSinkConfiguration config = null!;
         Should.Throw<ArgumentNullException>(() => config.RabbitMQ((_, _) => { })).ParamName.ShouldBe("loggerAuditSinkConfiguration");
+    }
+
+    private static IRabbitMQClient ClientThatFailsPublish(string message = "publish-fail")
+    {
+        var client = Substitute.For<IRabbitMQClient>();
+        client.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
+            .Do(_ => throw new InvalidOperationException(message));
+        return client;
+    }
+
+    private static RabbitMQSink CreateSut(IRabbitMQClient rabbitMQClient)
+        => new(
+            rabbitMQClient,
+            Substitute.For<ITextFormatter>(),
+            Substitute.For<ISendMessageEvents>());
+
+    [Fact]
+    public void Emit_Audit_NotifiesListenerAndRethrows_WhenPublishFails()
+    {
+        // Audit path: Fallback wrappers directly set the listener on RabbitMQSink (there
+        // is no BatchingSink in between). Listener fires, exception still propagates so
+        // audit semantics ("throw on failure") are preserved.
+        var listener = Substitute.For<ILoggingFailureListener>();
+        var sut = CreateSut(ClientThatFailsPublish());
+        sut.SetFailureListener(listener);
+
+        var logEvent = LogEventBuilder.Create().Build();
+        Should.Throw<InvalidOperationException>(() => sut.Emit(logEvent));
+
+        listener.Received(1).OnLoggingFailed(
+            sut,
+            LoggingFailureKind.Permanent,
+            Arg.Any<string>(),
+            Arg.Is<IReadOnlyCollection<LogEvent>>(e => e.Count == 1 && e.Single() == logEvent),
+            Arg.Is<Exception>(e => e is InvalidOperationException && e.Message == "publish-fail"));
+    }
+
+    [Fact]
+    public void Emit_Audit_RethrowsWithoutNotification_WhenListenerIsNotSet()
+    {
+        // Baseline: audit path without a listener still rethrows; no extra handling runs.
+        var sut = CreateSut(ClientThatFailsPublish());
+
+        Should.Throw<InvalidOperationException>(() => sut.Emit(LogEventBuilder.Create().Build()));
+    }
+
+    [Fact]
+    public void Emit_Audit_SwallowsListenerException_AndStillRethrowsOriginal()
+    {
+        // A throwing listener must be swallowed (SelfLog entry) without recursing; the
+        // original publish exception still propagates.
+        var listener = Substitute.For<ILoggingFailureListener>();
+        listener.When(x => x.OnLoggingFailed(
+                Arg.Any<object>(),
+                Arg.Any<LoggingFailureKind>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyCollection<LogEvent>>(),
+                Arg.Any<Exception>()))
+            .Do(_ => throw new InvalidOperationException("listener-fail"));
+
+        var sut = CreateSut(ClientThatFailsPublish());
+        sut.SetFailureListener(listener);
+
+        // Original publish-fail propagates, NOT the listener-fail.
+        var thrown = Should.Throw<InvalidOperationException>(() => sut.Emit(LogEventBuilder.Create().Build()));
+        thrown.Message.ShouldBe("publish-fail");
     }
 }
