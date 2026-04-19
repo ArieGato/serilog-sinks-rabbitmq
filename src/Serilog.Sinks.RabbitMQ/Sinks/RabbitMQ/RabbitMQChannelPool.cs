@@ -71,9 +71,18 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     private readonly CancellationTokenSource _shutdownCts = new();
     private volatile bool _exchangeDeclared;
     private int _state; // PoolState as int for Interlocked APIs
-    private long _brokenUntilTicks; // Environment.TickCount64 at which the cooldown expires
+    private long _brokenUntilTicks; // Stopwatch.GetTimestamp() at which the cooldown expires
     private int _consecutiveFailures;
     private int _disposed;
+
+    /// <summary>
+    /// Cancelled when the pool transitions to <see cref="PoolState.Broken"/> so any
+    /// <see cref="GetAsync"/> caller currently parked in <c>ReadAsync</c> wakes up and
+    /// routes to the batching sink's failure listener instead of staying hung for the
+    /// remainder of the outage. Replaced with a fresh instance on probe success so the
+    /// next pre-exhaustion window starts clean.
+    /// </summary>
+    private CancellationTokenSource _unhealthySignalCts = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQChannelPool"/> class
@@ -101,9 +110,25 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// </summary>
     internal PoolState CurrentState => (PoolState)Volatile.Read(ref _state);
 
+    /// <summary>
+    /// Test-only setter for the state field. Used by the CAS-lost probe-race test to
+    /// force an atypical state/observedState divergence; not wired up in production.
+    /// </summary>
+    internal void TestingSetState(PoolState state) => Volatile.Write(ref _state, (int)state);
+
     /// <inheritdoc />
     public async ValueTask<IRabbitMQChannel> GetAsync(CancellationToken cancellationToken = default)
     {
+        // Fast path for a disposed pool: accessing _unhealthySignalCts.Token below
+        // would throw ObjectDisposedException after DisposeAsync ran, which is
+        // technically an InvalidOperationException but bypasses the structured
+        // ChannelClosedException / OCE mapping below. Short-circuit here so the
+        // disposal signal is deterministic.
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            throw new InvalidOperationException("Channel pool has been disposed.");
+        }
+
         var state = (PoolState)Volatile.Read(ref _state);
 
         if (state == PoolState.Broken || state == PoolState.Probing)
@@ -111,9 +136,18 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             await HandleBrokenStateAsync(state, cancellationToken).ConfigureAwait(false);
         }
 
+        // Link the caller's token with the "pool became unhealthy" signal so a
+        // state transition to Broken wakes up any in-flight ReadAsync waiter —
+        // otherwise a caller that parked during Warming (before the 62 s
+        // exhaustion tipped the breaker) stays hung on the empty channel until
+        // the probe eventually succeeds, blocking BatchingSink from processing
+        // new batches and letting the queue grow indefinitely. Waking the
+        // waiter lets it route through the catch below to the exhaustion
+        // exception, which in turn routes events to the configured fallback.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _unhealthySignalCts.Token);
         try
         {
-            return await _channels.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            return await _channels.Reader.ReadAsync(linked.Token).ConfigureAwait(false);
         }
         catch (ChannelClosedException)
         {
@@ -127,6 +161,19 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             // OperationCanceledException whose token might belong to either party
             // (issue #286 item 2).
             throw new InvalidOperationException("Channel pool has been disposed.");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Unhealthy-signal fired. Re-read state — if we've transitioned to Broken
+            // or Probing, surface the exhaustion exception so the batch rethrows and
+            // BatchingSink routes to the failure listener / Fallback chain.
+            var next = (PoolState)Volatile.Read(ref _state);
+            if (next == PoolState.Broken || next == PoolState.Probing)
+            {
+                throw PoolExhaustedException();
+            }
+
+            throw;
         }
     }
 
@@ -174,8 +221,11 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                 return;
             }
 
-            // Probe succeeded — reset counter, transition to Warming, kick off refill.
+            // Probe succeeded — reset counter, install a fresh unhealthy signal (the
+            // previous one fired on exhaustion and would instantly poison new waiters),
+            // transition to Warming, kick off refill.
             Volatile.Write(ref _consecutiveFailures, 0);
+            Interlocked.Exchange(ref _unhealthySignalCts, new CancellationTokenSource()).Dispose();
             Interlocked.Exchange(ref _state, (int)PoolState.Warming);
             _ = Task.Run(() => WarmUpAsync(_size, markOpenOnCompletion: true, _shutdownCts.Token));
         }
@@ -197,10 +247,42 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     {
         Volatile.Write(ref _brokenUntilTicks, Stopwatch.GetTimestamp() + BROKEN_COOLDOWN_STOPWATCH_TICKS);
         Interlocked.Exchange(ref _state, (int)PoolState.Broken);
+        SignalUnhealthy();
+    }
+
+    /// <summary>
+    /// Trips the unhealthy signal so any in-flight <see cref="GetAsync"/> waiter wakes
+    /// and observes the transition to <see cref="PoolState.Broken"/>. Idempotent —
+    /// subsequent calls on a cancelled CTS are no-ops.
+    /// </summary>
+    private void SignalUnhealthy()
+    {
+        try
+        {
+            _unhealthySignalCts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Racing with DisposeAsync; the signal no longer matters.
+        }
     }
 
     private InvalidOperationException PoolExhaustedException() =>
         new($"Channel pool exhausted after {_maxRetries} consecutive warm-up failures; broker is unreachable.");
+
+    /// <summary>
+    /// Test-only hook for the CAS-lost probe race. Production callers enter
+    /// <see cref="HandleBrokenStateAsync"/> via <see cref="GetAsync"/>, which reads the
+    /// state field once up-front and passes it as <c>observedState</c>. Forcing the real
+    /// state to <see cref="PoolState.Probing"/> after that read — the race path where
+    /// another caller won the CAS — requires coordinating two threads that deterministic
+    /// tests cannot reliably produce. This hook simulates the loser's observation by
+    /// calling the handler with <c>observedState = Broken</c> while the real state is
+    /// Probing; the <c>CompareExchange(Broken → Probing)</c> then correctly fails and the
+    /// handler throws the exhaustion exception.
+    /// </summary>
+    internal Task TestingInvokeHandleBrokenStateAsync(PoolState observedState, CancellationToken cancellationToken) =>
+        HandleBrokenStateAsync(observedState, cancellationToken);
 
     /// <inheritdoc />
     public ValueTask ReturnAsync(IRabbitMQChannel channel)
@@ -284,6 +366,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 
         _exchangeDeclareLock.Dispose();
         _shutdownCts.Dispose();
+        _unhealthySignalCts.Dispose();
     }
 
     private async Task WarmUpAsync(int count, bool markOpenOnCompletion, CancellationToken cancellationToken)
@@ -361,6 +444,12 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                     // Only transition from Warming/Open; the probing path owns its own transitions.
                     _ = Interlocked.CompareExchange(ref _state, (int)PoolState.Broken, (int)PoolState.Warming);
                     _ = Interlocked.CompareExchange(ref _state, (int)PoolState.Broken, (int)PoolState.Open);
+
+                    // Wake any in-flight GetAsync waiters so they see Broken and route to
+                    // the failure listener rather than staying hung for the rest of the
+                    // outage. Must happen AFTER the state transition so the woken caller
+                    // observes Broken, not Warming.
+                    SignalUnhealthy();
                     return false;
                 }
 
