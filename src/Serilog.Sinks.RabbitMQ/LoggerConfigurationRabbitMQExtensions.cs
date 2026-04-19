@@ -133,52 +133,34 @@ public static class LoggerConfigurationRabbitMQExtensions
         Action<LoggerSinkConfiguration>? failureSinkConfiguration = null,
         ISendMessageEvents? sendMessageEvents = null)
     {
-        // setup configuration
-        var clientConfiguration = new RabbitMQClientConfiguration
-        {
-            Hostnames = hostnames,
-            Username = username,
-            Password = password,
-            Exchange = exchange ?? string.Empty,
-            ExchangeType = exchangeType ?? ExchangeType.Fanout,
-            DeliveryMode = deliveryMode,
-            RoutingKey = routingKey ?? string.Empty,
-            Port = port,
-            VHost = vHost ?? string.Empty,
-            ClientProvidedName = clientProvidedName,
-            Heartbeat = heartbeat,
-            AutoCreateExchange = autoCreateExchange,
-            ChannelCount = channelCount,
-            SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
-        };
+        var (client, sink) = BuildWriteToConfigurations(
+            hostnames: hostnames,
+            username: username,
+            password: password,
+            exchange: exchange,
+            exchangeType: exchangeType,
+            deliveryMode: deliveryMode,
+            routingKey: routingKey,
+            port: port,
+            vHost: vHost,
+            clientProvidedName: clientProvidedName,
+            heartbeat: heartbeat,
+            sslEnabled: sslEnabled,
+            sslServerName: sslServerName,
+            sslVersion: sslVersion,
+            sslAcceptablePolicyErrors: sslAcceptablePolicyErrors,
+            sslCheckCertificateRevocation: sslCheckCertificateRevocation,
+            batchPostingLimit: batchPostingLimit,
+            bufferingTimeLimit: bufferingTimeLimit,
+            queueLimit: queueLimit,
+            formatter: formatter,
+            autoCreateExchange: autoCreateExchange,
+            channelCount: channelCount,
+            levelSwitch: levelSwitch,
+            emitEventFailure: emitEventFailure,
+            sendMessageEvents: sendMessageEvents);
 
-        if (sslEnabled && sslServerName is not null)
-        {
-            clientConfiguration.SslOption = new SslOption
-            {
-                Enabled = true,
-                ServerName = sslServerName,
-                Version = sslVersion,
-                AcceptablePolicyErrors = sslAcceptablePolicyErrors,
-                CheckCertificateRevocation = sslCheckCertificateRevocation,
-            };
-        }
-
-        var sinkConfiguration = new RabbitMQSinkConfiguration
-        {
-            BatchPostingLimit = batchPostingLimit == default ? DEFAULT_BATCH_POSTING_LIMIT : batchPostingLimit,
-            BufferingTimeLimit = bufferingTimeLimit == default ? DEFAULT_BUFFERING_TIME_LIMIT : bufferingTimeLimit,
-            QueueLimit = queueLimit,
-            EmitEventFailure = emitEventFailure,
-            RestrictedToMinimumLevel = levelSwitch,
-        };
-
-        if (formatter != null)
-        {
-            sinkConfiguration.TextFormatter = formatter;
-        }
-
-        return loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
+        return loggerConfiguration.RegisterSink(client, sink, failureSinkConfiguration);
     }
 
     /// <summary>
@@ -261,48 +243,30 @@ public static class LoggerConfigurationRabbitMQExtensions
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         ISendMessageEvents? sendMessageEvents = null)
     {
-        // setup configuration
-        var clientConfiguration = new RabbitMQClientConfiguration
-        {
-            Hostnames = hostnames,
-            Username = username,
-            Password = password,
-            Exchange = exchange ?? string.Empty,
-            ExchangeType = exchangeType ?? ExchangeType.Fanout,
-            DeliveryMode = deliveryMode,
-            RoutingKey = routingKey ?? string.Empty,
-            Port = port,
-            VHost = vHost ?? string.Empty,
-            ClientProvidedName = clientProvidedName,
-            Heartbeat = heartbeat,
-            AutoCreateExchange = autoCreateExchange,
-            ChannelCount = channelCount,
-            SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
-        };
+        var (client, sink) = BuildAuditToConfigurations(
+            hostnames: hostnames,
+            username: username,
+            password: password,
+            exchange: exchange,
+            exchangeType: exchangeType,
+            deliveryMode: deliveryMode,
+            routingKey: routingKey,
+            port: port,
+            vHost: vHost,
+            clientProvidedName: clientProvidedName,
+            heartbeat: heartbeat,
+            sslEnabled: sslEnabled,
+            sslServerName: sslServerName,
+            sslVersion: sslVersion,
+            sslAcceptablePolicyErrors: sslAcceptablePolicyErrors,
+            sslCheckCertificateRevocation: sslCheckCertificateRevocation,
+            formatter: formatter,
+            autoCreateExchange: autoCreateExchange,
+            channelCount: channelCount,
+            levelSwitch: levelSwitch,
+            sendMessageEvents: sendMessageEvents);
 
-        if (sslEnabled && sslServerName is not null)
-        {
-            clientConfiguration.SslOption = new SslOption
-            {
-                Enabled = true,
-                ServerName = sslServerName,
-                Version = sslVersion,
-                AcceptablePolicyErrors = sslAcceptablePolicyErrors,
-                CheckCertificateRevocation = sslCheckCertificateRevocation,
-            };
-        }
-
-        var sinkConfiguration = new RabbitMQSinkConfiguration
-        {
-            RestrictedToMinimumLevel = levelSwitch,
-        };
-
-        if (formatter != null)
-        {
-            sinkConfiguration.TextFormatter = formatter;
-        }
-
-        return loggerAuditSinkConfiguration.RegisterAuditSink(clientConfiguration, sinkConfiguration);
+        return loggerAuditSinkConfiguration.RegisterAuditSink(client, sink);
     }
 
     private static LoggerConfiguration RegisterSink(
@@ -356,6 +320,202 @@ public static class LoggerConfigurationRabbitMQExtensions
         sinkConfiguration.Validate();
 
         return loggerAuditSinkConfiguration.Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration, null), sinkConfiguration.RestrictedToMinimumLevel);
+    }
+
+    /// <summary>
+    /// Maps the shared client-side flat parameters (every field of <see cref="RabbitMQClientConfiguration"/>
+    /// plus the SSL-knob subset) into a populated configuration. Exposed internally so the flat
+    /// overloads can be unit-tested at the parameter-mapping level without constructing a real
+    /// <see cref="RabbitMQSink"/> (which would spawn a background channel-pool warmup task).
+    /// </summary>
+    internal static RabbitMQClientConfiguration BuildClientConfiguration(
+        string[] hostnames,
+        string username,
+        string password,
+        string? exchange,
+        string? exchangeType,
+        RabbitMQDeliveryMode deliveryMode,
+        string? routingKey,
+        int port,
+        string? vHost,
+        string? clientProvidedName,
+        ushort heartbeat,
+        bool sslEnabled,
+        string? sslServerName,
+        SslProtocols sslVersion,
+        SslPolicyErrors sslAcceptablePolicyErrors,
+        bool sslCheckCertificateRevocation,
+        bool autoCreateExchange,
+        int channelCount,
+        ISendMessageEvents? sendMessageEvents)
+    {
+        var clientConfiguration = new RabbitMQClientConfiguration
+        {
+            Hostnames = hostnames,
+            Username = username,
+            Password = password,
+            Exchange = exchange ?? string.Empty,
+            ExchangeType = exchangeType ?? ExchangeType.Fanout,
+            DeliveryMode = deliveryMode,
+            RoutingKey = routingKey ?? string.Empty,
+            Port = port,
+            VHost = vHost ?? string.Empty,
+            ClientProvidedName = clientProvidedName,
+            Heartbeat = heartbeat,
+            AutoCreateExchange = autoCreateExchange,
+            ChannelCount = channelCount,
+            SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
+        };
+
+        if (sslEnabled && sslServerName is not null)
+        {
+            clientConfiguration.SslOption = new SslOption
+            {
+                Enabled = true,
+                ServerName = sslServerName,
+                Version = sslVersion,
+                AcceptablePolicyErrors = sslAcceptablePolicyErrors,
+                CheckCertificateRevocation = sslCheckCertificateRevocation,
+            };
+        }
+
+        return clientConfiguration;
+    }
+
+    /// <summary>
+    /// Maps the <c>WriteTo.RabbitMQ(...)</c> flat-parameter overload into its
+    /// <see cref="RabbitMQClientConfiguration"/> and <see cref="RabbitMQSinkConfiguration"/>.
+    /// The public overload delegates here, then hands the results to <c>RegisterSink</c>.
+    /// </summary>
+    internal static (RabbitMQClientConfiguration Client, RabbitMQSinkConfiguration Sink) BuildWriteToConfigurations(
+        string[] hostnames,
+        string username,
+        string password,
+        string? exchange,
+        string? exchangeType,
+        RabbitMQDeliveryMode deliveryMode,
+        string? routingKey,
+        int port,
+        string? vHost,
+        string? clientProvidedName,
+        ushort heartbeat,
+        bool sslEnabled,
+        string? sslServerName,
+        SslProtocols sslVersion,
+        SslPolicyErrors sslAcceptablePolicyErrors,
+        bool sslCheckCertificateRevocation,
+        int batchPostingLimit,
+        TimeSpan bufferingTimeLimit,
+        int? queueLimit,
+        ITextFormatter? formatter,
+        bool autoCreateExchange,
+        int channelCount,
+        LogEventLevel levelSwitch,
+        EmitEventFailureHandling emitEventFailure,
+        ISendMessageEvents? sendMessageEvents)
+    {
+        var clientConfiguration = BuildClientConfiguration(
+            hostnames: hostnames,
+            username: username,
+            password: password,
+            exchange: exchange,
+            exchangeType: exchangeType,
+            deliveryMode: deliveryMode,
+            routingKey: routingKey,
+            port: port,
+            vHost: vHost,
+            clientProvidedName: clientProvidedName,
+            heartbeat: heartbeat,
+            sslEnabled: sslEnabled,
+            sslServerName: sslServerName,
+            sslVersion: sslVersion,
+            sslAcceptablePolicyErrors: sslAcceptablePolicyErrors,
+            sslCheckCertificateRevocation: sslCheckCertificateRevocation,
+            autoCreateExchange: autoCreateExchange,
+            channelCount: channelCount,
+            sendMessageEvents: sendMessageEvents);
+
+        // Default substitution for BatchPostingLimit / BufferingTimeLimit lives in
+        // RegisterSink so that the delegate, direct-config, and flat-overload paths
+        // all share one defaulting site. Pass the caller's values through verbatim here.
+        var sinkConfiguration = new RabbitMQSinkConfiguration
+        {
+            BatchPostingLimit = batchPostingLimit,
+            BufferingTimeLimit = bufferingTimeLimit,
+            QueueLimit = queueLimit,
+            EmitEventFailure = emitEventFailure,
+            RestrictedToMinimumLevel = levelSwitch,
+        };
+
+        if (formatter != null)
+        {
+            sinkConfiguration.TextFormatter = formatter;
+        }
+
+        return (clientConfiguration, sinkConfiguration);
+    }
+
+    /// <summary>
+    /// Maps the <c>AuditTo.RabbitMQ(...)</c> flat-parameter overload into its
+    /// <see cref="RabbitMQClientConfiguration"/> and <see cref="RabbitMQSinkConfiguration"/>.
+    /// The audit overload exposes fewer knobs than <see cref="BuildWriteToConfigurations"/> —
+    /// no batching or failure-sink parameters — because audit sinks emit synchronously.
+    /// </summary>
+    internal static (RabbitMQClientConfiguration Client, RabbitMQSinkConfiguration Sink) BuildAuditToConfigurations(
+        string[] hostnames,
+        string username,
+        string password,
+        string? exchange,
+        string? exchangeType,
+        RabbitMQDeliveryMode deliveryMode,
+        string? routingKey,
+        int port,
+        string? vHost,
+        string? clientProvidedName,
+        ushort heartbeat,
+        bool sslEnabled,
+        string? sslServerName,
+        SslProtocols sslVersion,
+        SslPolicyErrors sslAcceptablePolicyErrors,
+        bool sslCheckCertificateRevocation,
+        ITextFormatter? formatter,
+        bool autoCreateExchange,
+        int channelCount,
+        LogEventLevel levelSwitch,
+        ISendMessageEvents? sendMessageEvents)
+    {
+        var clientConfiguration = BuildClientConfiguration(
+            hostnames: hostnames,
+            username: username,
+            password: password,
+            exchange: exchange,
+            exchangeType: exchangeType,
+            deliveryMode: deliveryMode,
+            routingKey: routingKey,
+            port: port,
+            vHost: vHost,
+            clientProvidedName: clientProvidedName,
+            heartbeat: heartbeat,
+            sslEnabled: sslEnabled,
+            sslServerName: sslServerName,
+            sslVersion: sslVersion,
+            sslAcceptablePolicyErrors: sslAcceptablePolicyErrors,
+            sslCheckCertificateRevocation: sslCheckCertificateRevocation,
+            autoCreateExchange: autoCreateExchange,
+            channelCount: channelCount,
+            sendMessageEvents: sendMessageEvents);
+
+        var sinkConfiguration = new RabbitMQSinkConfiguration
+        {
+            RestrictedToMinimumLevel = levelSwitch,
+        };
+
+        if (formatter != null)
+        {
+            sinkConfiguration.TextFormatter = formatter;
+        }
+
+        return (clientConfiguration, sinkConfiguration);
     }
 
     private static ILogEventSink GetPeriodicBatchingSink(
