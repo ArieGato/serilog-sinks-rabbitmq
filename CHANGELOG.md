@@ -131,6 +131,36 @@ The pool is fixed-size: when all channels are in use, additional publish calls w
 to be returned. Channels that close unexpectedly are disposed and replaced in the background
 to keep the pool full.
 
+### Async disposal throughout the sink
+
+The internal `IRabbitMQChannel`, `IRabbitMQChannelPool`, `IRabbitMQClient`, and
+`IRabbitMQConnectionFactory` now implement `IAsyncDisposable` so channel close operations
+are properly awaited instead of fire-and-forget. `RabbitMQSink` remains `IDisposable`
+(Serilog's lifecycle boundary is synchronous) and bridges once via an internal
+sync-over-async helper at dispose time.
+
+### Channel pool correctness
+
+Two concurrency bugs in the channel pool were fixed:
+
+- Concurrent warm-up tasks could redundantly declare the exchange. The declare is now
+  guarded by a semaphore with a double-check so it runs exactly once across all channel
+  creations.
+- `GetAsync` could hand back a null reference if `DisposeAsync` ran between its semaphore
+  wait and its bag dequeue. The pool now uses `System.Threading.Channels.Channel<T>` where
+  dequeue and signalling are atomic by construction.
+
+As a side-effect of the `Channel<T>` migration, `GetAsync` invoked on a disposed pool
+throws `InvalidOperationException` instead of `OperationCanceledException`. Both types
+are on an internal interface; no public API change.
+
+### Fixed channel leak on exchange declare failure
+
+`RabbitMQChannelPool.CreateChannelAsync` now closes the underlying `IChannel` if
+`ExchangeDeclareAsync` throws. Previously, declare failures orphaned the channel against
+the broker on each retry; repeated failures could accumulate up to the connection's
+`channel_max` limit and then stop opening new channels entirely.
+
 ### Renamed `MaxChannels` to `ChannelCount`
 
 `RabbitMQClientConfiguration.MaxChannels` has been renamed to `ChannelCount` to reflect that
