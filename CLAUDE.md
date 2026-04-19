@@ -27,11 +27,33 @@ dotnet test tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.cspr
 # Integration tests (need brokers — see below)
 docker compose up -d
 dotnet test tests/Serilog.Sinks.RabbitMQ.Tests.Integration/Serilog.Sinks.RabbitMQ.Tests.Integration.csproj --framework net10.0
+
+# Code coverage — ALWAYS run this locally before COMMITTING changes that add/modify
+# src/. Codecov runs on CI and will flag missing patch coverage; catch it here first
+# so you don't record a commit that needs a follow-up coverage fix.
+dotnet test tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.csproj \
+  --framework net10.0 -c Release \
+  -p:CollectCoverage=true -p:CoverletOutputFormat=opencover \
+  -p:CoverletOutput=./out/.coverage/
+# Inspect out/.coverage/coverage.net10.0.opencover.xml for any SequencePoint/BranchPoint
+# with vc="0" in methods you added or touched. Add tests until there are none.
 ```
 
 Two RabbitMQ brokers come up via [docker-compose.yml](docker-compose.yml): `rabbitmq-plain` on 5672/6672 and `rabbitmq-cert` on 5671. Test fixtures wait for `rabbitmqctl status`.
 
 `net48` tests are intentionally skipped on Linux CI — `coverlet.msbuild` 10.x emits IL Mono can't load. Windows CI still validates net48. Locally, run net48 only on Windows or via `--framework net8.0|net10.0`.
+
+## Pre-commit checklist
+
+Before `git commit`:
+
+1. `dotnet build -c Release --no-restore` on all TFMs (catches net48 API mismatches that only surface at build time).
+2. Full unit test suite on **net10.0 AND net8.0** (no `--filter`; parallel-class races sometimes only show up in the full run).
+3. `dotnet format --no-restore --verify-no-changes --severity warn` — CI gate.
+4. **Code coverage** on any method you added or modified in `src/` — see the coverlet command above. Zero uncovered lines/branches on new code.
+5. For integration-test-touching changes: run integration tests on net10.0 against the docker-compose brokers.
+
+Skipping step 4 has repeatedly meant shipping a commit, watching Codecov flag it, then following up. Don't.
 
 ## Public API gate
 

@@ -59,4 +59,78 @@ public class RabbitMQClientConfigurationTests
         sut.MaxChannels.ShouldBe(23);
     }
 #pragma warning restore CS0618
+
+    private static RabbitMQClientConfiguration ValidSample() => new()
+    {
+        Hostnames = ["localhost"],
+        Username = "guest",
+        Password = "guest",
+        Port = 5672,
+    };
+
+    [Fact]
+    public void Validate_DoesNotThrow_WhenConfigurationIsValid()
+    {
+        var sut = ValidSample();
+
+        Should.NotThrow(sut.Validate);
+    }
+
+    [Fact]
+    public void Validate_Throws_WhenHostnamesIsEmpty()
+    {
+        var sut = ValidSample();
+        sut.Hostnames = [];
+
+        Should.Throw<ArgumentException>(sut.Validate).Message.ShouldContain("hostnames");
+    }
+
+    [Fact]
+    public void Validate_Throws_WhenHostnamesIsNull()
+    {
+        // Covers the `Hostnames is null` short-circuit in Validate(). A nullable-disabled
+        // caller can assign null even though the property type is non-nullable.
+        var sut = ValidSample();
+        sut.Hostnames = null!;
+
+        Should.Throw<ArgumentException>(sut.Validate).Message.ShouldContain("hostnames");
+    }
+
+    [Fact]
+    public void Validate_Throws_WhenUsernameIsNullOrEmpty()
+    {
+        var sut = ValidSample();
+        sut.Username = string.Empty;
+
+        Should.Throw<ArgumentException>(sut.Validate).Message.ShouldContain("username");
+    }
+
+    [Fact]
+    public void Validate_Throws_WhenPasswordIsNull()
+    {
+        var sut = ValidSample();
+        sut.Password = null!;
+
+        Should.Throw<ArgumentException>(sut.Validate).Message.ShouldContain("password");
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(65536)]
+    public void Validate_Throws_WhenPortIsOutOfRange(int port)
+    {
+        var sut = ValidSample();
+        sut.Port = port;
+
+        Should.Throw<ArgumentOutOfRangeException>(sut.Validate).ParamName.ShouldBe("Port");
+    }
+
+    [Fact]
+    public void Validate_IsIdempotent_WhenCalledRepeatedlyOnValidConfiguration()
+    {
+        var sut = ValidSample();
+
+        Should.NotThrow(sut.Validate);
+        Should.NotThrow(sut.Validate);
+    }
 }

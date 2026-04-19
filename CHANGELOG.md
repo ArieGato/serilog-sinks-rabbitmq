@@ -161,6 +161,25 @@ are on an internal interface; no public API change.
 the broker on each retry; repeated failures could accumulate up to the connection's
 `channel_max` limit and then stop opening new channels entirely.
 
+### Public `Validate()` on configuration classes
+
+`RabbitMQClientConfiguration` and `RabbitMQSinkConfiguration` now expose a public
+`Validate()` method. Callers who construct a configuration directly (for example to
+hand to a custom `RabbitMQSink`) can use it to get the same safety net that
+`WriteTo.RabbitMQ(...)` / `AuditTo.RabbitMQ(...)` have always applied internally.
+
+Existing client-configuration checks (non-empty hostnames, non-empty username,
+non-null password, valid port range) were moved verbatim — exception types and
+messages are preserved. `RabbitMQSinkConfiguration.Validate()` is new and
+additionally checks:
+
+- `TextFormatter` is non-null
+- `BatchPostingLimit > 0`
+- `BufferingTimeLimit >= TimeSpan.Zero`
+- `QueueLimit > 0` when set — **tightened constraint**: a zero or negative
+  `QueueLimit` previously passed through to Serilog's batching layer silently;
+  it is now rejected at configuration time.
+
 ### Renamed `MaxChannels` to `ChannelCount`
 
 `RabbitMQClientConfiguration.MaxChannels` has been renamed to `ChannelCount` to reflect that
@@ -178,3 +197,5 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
 - Removed dependency on `Microsoft.Extensions.ObjectPool`
 - `WriteTo.RabbitMQ` / `AuditTo.RabbitMQ` parameter `maxChannels` renamed to `channelCount`
 - `RabbitMQClientConfiguration.MaxChannels` is now `[Obsolete]`; use `ChannelCount`
+- `RabbitMQSinkConfiguration.QueueLimit` must be greater than zero when set; zero or
+  negative values now throw `ArgumentOutOfRangeException` at configuration time
