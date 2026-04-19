@@ -66,7 +66,13 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
         return _connection;
     }
 
-    private IEnumerable<AmqpTcpEndpoint> GetAmqpTcpEndpoints() =>
+    /// <summary>
+    /// Builds the <see cref="AmqpTcpEndpoint"/> list used by the underlying
+    /// RabbitMQ client. Exposed internally so tests can exercise per-endpoint
+    /// SSL configuration without a running broker.
+    /// </summary>
+    /// <returns>One endpoint per configured hostname.</returns>
+    internal IEnumerable<AmqpTcpEndpoint> GetAmqpTcpEndpoints() =>
         _config.Hostnames.Select(hostname =>
         {
             var amqpTcpEndpoint = AmqpTcpEndpoint.Parse(hostname);
@@ -77,14 +83,44 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
 
             if (_connectionFactory.Ssl.Enabled)
             {
-                amqpTcpEndpoint.Ssl = _connectionFactory.Ssl;
-                amqpTcpEndpoint.Ssl.ServerName = !string.IsNullOrEmpty(_connectionFactory.Ssl.ServerName)
-                    ? _connectionFactory.Ssl.ServerName
-                    : amqpTcpEndpoint.HostName;
+                // Shallow-clone the SslOption per endpoint so:
+                //   1. Every endpoint carries its own SNI ServerName matching its own
+                //      hostname (prior code mutated a single shared SslOption, leaking
+                //      the first hostname into every subsequent endpoint — issue #289).
+                //   2. The caller-supplied SslOption is never mutated; downstream state
+                //      the RabbitMQ client may attach to the option is per-connection.
+                amqpTcpEndpoint.Ssl = CloneForEndpoint(_connectionFactory.Ssl);
+                if (string.IsNullOrEmpty(amqpTcpEndpoint.Ssl.ServerName))
+                {
+                    amqpTcpEndpoint.Ssl.ServerName = amqpTcpEndpoint.HostName;
+                }
             }
 
             return amqpTcpEndpoint;
         }).ToList();
+
+    /// <summary>
+    /// Shallow-clone of <see cref="SslOption"/> so each endpoint gets an independent
+    /// instance that can safely carry its own SNI <see cref="SslOption.ServerName"/>.
+    /// Delegates and certificate collections stay by reference — they are treated as
+    /// immutable configuration inputs by callers and by <c>RabbitMQ.Client</c>.
+    /// </summary>
+    /// <param name="source">The caller-provided option; never mutated.</param>
+    /// <returns>A new <see cref="SslOption"/> with the same values.</returns>
+    private static SslOption CloneForEndpoint(SslOption source) =>
+        new()
+        {
+            AcceptablePolicyErrors = source.AcceptablePolicyErrors,
+            CertPassphrase = source.CertPassphrase,
+            CertPath = source.CertPath,
+            Certs = source.Certs,
+            CertificateSelectionCallback = source.CertificateSelectionCallback,
+            CertificateValidationCallback = source.CertificateValidationCallback,
+            CheckCertificateRevocation = source.CheckCertificateRevocation,
+            Enabled = source.Enabled,
+            ServerName = source.ServerName,
+            Version = source.Version,
+        };
 
     private ConnectionFactory GetConnectionFactory()
     {

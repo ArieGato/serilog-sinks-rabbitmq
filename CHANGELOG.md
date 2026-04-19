@@ -161,6 +161,17 @@ are on an internal interface; no public API change.
 the broker on each retry; repeated failures could accumulate up to the connection's
 `channel_max` limit and then stop opening new channels entirely.
 
+### Fixed SSL `ServerName` leaking across hostnames
+
+When `Hostnames` contained more than one entry and `SslOption` was enabled, every
+`AmqpTcpEndpoint` was pointed at the **same** `SslOption` instance and the SNI
+`ServerName` was mutated in place. The first hostname's value was baked in and reused
+for every subsequent connection, causing SNI mismatches against brokers with
+host-specific certificates. The connection factory now shallow-clones the
+`SslOption` per endpoint and derives `ServerName` from the caller-provided value or
+the endpoint's own hostname — never from a previously-mutated shared object. The
+caller's `SslOption` is no longer mutated.
+
 ### Public `Validate()` on configuration classes
 
 `RabbitMQClientConfiguration` and `RabbitMQSinkConfiguration` now expose a public
