@@ -14,6 +14,7 @@
 
 using System.Diagnostics;
 using System.Reflection;
+using System.Threading.Channels;
 
 using Serilog.Sinks.RabbitMQ.Tests.TestHelpers;
 
@@ -1333,6 +1334,132 @@ public class RabbitMQChannelPoolTests
 
         Volatile.Read(ref attempts).ShouldBe(attemptsAfterExhaustion);
         pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Broken);
+    }
+
+    [Fact]
+    public async Task SignalUnhealthy_SwallowsObjectDisposedException_WhenCtsAlreadyDisposed()
+    {
+        // Covers SignalUnhealthy's ObjectDisposedException catch. When DisposeAsync
+        // races with a warm-up exhaustion that is about to call SignalUnhealthy, the
+        // CTS has already been disposed and Cancel() throws ODE. The catch swallows
+        // so the ODE doesn't propagate into WarmUpSingleAsync's broad handler and
+        // light up SelfLog.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await pool.DisposeAsync(); // disposes _unhealthySignalCts among other things
+
+        // Reach into the (now-disposed) pool and invoke SignalUnhealthy directly.
+        // Production reaches this via the exhaustion → signal path; reflection is
+        // how we deterministically hit the ODE branch without a multi-thread race.
+        var method = typeof(RabbitMQChannelPool).GetMethod("SignalUnhealthy", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SignalUnhealthy not found.");
+
+        Should.NotThrow(() => method.Invoke(pool, null));
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenChannelsWriterCompletedWithoutDisposedFlag_ThrowsInvalidOperation()
+    {
+        // Covers the ChannelClosedException catch path in GetAsync. The normal
+        // disposal path short-circuits via the fast check at the top, so this
+        // catch only fires in the narrow window where DisposeAsync is mid-flight
+        // and has completed the writer without yet flipping the disposed flag.
+        // Reflection reproduces that window by completing the writer in place.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        // Drain the pool so GetAsync would normally park on ReadAsync.
+        await pool.GetAsync();
+
+        // Complete the writer in place, without setting _disposed. GetAsync's fast
+        // path sees _disposed == 0 and falls through to ReadAsync, which throws
+        // ChannelClosedException on the completed writer.
+        var channelsField = typeof(RabbitMQChannelPool).GetField("_channels", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_channels field not found.");
+        var channels = channelsField.GetValue(pool) as Channel<IRabbitMQChannel>
+            ?? throw new InvalidOperationException("_channels value was null.");
+        channels.Writer.TryComplete();
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        ex.Message.ShouldContain("disposed");
+
+        // Pool field state is intentionally inconsistent post-test — no DisposeAsync
+        // to avoid spurious errors; SemaphoreSlim leak is acceptable in a test.
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenDisposedFlagSetDuringReadAsync_MapsCancellationToDisposal()
+    {
+        // Covers the OperationCanceledException catch whose when-filter reads the
+        // disposed flag. Like the writer-completed case above, this only fires in
+        // the narrow DisposeAsync race where the flag flips after the fast-path
+        // check but before the catch re-reads it. Reflection reproduces the exact
+        // state without needing a multi-thread race.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+        await pool.GetAsync(); // drain
+
+        using var cts = new CancellationTokenSource();
+        var parked = pool.GetAsync(cts.Token).AsTask();
+        await Task.Delay(50); // let parked call reach ReadAsync
+
+        // Flip _disposed without running the real DisposeAsync. The when-filter in
+        // GetAsync's catch re-reads this field when the OCE fires, and must see it
+        // set.
+        var disposedField = typeof(RabbitMQChannelPool).GetField("_disposed", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_disposed field not found.");
+        disposedField.SetValue(pool, 1);
+
+        cts.Cancel();
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await parked);
+        ex.Message.ShouldContain("disposed");
+
+        // Skip real DisposeAsync — _disposed is already set, Interlocked.Exchange
+        // would return non-zero and no-op. Test intentionally leaks the semaphore.
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenUnhealthySignalFiresButStateNotBroken_RethrowsOperationCanceled()
+    {
+        // Covers the `throw;` fallthrough in GetAsync's unhealthy-signal catch.
+        // SignalUnhealthy is only called from state-transition paths in production,
+        // so reaching this code requires _unhealthySignalCts to fire without a
+        // corresponding state transition — an atypical case used here to prove the
+        // catch doesn't mask a genuine cancellation as exhaustion.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+        await pool.GetAsync(); // drain so GetAsync parks on ReadAsync
+
+        var parked = pool.GetAsync().AsTask();
+        await Task.Delay(50);
+
+        // Cancel the unhealthy CTS WITHOUT transitioning state.
+        var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_unhealthySignalCts field not found.");
+        var cts = ctsField.GetValue(pool) as CancellationTokenSource
+            ?? throw new InvalidOperationException("_unhealthySignalCts value was null.");
+        cts.Cancel();
+
+        // Catch fires (linked cancelled, caller token not), state is Open, falls
+        // through to `throw;`. Caller sees OCE, not an exhaustion exception.
+        await Should.ThrowAsync<OperationCanceledException>(async () => await parked);
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Open);
     }
 
     [Fact]
