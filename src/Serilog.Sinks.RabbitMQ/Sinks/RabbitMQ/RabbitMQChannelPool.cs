@@ -106,6 +106,10 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         return default;
     }
 
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Surplus-channel disposal is best-effort clean-up for channels we cannot re-pool; any failure is logged to SelfLog and must not propagate into the caller's publish path (RabbitMQClient.PublishAsync's finally).")]
     private static async ValueTask DisposeSurplusChannelAsync(IRabbitMQChannel channel)
     {
         SelfLog.WriteLine("Returned channel could not be re-pooled (pool full or closed); disposing.");
