@@ -122,7 +122,15 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
             Version = source.Version,
         };
 
-    private ConnectionFactory GetConnectionFactory()
+    /// <summary>
+    /// Builds the underlying <see cref="ConnectionFactory"/> from the configuration.
+    /// Exposed internally so tests can exercise each wiring branch (auth mechanism
+    /// selection, SSL, ClientProvidedName, Heartbeat, VHost, Port, Hostnames) without
+    /// a running broker. Each call constructs a fresh instance; callers outside the
+    /// constructor should treat the returned value as immutable configuration.
+    /// </summary>
+    /// <returns>A newly-constructed <see cref="ConnectionFactory"/>.</returns>
+    internal ConnectionFactory GetConnectionFactory()
     {
         // prepare connection factory
         var connectionFactory = new ConnectionFactory

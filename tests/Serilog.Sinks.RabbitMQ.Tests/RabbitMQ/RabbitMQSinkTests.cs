@@ -1,12 +1,13 @@
 using Serilog.Configuration;
 using Serilog.Core;
-using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Compact;
+using Serilog.Sinks.RabbitMQ.Tests.TestHelpers;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
+[Collection("SelfLog")]
 public class RabbitMQSinkTests
 {
     private sealed class StubClient : IRabbitMQClient
@@ -172,14 +173,13 @@ public class RabbitMQSinkTests
         // AsyncHelpers.RunSync must fully isolate async continuations from the caller's
         // SynchronizationContext, otherwise Dispose() will deadlock under a single-threaded
         // UI-style context (WinForms/WPF). We install an outer context whose Post throws —
-        // any continuation routed through it is a bug in the sync-over-async bridge and
-        // the dispose thread would either fail to complete or hang.
-        //
-        // The primary contract — no deadlock — is proven by thread.Join(5s) below. An
-        // earlier version of this test also asserted that SelfLog stayed empty, but
-        // SelfLog is a global static and tests in parallel classes (e.g. the channel-
-        // pool warmup-retry tests) write to it; that assertion was inherently flaky. See
-        // issue #283 for the broader SelfLog parallel-class hygiene work.
+        // any continuation routed through it is a bug in the sync-over-async bridge, and
+        // Sink.Dispose swallows exceptions into SelfLog so we also capture SelfLog to
+        // detect silent regressions where the outer context got invoked. The
+        // [Collection("SelfLog")] attribute on this class serialises every SelfLog-touching
+        // test (issue #282) so the assertion below is not racy against parallel writers.
+        using var selfLog = new SelfLogScope(out var selfLogBuilder);
+
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = new YieldingDisposeClient();
@@ -198,6 +198,7 @@ public class RabbitMQSinkTests
 
         disposeThread.Join(TimeSpan.FromSeconds(5)).ShouldBeTrue(
             "RabbitMQSink.Dispose deadlocked on a single-threaded SynchronizationContext.");
+        selfLogBuilder.ToString().ShouldBeEmpty();
         rabbitMQClient.DisposeAsyncCallCount.ShouldBe(1);
     }
 
@@ -261,9 +262,7 @@ public class RabbitMQSinkTests
         // Arrange — WriteToSelfLog logs to SelfLog first, then rethrows so BatchingSink
         // (or any Fallback wrapper) can route the failure via its own listener plumbing.
         // Previously the flag also caused silent swallow; that default no longer applies.
-        var selfLogStringBuilder = new StringBuilder();
-        var writer = new StringWriter(selfLogStringBuilder);
-        SelfLog.Enable(writer);
+        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
@@ -290,9 +289,7 @@ public class RabbitMQSinkTests
     public async Task EmitBatchAsync_ShouldWriteExceptionsToSelfLog_WhenFailureSinkThrowsException()
     {
         // Arrange
-        var selfLogStringBuilder = new StringBuilder();
-        var writer = new StringWriter(selfLogStringBuilder);
-        SelfLog.Enable(writer);
+        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
@@ -389,9 +386,7 @@ public class RabbitMQSinkTests
         // Pins the WriteToFailureSink | WriteToSelfLog row of the behaviour matrix: both
         // the SelfLog entry and the per-event emit to the failure sink run, and the
         // exception is swallowed (WriteToFailureSink suppresses the rethrow).
-        var selfLogStringBuilder = new StringBuilder();
-        using var writer = new StringWriter(selfLogStringBuilder);
-        SelfLog.Enable(writer);
+        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
 
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();

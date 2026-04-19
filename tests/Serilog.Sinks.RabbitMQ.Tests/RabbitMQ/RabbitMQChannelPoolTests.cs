@@ -14,8 +14,11 @@
 
 using System.Diagnostics;
 
+using Serilog.Sinks.RabbitMQ.Tests.TestHelpers;
+
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
+[Collection("SelfLog")]
 public class RabbitMQChannelPoolTests
 {
     private static IConnection BuildConnectionWithChannelFactory(Func<IChannel> channelFactory)
@@ -153,16 +156,15 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public async Task ReturnAsync_WhenBrokenChannelDisposeThrows_StillRefillsPool()
+    public async Task ReturnAsync_WhenBrokenChannelDisposeThrows_StillRefillsPoolAndLogs()
     {
         // Arrange — the broken channel's DisposeAsync throws. The fire-and-forget
-        // replacement task must catch the exception (so it is not unobserved) and
-        // still run WarmUpAsync to refill the pool. Without the catch, the await
-        // would short-circuit the lambda and WarmUpAsync would never execute —
-        // WaitForAsync(created == 2) below would then hit its 2s timeout.
-        //
-        // The catch also logs to SelfLog, but asserting on SelfLog here is flaky:
-        // SelfLog is a global static and parallel test classes race for the writer.
+        // replacement task must catch the exception (so it is not unobserved),
+        // log it to SelfLog, and still run WarmUpAsync to refill the pool.
+        // [Collection("SelfLog")] serialises writers so the content assertion
+        // below is deterministic (issue #282).
+        using var selfLog = new SelfLogScope(out var selfLogBuilder);
+
         int created = 0;
         var connection = BuildConnectionWithChannelFactory(() =>
         {
@@ -182,9 +184,10 @@ public class RabbitMQChannelPoolTests
         // Act
         await pool.ReturnAsync(brokenChannel);
 
-        // Assert — the pool refills even though the broken channel's dispose threw.
+        // Assert — replacement still happens and SelfLog records the swallowed error.
         await WaitForAsync(() => Volatile.Read(ref created) == 2);
         await brokenChannel.Received(1).DisposeAsync();
+        selfLogBuilder.ToString().ShouldContain("dispose-boom");
     }
 
     [Fact]
