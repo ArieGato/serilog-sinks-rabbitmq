@@ -415,6 +415,71 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task CreateChannelAsync_WhenDeclareFails_ClosesUnderlyingChannel()
+    {
+        // Deterministic reproducer for the channel leak on declare failure (issue #280).
+        // When ExchangeDeclareAsync throws during warm-up, the just-created IChannel
+        // must be closed rather than leaked to the broker. On master the channel is
+        // never closed — the outer WarmUpSingleAsync catch simply retries with a fresh
+        // channel and the old one becomes an orphan. After the fix, CreateChannelAsync
+        // wraps cleanup in a try/catch that disposes the channel before rethrowing.
+        var createdChannels = new List<IChannel>();
+
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            var channel = CreateOpenChannel();
+            channel.ExchangeDeclareAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<IDictionary<string, object?>?>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.FromException(new InvalidOperationException("declare-fail")));
+
+            lock (createdChannels)
+            {
+                createdChannels.Add(channel);
+            }
+
+            return channel;
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            Exchange = "x",
+            ExchangeType = "topic",
+            AutoCreateExchange = true,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until at least one channel has had ExchangeDeclareAsync invoked (and
+        // thrown). Any such channel must subsequently have CloseAsync called on it.
+        IChannel? firstFailed = null;
+        await WaitForAsync(() =>
+        {
+            lock (createdChannels)
+            {
+                firstFailed = createdChannels.FirstOrDefault(c => c.ReceivedCalls()
+                    .Any(call => call.GetMethodInfo().Name == nameof(IChannel.ExchangeDeclareAsync)));
+                return firstFailed is not null;
+            }
+        });
+
+        firstFailed.ShouldNotBeNull();
+        var failedChannel = firstFailed;
+
+        await WaitForAsync(() => failedChannel.ReceivedCalls()
+            .Any(call => call.GetMethodInfo().Name == nameof(IChannel.CloseAsync)));
+
+        await failedChannel.Received().CloseAsync();
+    }
+
+    [Fact]
     public async Task GetAsync_AfterDispose_ThrowsInvalidOperationException()
     {
         // Covers the new ChannelClosedException-to-InvalidOperationException mapping
