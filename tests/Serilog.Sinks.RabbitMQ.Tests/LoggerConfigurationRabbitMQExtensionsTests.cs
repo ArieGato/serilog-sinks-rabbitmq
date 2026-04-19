@@ -1,15 +1,18 @@
 using System.Net.Security;
 using System.Security.Authentication;
 using Serilog.Events;
+using Serilog.Formatting;
 using Serilog.Formatting.Compact;
 
 namespace Serilog.Sinks.RabbitMQ.Tests;
 
-// The flat-overload tests below construct real RabbitMQSink instances, which spawn a
-// background channel-pool warmup task. When no broker is reachable the warmup writes
-// "Failed to warm up RabbitMQ channel" to SelfLog. Joining the "SelfLog" collection
-// serialises these tests against the SelfLog-asserting tests in other classes so those
-// writes do not land in a sibling test's StringWriter (issue #282).
+// Most tests below operate on the internal Build{WriteTo,AuditTo}Configurations helpers,
+// which do not construct a real RabbitMQSink and therefore do not spawn background channel-
+// pool warmup tasks. A handful of tests at the top still drive the full extension surface
+// (Validate regression guards, failure-sink wiring, QueueLimit forwarding, RegisterSink
+// default substitution). Those do build a real sink, so the class remains in the
+// [Collection("SelfLog")] group to serialise against the SelfLog-asserting tests
+// elsewhere (issue #282).
 [Collection("SelfLog")]
 public class LoggerConfigurationRabbitMQExtensionsTests
 {
@@ -144,11 +147,12 @@ public class LoggerConfigurationRabbitMQExtensionsTests
     [Fact]
     public void WriteTo_RabbitMQ_AppliesDefaults_WhenBatchingValuesAreDefault()
     {
-        // Covers the default-substitution branches in RegisterSink (lines
-        // around BatchPostingLimit == default / BufferingTimeLimit == default).
-        // A caller who binds from appsettings with these omitted gets the
-        // property-initializer values; one who constructs a config and leaves
-        // the batch values at their CLR defaults gets the library defaults.
+        // Covers the default-substitution branches in RegisterSink (BatchPostingLimit ==
+        // default / BufferingTimeLimit == default). A caller who binds from appsettings
+        // with those values omitted gets the property-initializer values; one who
+        // constructs a config and leaves the batch values at their CLR defaults gets the
+        // library defaults. Asserting the mutation on the caller's sinkConfig is a real
+        // behavioural check (unlike the coverage-only flat-overload tests above).
         var sinkConfig = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = 0,
@@ -162,99 +166,6 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         logger.ShouldNotBeNull();
         sinkConfig.BatchPostingLimit.ShouldBe(50);
         sinkConfig.BufferingTimeLimit.ShouldBe(TimeSpan.FromSeconds(2));
-    }
-
-    [Fact]
-    public void WriteTo_RabbitMQ_FlatOverload_Defaults_Builds()
-    {
-        // Happy path for the large parameter-list overload with only the required
-        // args. Exercises every null-coalescing (exchange / exchangeType / routingKey
-        // / vHost / sendMessageEvents) and the non-SSL / no-formatter branches.
-        using var logger = new LoggerConfiguration()
-            .WriteTo.RabbitMQ(
-                hostnames: ["localhost"],
-                username: "guest",
-                password: "guest",
-                channelCount: 1)
-            .CreateLogger();
-
-        logger.ShouldNotBeNull();
-    }
-
-    [Fact]
-    public void WriteTo_RabbitMQ_FlatOverload_AllOptions_Builds()
-    {
-        // Exercises every non-default branch of the flat overload: SSL on with
-        // explicit ServerName, non-null formatter, explicit strings for every
-        // optional, non-null sendMessageEvents.
-        using var logger = new LoggerConfiguration()
-            .WriteTo.RabbitMQ(
-                hostnames: ["localhost"],
-                username: "guest",
-                password: "guest",
-                exchange: "x",
-                exchangeType: "topic",
-                deliveryMode: RabbitMQDeliveryMode.Durable,
-                routingKey: "r",
-                port: 5672,
-                vHost: "/custom",
-                clientProvidedName: "unit-test",
-                heartbeat: 30,
-                sslEnabled: true,
-                sslServerName: "localhost",
-                sslVersion: SslProtocols.Tls12,
-                sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateNameMismatch,
-                sslCheckCertificateRevocation: true,
-                batchPostingLimit: 10,
-                bufferingTimeLimit: TimeSpan.FromSeconds(5),
-                queueLimit: 500,
-                formatter: new CompactJsonFormatter(),
-                autoCreateExchange: true,
-                channelCount: 2,
-                levelSwitch: LogEventLevel.Warning,
-                emitEventFailure: EmitEventFailureHandling.WriteToSelfLog,
-                failureSinkConfiguration: null,
-                sendMessageEvents: Substitute.For<ISendMessageEvents>())
-            .CreateLogger();
-
-        logger.ShouldNotBeNull();
-    }
-
-    [Fact]
-    public void WriteTo_RabbitMQ_FlatOverload_AppliesBatchPostingLimitDefault_WhenExplicitZero()
-    {
-        // Covers the `batchPostingLimit == default ? DEFAULT : batchPostingLimit` branch
-        // in the flat overload: an appsettings binding that passes 0 through the parameter
-        // should still end up with the library default (50), not create a zero-limit batch.
-        using var logger = new LoggerConfiguration()
-            .WriteTo.RabbitMQ(
-                hostnames: ["localhost"],
-                username: "guest",
-                password: "guest",
-                batchPostingLimit: 0,
-                channelCount: 1)
-            .CreateLogger();
-
-        logger.ShouldNotBeNull();
-    }
-
-    [Fact]
-    public void WriteTo_RabbitMQ_FlatOverload_SslEnabledWithoutServerName_DoesNotBuildSslOption()
-    {
-        // Documents existing behaviour: when sslEnabled is true but sslServerName is
-        // null, the flat overload does NOT construct an SslOption — effectively silently
-        // disabling SSL. Covers the `sslEnabled && sslServerName is not null` false path.
-        using var logger = new LoggerConfiguration()
-            .WriteTo.RabbitMQ(
-                hostnames: ["localhost"],
-                username: "guest",
-                password: "guest",
-                sslEnabled: true,
-                sslServerName: null,
-                channelCount: 1)
-            .CreateLogger();
-
-        logger.ShouldNotBeNull();
     }
 
     [Fact]
@@ -279,8 +190,29 @@ public class LoggerConfigurationRabbitMQExtensionsTests
     }
 
     [Fact]
-    public void AuditTo_RabbitMQ_FlatOverload_Defaults_Builds()
+    public void WriteTo_RabbitMQ_FlatOverload_DelegatesToBuilderAndRegisterSink()
     {
+        // Smoke test: proves the public flat overload wires through BuildWriteToConfigurations
+        // and RegisterSink. Builder-level mapping is asserted exhaustively in the
+        // BuildWriteToConfigurations_* tests below; here we only need to cover the
+        // delegation itself. A real RabbitMQSink is constructed — its background warmup
+        // will fail (no broker) but is harmless, and [Collection("SelfLog")] serialises
+        // the noise.
+        using var logger = new LoggerConfiguration()
+            .WriteTo.RabbitMQ(
+                hostnames: ["localhost"],
+                username: "guest",
+                password: "guest",
+                channelCount: 1)
+            .CreateLogger();
+
+        logger.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void AuditTo_RabbitMQ_FlatOverload_DelegatesToBuilderAndRegisterAuditSink()
+    {
+        // Smoke test for the audit-side delegation; see WriteTo counterpart above.
         using var logger = new LoggerConfiguration()
             .AuditTo.RabbitMQ(
                 hostnames: ["localhost"],
@@ -293,49 +225,281 @@ public class LoggerConfigurationRabbitMQExtensionsTests
     }
 
     [Fact]
-    public void AuditTo_RabbitMQ_FlatOverload_AllOptions_Builds()
+    public void BuildWriteToConfigurations_MapsEveryOption_WhenAllSet()
     {
-        using var logger = new LoggerConfiguration()
-            .AuditTo.RabbitMQ(
-                hostnames: ["localhost"],
-                username: "guest",
-                password: "guest",
-                exchange: "x",
-                exchangeType: "topic",
-                deliveryMode: RabbitMQDeliveryMode.Durable,
-                routingKey: "r",
-                port: 5672,
-                vHost: "/custom",
-                clientProvidedName: "unit-test-audit",
-                heartbeat: 30,
-                sslEnabled: true,
-                sslServerName: "localhost",
-                sslVersion: SslProtocols.Tls12,
-                sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateNameMismatch,
-                sslCheckCertificateRevocation: true,
-                formatter: new CompactJsonFormatter(),
-                autoCreateExchange: true,
-                channelCount: 1,
-                levelSwitch: LogEventLevel.Warning,
-                sendMessageEvents: Substitute.For<ISendMessageEvents>())
-            .CreateLogger();
+        var formatter = Substitute.For<ITextFormatter>();
+        var sendMessageEvents = Substitute.For<ISendMessageEvents>();
 
-        logger.ShouldNotBeNull();
+        var (client, sink) = LoggerConfigurationRabbitMQExtensions.BuildWriteToConfigurations(
+            hostnames: ["host-a", "host-b"],
+            username: "user",
+            password: "pass",
+            exchange: "logs",
+            exchangeType: "topic",
+            deliveryMode: RabbitMQDeliveryMode.Durable,
+            routingKey: "info",
+            port: 5673,
+            vHost: "/tenant",
+            clientProvidedName: "write-to-test",
+            heartbeat: 45,
+            sslEnabled: true,
+            sslServerName: "broker.example.com",
+            sslVersion: SslProtocols.Tls12,
+            sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateNameMismatch,
+            sslCheckCertificateRevocation: true,
+            batchPostingLimit: 25,
+            bufferingTimeLimit: TimeSpan.FromSeconds(5),
+            queueLimit: 500,
+            formatter: formatter,
+            autoCreateExchange: true,
+            channelCount: 7,
+            levelSwitch: LogEventLevel.Warning,
+            emitEventFailure: EmitEventFailureHandling.ThrowException,
+            sendMessageEvents: sendMessageEvents);
+
+        client.Hostnames.ShouldBe(["host-a", "host-b"]);
+        client.Username.ShouldBe("user");
+        client.Password.ShouldBe("pass");
+        client.Exchange.ShouldBe("logs");
+        client.ExchangeType.ShouldBe("topic");
+        client.DeliveryMode.ShouldBe(RabbitMQDeliveryMode.Durable);
+        client.RoutingKey.ShouldBe("info");
+        client.Port.ShouldBe(5673);
+        client.VHost.ShouldBe("/tenant");
+        client.ClientProvidedName.ShouldBe("write-to-test");
+        client.Heartbeat.ShouldBe((ushort)45);
+        client.AutoCreateExchange.ShouldBeTrue();
+        client.ChannelCount.ShouldBe(7);
+        client.SendMessageEvents.ShouldBeSameAs(sendMessageEvents);
+
+        client.SslOption.ShouldNotBeNull();
+        client.SslOption!.Enabled.ShouldBeTrue();
+        client.SslOption.ServerName.ShouldBe("broker.example.com");
+        client.SslOption.Version.ShouldBe(SslProtocols.Tls12);
+        client.SslOption.AcceptablePolicyErrors.ShouldBe(SslPolicyErrors.RemoteCertificateNameMismatch);
+        client.SslOption.CheckCertificateRevocation.ShouldBeTrue();
+
+        sink.BatchPostingLimit.ShouldBe(25);
+        sink.BufferingTimeLimit.ShouldBe(TimeSpan.FromSeconds(5));
+        sink.QueueLimit.ShouldBe(500);
+        sink.TextFormatter.ShouldBeSameAs(formatter);
+        sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Warning);
+        sink.EmitEventFailure.ShouldBe(EmitEventFailureHandling.ThrowException);
     }
 
     [Fact]
-    public void AuditTo_RabbitMQ_FlatOverload_SslEnabledWithoutServerName_DoesNotBuildSslOption()
+    public void BuildWriteToConfigurations_AppliesDefaults_WhenOptionalArgsAreNullOrDefault()
     {
-        using var logger = new LoggerConfiguration()
-            .AuditTo.RabbitMQ(
-                hostnames: ["localhost"],
-                username: "guest",
-                password: "guest",
-                sslEnabled: true,
-                sslServerName: null,
-                channelCount: 1)
-            .CreateLogger();
+        // All optional reference-ish args are null; numeric defaults match the public
+        // flat overload's parameter defaults. Every null-coalescing / default-substitution
+        // branch resolves to its library default.
+        var (client, sink) = LoggerConfigurationRabbitMQExtensions.BuildWriteToConfigurations(
+            hostnames: ["host-a"],
+            username: "user",
+            password: "pass",
+            exchange: null,
+            exchangeType: null,
+            deliveryMode: RabbitMQDeliveryMode.NonDurable,
+            routingKey: null,
+            port: 0,
+            vHost: null,
+            clientProvidedName: null,
+            heartbeat: 0,
+            sslEnabled: false,
+            sslServerName: null,
+            sslVersion: SslProtocols.None,
+            sslAcceptablePolicyErrors: SslPolicyErrors.None,
+            sslCheckCertificateRevocation: false,
+            batchPostingLimit: 0,
+            bufferingTimeLimit: TimeSpan.Zero,
+            queueLimit: null,
+            formatter: null,
+            autoCreateExchange: false,
+            channelCount: 64,
+            levelSwitch: LogEventLevel.Verbose,
+            emitEventFailure: EmitEventFailureHandling.WriteToSelfLog,
+            sendMessageEvents: null);
 
-        logger.ShouldNotBeNull();
+        // Null-coalescing on the client side.
+        client.Exchange.ShouldBe(string.Empty);
+        client.ExchangeType.ShouldBe(ExchangeType.Fanout);
+        client.RoutingKey.ShouldBe(string.Empty);
+        client.VHost.ShouldBe(string.Empty);
+        client.ClientProvidedName.ShouldBeNull();
+        client.SendMessageEvents.ShouldNotBeNull();
+        client.SendMessageEvents.ShouldBeOfType<SendMessageEvents>();
+        client.SslOption.ShouldBeNull();
+
+        // Default-substitution on the sink side: explicit 0 / TimeSpan.Zero → library defaults.
+        sink.BatchPostingLimit.ShouldBe(50);
+        sink.BufferingTimeLimit.ShouldBe(TimeSpan.FromSeconds(2));
+        sink.QueueLimit.ShouldBeNull();
+        sink.TextFormatter.ShouldBeOfType<CompactJsonFormatter>();
+        sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Verbose);
+        sink.EmitEventFailure.ShouldBe(EmitEventFailureHandling.WriteToSelfLog);
+    }
+
+    [Fact]
+    public void BuildWriteToConfigurations_LeavesSslOptionNull_WhenSslEnabledWithoutServerName()
+    {
+        // Documented edge case: sslEnabled=true but sslServerName=null → SslOption is NOT
+        // constructed (effectively disabling SSL). The previous coverage-only test could
+        // only assert `logger.ShouldNotBeNull()`; here we assert the actual outcome.
+        var (client, _) = LoggerConfigurationRabbitMQExtensions.BuildWriteToConfigurations(
+            hostnames: ["host-a"],
+            username: "user",
+            password: "pass",
+            exchange: null,
+            exchangeType: null,
+            deliveryMode: RabbitMQDeliveryMode.NonDurable,
+            routingKey: null,
+            port: 0,
+            vHost: null,
+            clientProvidedName: null,
+            heartbeat: 0,
+            sslEnabled: true,
+            sslServerName: null,
+            sslVersion: SslProtocols.None,
+            sslAcceptablePolicyErrors: SslPolicyErrors.None,
+            sslCheckCertificateRevocation: false,
+            batchPostingLimit: 50,
+            bufferingTimeLimit: TimeSpan.FromSeconds(2),
+            queueLimit: null,
+            formatter: null,
+            autoCreateExchange: false,
+            channelCount: 64,
+            levelSwitch: LogEventLevel.Verbose,
+            emitEventFailure: EmitEventFailureHandling.WriteToSelfLog,
+            sendMessageEvents: null);
+
+        client.SslOption.ShouldBeNull();
+    }
+
+    [Fact]
+    public void BuildAuditToConfigurations_MapsEveryOption_WhenAllSet()
+    {
+        var formatter = Substitute.For<ITextFormatter>();
+        var sendMessageEvents = Substitute.For<ISendMessageEvents>();
+
+        var (client, sink) = LoggerConfigurationRabbitMQExtensions.BuildAuditToConfigurations(
+            hostnames: ["host-a", "host-b"],
+            username: "user",
+            password: "pass",
+            exchange: "audit",
+            exchangeType: "direct",
+            deliveryMode: RabbitMQDeliveryMode.Durable,
+            routingKey: "warn",
+            port: 5673,
+            vHost: "/audit",
+            clientProvidedName: "audit-to-test",
+            heartbeat: 45,
+            sslEnabled: true,
+            sslServerName: "audit.example.com",
+            sslVersion: SslProtocols.Tls13,
+            sslAcceptablePolicyErrors: SslPolicyErrors.RemoteCertificateChainErrors,
+            sslCheckCertificateRevocation: true,
+            formatter: formatter,
+            autoCreateExchange: true,
+            channelCount: 3,
+            levelSwitch: LogEventLevel.Error,
+            sendMessageEvents: sendMessageEvents);
+
+        client.Hostnames.ShouldBe(["host-a", "host-b"]);
+        client.Username.ShouldBe("user");
+        client.Password.ShouldBe("pass");
+        client.Exchange.ShouldBe("audit");
+        client.ExchangeType.ShouldBe("direct");
+        client.DeliveryMode.ShouldBe(RabbitMQDeliveryMode.Durable);
+        client.RoutingKey.ShouldBe("warn");
+        client.Port.ShouldBe(5673);
+        client.VHost.ShouldBe("/audit");
+        client.ClientProvidedName.ShouldBe("audit-to-test");
+        client.Heartbeat.ShouldBe((ushort)45);
+        client.AutoCreateExchange.ShouldBeTrue();
+        client.ChannelCount.ShouldBe(3);
+        client.SendMessageEvents.ShouldBeSameAs(sendMessageEvents);
+
+        client.SslOption.ShouldNotBeNull();
+        client.SslOption!.Enabled.ShouldBeTrue();
+        client.SslOption.ServerName.ShouldBe("audit.example.com");
+        client.SslOption.Version.ShouldBe(SslProtocols.Tls13);
+        client.SslOption.AcceptablePolicyErrors.ShouldBe(SslPolicyErrors.RemoteCertificateChainErrors);
+        client.SslOption.CheckCertificateRevocation.ShouldBeTrue();
+
+        // Audit builder never populates batching fields — callers cannot pass them.
+        // Property-initializer defaults survive.
+        sink.BatchPostingLimit.ShouldBe(50);
+        sink.BufferingTimeLimit.ShouldBe(TimeSpan.FromSeconds(2));
+        sink.QueueLimit.ShouldBeNull();
+        sink.TextFormatter.ShouldBeSameAs(formatter);
+        sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Error);
+    }
+
+    [Fact]
+    public void BuildAuditToConfigurations_AppliesDefaults_WhenOptionalArgsAreNullOrDefault()
+    {
+        var (client, sink) = LoggerConfigurationRabbitMQExtensions.BuildAuditToConfigurations(
+            hostnames: ["host-a"],
+            username: "user",
+            password: "pass",
+            exchange: null,
+            exchangeType: null,
+            deliveryMode: RabbitMQDeliveryMode.NonDurable,
+            routingKey: null,
+            port: 0,
+            vHost: null,
+            clientProvidedName: null,
+            heartbeat: 0,
+            sslEnabled: false,
+            sslServerName: null,
+            sslVersion: SslProtocols.None,
+            sslAcceptablePolicyErrors: SslPolicyErrors.None,
+            sslCheckCertificateRevocation: false,
+            formatter: null,
+            autoCreateExchange: false,
+            channelCount: 64,
+            levelSwitch: LogEventLevel.Verbose,
+            sendMessageEvents: null);
+
+        client.Exchange.ShouldBe(string.Empty);
+        client.ExchangeType.ShouldBe(ExchangeType.Fanout);
+        client.RoutingKey.ShouldBe(string.Empty);
+        client.VHost.ShouldBe(string.Empty);
+        client.ClientProvidedName.ShouldBeNull();
+        client.SendMessageEvents.ShouldNotBeNull();
+        client.SendMessageEvents.ShouldBeOfType<SendMessageEvents>();
+        client.SslOption.ShouldBeNull();
+
+        sink.TextFormatter.ShouldBeOfType<CompactJsonFormatter>();
+        sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Verbose);
+    }
+
+    [Fact]
+    public void BuildAuditToConfigurations_LeavesSslOptionNull_WhenSslEnabledWithoutServerName()
+    {
+        var (client, _) = LoggerConfigurationRabbitMQExtensions.BuildAuditToConfigurations(
+            hostnames: ["host-a"],
+            username: "user",
+            password: "pass",
+            exchange: null,
+            exchangeType: null,
+            deliveryMode: RabbitMQDeliveryMode.NonDurable,
+            routingKey: null,
+            port: 0,
+            vHost: null,
+            clientProvidedName: null,
+            heartbeat: 0,
+            sslEnabled: true,
+            sslServerName: null,
+            sslVersion: SslProtocols.None,
+            sslAcceptablePolicyErrors: SslPolicyErrors.None,
+            sslCheckCertificateRevocation: false,
+            formatter: null,
+            autoCreateExchange: false,
+            channelCount: 64,
+            levelSwitch: LogEventLevel.Verbose,
+            sendMessageEvents: null);
+
+        client.SslOption.ShouldBeNull();
     }
 }
