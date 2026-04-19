@@ -25,7 +25,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// Serilog RabbitMQ Sink - lets you log to RabbitMQ using Serilog.
 /// </summary>
-public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposable
+public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLoggingFailureListener, IDisposable
 {
     private static readonly RecyclableMemoryStreamManager _manager = new();
     private static readonly Encoding _utf8NoBOM = new UTF8Encoding(false);
@@ -37,6 +37,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     private readonly ISendMessageEvents _sendMessageEvents;
     private readonly bool _persistent;
     private readonly string _routingKey;
+    private ILoggingFailureListener? _failureListener;
     private bool _disposedValue;
 
     /// <summary>
@@ -90,7 +91,30 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
     }
 
     /// <inheritdoc cref="ILogEventSink.Emit" />
-    public void Emit(LogEvent logEvent) => AsyncHelpers.RunSync(() => EmitAsync(logEvent));
+    public void Emit(LogEvent logEvent)
+    {
+        try
+        {
+            AsyncHelpers.RunSync(() => EmitAsync(logEvent));
+        }
+        catch (Exception ex)
+        {
+            // Audit path: notify the listener before propagating so downstream observers
+            // (e.g. WriteTo.Fallback) see the failed event even though we keep audit
+            // semantics by rethrowing.
+            NotifyListener(sinkFailure: null, events: new[] { logEvent }, ex);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public void SetFailureListener(ILoggingFailureListener failureListener)
+    {
+        // Per ISetLoggingFailureListener contract this is called once during
+        // initialization on the init thread, before logging starts. Plain field
+        // assignment is sufficient; no synchronisation required.
+        _failureListener = failureListener;
+    }
 
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
     public async Task EmitBatchAsync(IReadOnlyCollection<LogEvent> batch)
@@ -174,6 +198,7 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             SelfLog.WriteLine("Caught exception while performing bulk operation to RabbitMQ: {0}", ex);
         }
 
+        Exception? sinkFailure = null;
         if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink) && _failureSink != null)
         {
             // Send to a failure sink
@@ -187,13 +212,61 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, IDisposa
             catch (Exception exSink)
             {
                 // No exception is thrown to the caller
+                sinkFailure = exSink;
                 SelfLog.WriteLine("Caught exception while emitting to failure sink {0}: {1}", _failureSink, exSink.Message);
                 SelfLog.WriteLine("Failure sink exception: {0}", exSink);
                 SelfLog.WriteLine("Original exception: {0}", ex);
             }
         }
 
+        NotifyListener(sinkFailure, events, ex);
+
         // Return true if the exception has been handled. e.g. when the exception doesn't need to be rethrown.
         return !_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.ThrowException);
+    }
+
+    /// <summary>
+    /// Notifies the Serilog 4.1+ <see cref="ILoggingFailureListener"/> (when one has been
+    /// registered via <see cref="ISetLoggingFailureListener"/>) that a publish has failed.
+    /// When the legacy <see cref="EmitEventFailureHandling.WriteToFailureSink"/> path also
+    /// failed, escalates to <see cref="LoggingFailureKind.Final"/> with an
+    /// <see cref="AggregateException"/> wrapping both causes.
+    /// </summary>
+    /// <param name="sinkFailure">Non-null when the legacy failure sink itself threw.</param>
+    /// <param name="events">Log events associated with the failure.</param>
+    /// <param name="ex">Original RabbitMQ publish exception.</param>
+    private void NotifyListener(Exception? sinkFailure, IReadOnlyCollection<LogEvent> events, Exception ex)
+    {
+        if (_failureListener is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (sinkFailure is null)
+            {
+                _failureListener.OnLoggingFailed(
+                    this,
+                    LoggingFailureKind.Permanent,
+                    "RabbitMQ publish failed.",
+                    events,
+                    ex);
+            }
+            else
+            {
+                _failureListener.OnLoggingFailed(
+                    this,
+                    LoggingFailureKind.Final,
+                    "RabbitMQ publish failed, and the configured failure sink also failed.",
+                    events,
+                    new AggregateException(ex, sinkFailure));
+            }
+        }
+        catch (Exception exListener)
+        {
+            // A throwing listener must not recurse; drop to SelfLog and continue.
+            SelfLog.WriteLine("Failure listener threw: {0}", exListener);
+        }
     }
 }

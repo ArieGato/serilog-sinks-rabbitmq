@@ -161,6 +161,23 @@ are on an internal interface; no public API change.
 the broker on each retry; repeated failures could accumulate up to the connection's
 `channel_max` limit and then stop opening new channels entirely.
 
+### `ISetLoggingFailureListener` for Serilog 4.1+ FallbackChain
+
+`RabbitMQSink` now implements `ISetLoggingFailureListener` so failures can be routed
+through Serilog's `WriteTo.Fallback(...)` pipeline. When a publish fails and a
+listener has been registered, `OnLoggingFailed` is invoked with
+`LoggingFailureKind.Permanent` and the batch. If the legacy
+`EmitEventFailureHandling.WriteToFailureSink` path is also wired and that sink
+itself fails, the listener is escalated to `LoggingFailureKind.Final` with an
+`AggregateException` wrapping both causes.
+
+The existing `failureSinkConfiguration` mechanism is **not** deprecated in this
+release — `Serilog.Settings.Configuration` does not yet support declarative
+`Fallback` configuration, so appsettings.json users have no migration path.
+Both mechanisms coexist; users can opt into the new listener-based routing today
+if they configure sinks in code, and the legacy parameter will be marked obsolete
+once upstream declarative support lands.
+
 ### Fixed SSL `ServerName` leaking across hostnames
 
 When `Hostnames` contained more than one entry and `SslOption` was enabled, every

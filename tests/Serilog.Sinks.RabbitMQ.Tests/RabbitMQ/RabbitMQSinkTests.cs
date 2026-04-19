@@ -401,4 +401,178 @@ public class RabbitMQSinkTests
         LoggerAuditSinkConfiguration config = null!;
         Should.Throw<ArgumentNullException>(() => config.RabbitMQ((_, _) => { })).ParamName.ShouldBe("loggerAuditSinkConfiguration");
     }
+
+    private static RabbitMQSink CreateSut(
+        IRabbitMQClient rabbitMQClient,
+        EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
+        ILogEventSink? failureSink = null)
+    {
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        return new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, emitEventFailureHandling, failureSink);
+    }
+
+    private static IRabbitMQClient ClientThatFailsPublish(string message = "publish-fail")
+    {
+        var client = Substitute.For<IRabbitMQClient>();
+        client.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
+            .Do(_ => throw new InvalidOperationException(message));
+        return client;
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_NotifiesListener_WithPermanent_WhenPublishFailsAndNoFailureSink()
+    {
+        // Matrix row: only listener configured, publish fails → Permanent + original exception.
+        var listener = Substitute.For<ILoggingFailureListener>();
+        var sut = CreateSut(ClientThatFailsPublish());
+        sut.SetFailureListener(listener);
+
+        await sut.EmitBatchAsync([LogEventBuilder.Create().Build()]);
+
+        listener.Received(1).OnLoggingFailed(
+            sut,
+            LoggingFailureKind.Permanent,
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyCollection<LogEvent>>(),
+            Arg.Is<Exception>(e => e is InvalidOperationException && e.Message == "publish-fail"));
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_NotifiesListenerAndLegacySink_WhenBothConfiguredAndLegacySucceeds()
+    {
+        // Matrix row: both wired, legacy succeeds, listener still fires with Permanent +
+        // the ORIGINAL publish exception (not an AggregateException).
+        var listener = Substitute.For<ILoggingFailureListener>();
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = CreateSut(
+            ClientThatFailsPublish(),
+            EmitEventFailureHandling.WriteToFailureSink,
+            failureSink);
+        sut.SetFailureListener(listener);
+
+        var logEvent = LogEventBuilder.Create().Build();
+        await sut.EmitBatchAsync([logEvent]);
+
+        failureSink.Received(1).Emit(logEvent);
+        listener.Received(1).OnLoggingFailed(
+            sut,
+            LoggingFailureKind.Permanent,
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyCollection<LogEvent>>(),
+            Arg.Is<Exception>(e => e is InvalidOperationException));
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_EscalatesToFinal_WhenLegacyFailureSinkAlsoThrows()
+    {
+        // Matrix row: both wired, legacy fails too → Final + AggregateException(publish, sink).
+        var listener = Substitute.For<ILoggingFailureListener>();
+        var failureSink = Substitute.For<ILogEventSink>();
+        failureSink.When(x => x.Emit(Arg.Any<LogEvent>()))
+            .Do(_ => throw new InvalidOperationException("sink-fail"));
+
+        var sut = CreateSut(
+            ClientThatFailsPublish(),
+            EmitEventFailureHandling.WriteToFailureSink,
+            failureSink);
+        sut.SetFailureListener(listener);
+
+        await sut.EmitBatchAsync([LogEventBuilder.Create().Build()]);
+
+        // Delegate predicate (not expression-tree) because Arg.Is overload selection
+        // otherwise picks the Expression<...> form which rejects declaration patterns.
+        listener.Received(1).OnLoggingFailed(
+            sut,
+            LoggingFailureKind.Final,
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyCollection<LogEvent>>(),
+            Arg.Is<Exception>(e => IsPublishAndSinkAggregate(e)));
+    }
+
+    private static bool IsPublishAndSinkAggregate(Exception e) =>
+        e is AggregateException agg
+        && agg.InnerExceptions.Count == 2
+        && agg.InnerExceptions[0].Message == "publish-fail"
+        && agg.InnerExceptions[1].Message == "sink-fail";
+
+    [Fact]
+    public async Task EmitBatchAsync_DoesNotThrow_WhenFailureListenerThrows()
+    {
+        // A throwing listener must be swallowed (SelfLog entry) without recursing.
+        var listener = Substitute.For<ILoggingFailureListener>();
+        listener.When(x => x.OnLoggingFailed(
+                Arg.Any<object>(),
+                Arg.Any<LoggingFailureKind>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyCollection<LogEvent>>(),
+                Arg.Any<Exception>()))
+            .Do(_ => throw new InvalidOperationException("listener-fail"));
+
+        var sut = CreateSut(ClientThatFailsPublish());
+        sut.SetFailureListener(listener);
+
+        var act = () => sut.EmitBatchAsync([LogEventBuilder.Create().Build()]);
+
+        await Should.NotThrowAsync(act);
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_DoesNotNotifyListener_WhenListenerIsNotSet()
+    {
+        // Baseline: no listener — legacy behaviour unchanged, no exception about null deref.
+        var sut = CreateSut(ClientThatFailsPublish());
+
+        var act = () => sut.EmitBatchAsync([LogEventBuilder.Create().Build()]);
+
+        await Should.NotThrowAsync(act);
+    }
+
+    [Fact]
+    public void Emit_Audit_NotifiesListenerAndRethrows_WhenPublishFails()
+    {
+        // Audit path: listener is notified before the exception propagates (preserving
+        // audit semantics of "throw on failure").
+        var listener = Substitute.For<ILoggingFailureListener>();
+        var sut = CreateSut(ClientThatFailsPublish());
+        sut.SetFailureListener(listener);
+
+        var logEvent = LogEventBuilder.Create().Build();
+        Should.Throw<InvalidOperationException>(() => sut.Emit(logEvent));
+
+        listener.Received(1).OnLoggingFailed(
+            sut,
+            LoggingFailureKind.Permanent,
+            Arg.Any<string>(),
+            Arg.Is<IReadOnlyCollection<LogEvent>>(e => e.Count == 1 && e.Single() == logEvent),
+            Arg.Is<Exception>(e => e is InvalidOperationException && e.Message == "publish-fail"));
+    }
+
+    [Fact]
+    public void SetFailureListener_ReplacesPreviouslyRegisteredListener()
+    {
+        // Defensive: sinks should be okay with the pipeline calling SetFailureListener
+        // more than once during construction, even though the contract says "once".
+        var first = Substitute.For<ILoggingFailureListener>();
+        var second = Substitute.For<ILoggingFailureListener>();
+        var sut = CreateSut(ClientThatFailsPublish());
+
+        sut.SetFailureListener(first);
+        sut.SetFailureListener(second);
+
+        Should.Throw<InvalidOperationException>(() => sut.Emit(LogEventBuilder.Create().Build()));
+
+        first.DidNotReceive().OnLoggingFailed(
+            Arg.Any<object>(),
+            Arg.Any<LoggingFailureKind>(),
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyCollection<LogEvent>>(),
+            Arg.Any<Exception>());
+        second.Received(1).OnLoggingFailed(
+            Arg.Any<object>(),
+            Arg.Any<LoggingFailureKind>(),
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyCollection<LogEvent>>(),
+            Arg.Any<Exception>());
+    }
 }
