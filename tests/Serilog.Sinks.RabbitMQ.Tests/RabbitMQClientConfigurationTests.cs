@@ -86,6 +86,17 @@ public class RabbitMQClientConfigurationTests
     }
 
     [Fact]
+    public void Validate_Throws_WhenHostnamesIsNull()
+    {
+        // Covers the `Hostnames is null` short-circuit in Validate(). A nullable-disabled
+        // caller can assign null even though the property type is non-nullable.
+        var sut = ValidSample();
+        sut.Hostnames = null!;
+
+        Should.Throw<ArgumentException>(sut.Validate).Message.ShouldContain("hostnames");
+    }
+
+    [Fact]
     public void Validate_Throws_WhenUsernameIsNullOrEmpty()
     {
         var sut = ValidSample();
