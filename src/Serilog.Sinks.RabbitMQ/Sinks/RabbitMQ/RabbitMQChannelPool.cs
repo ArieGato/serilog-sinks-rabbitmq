@@ -204,6 +204,10 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         }
     }
 
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Cleanup path for a newly-created IChannel: any post-creation failure (declare error, cancellation, etc.) must route through DisposeAsync before the original exception is rethrown, regardless of source.")]
     private async Task<IRabbitMQChannel> CreateChannelAsync(CancellationToken cancellationToken)
     {
         var connection = await _connectionFactory.GetConnectionAsync().ConfigureAwait(false);
@@ -241,7 +245,17 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         {
             // Close the newly-created channel before rethrowing so WarmUpSingleAsync's
             // retry loop does not leak IChannel instances on repeated declare failures.
-            await channel.DisposeAsync().ConfigureAwait(false);
+            // Nested try/catch: a failure inside DisposeAsync must not mask the
+            // original exception (e.g. ExchangeDeclareAsync's error).
+            try
+            {
+                await channel.DisposeAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // best-effort cleanup
+            }
+
             throw;
         }
     }

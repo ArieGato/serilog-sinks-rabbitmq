@@ -480,6 +480,76 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task CreateChannelAsync_WhenDeclareCancelled_ClosesUnderlyingChannel()
+    {
+        // Companion to CreateChannelAsync_WhenDeclareFails_ClosesUnderlyingChannel,
+        // covering the cancellation path. Gates ExchangeDeclareAsync with a TCS, then
+        // disposes the pool so the warm-up's cancellation token fires during declare.
+        // The catch in CreateChannelAsync is bare precisely to cover OperationCanceled
+        // too; this test proves it.
+        var declareGate = new TaskCompletionSource<bool>();
+        var createdChannels = new List<IChannel>();
+
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            var channel = CreateOpenChannel();
+            channel.ExchangeDeclareAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<IDictionary<string, object?>?>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(declareGate.Task);
+
+            lock (createdChannels)
+            {
+                createdChannels.Add(channel);
+            }
+
+            return channel;
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            Exchange = "x",
+            ExchangeType = "topic",
+            AutoCreateExchange = true,
+        };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until warm-up has entered ExchangeDeclareAsync (blocked on the gate).
+        IChannel? target = null;
+        await WaitForAsync(() =>
+        {
+            lock (createdChannels)
+            {
+                target = createdChannels.FirstOrDefault(c => c.ReceivedCalls()
+                    .Any(call => call.GetMethodInfo().Name == nameof(IChannel.ExchangeDeclareAsync)));
+                return target is not null;
+            }
+        });
+
+        target.ShouldNotBeNull();
+        var blockedChannel = target;
+
+        // Dispose the pool: _shutdownCts cancels the warm-up's token. The declare call
+        // becomes cancelled (TrySetCanceled propagates via the task), the catch fires,
+        // and the channel must be closed.
+        declareGate.TrySetCanceled();
+        await pool.DisposeAsync();
+
+        await WaitForAsync(() => blockedChannel.ReceivedCalls()
+            .Any(call => call.GetMethodInfo().Name == nameof(IChannel.CloseAsync)));
+
+        await blockedChannel.Received().CloseAsync();
+    }
+
+    [Fact]
     public async Task GetAsync_AfterDispose_ThrowsInvalidOperationException()
     {
         // Covers the new ChannelClosedException-to-InvalidOperationException mapping
