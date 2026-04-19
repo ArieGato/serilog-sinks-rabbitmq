@@ -441,16 +441,42 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        await WaitForAsync(() => connection.ReceivedCalls()
-            .Any(c => c.GetMethodInfo().Name == nameof(IConnection.CreateChannelAsync)));
 
-        // Queue is full (capacity 1, warmed with 1 channel). Returning another open
-        // channel cannot be re-pooled — TryWrite fails and we take the dispose path.
+        // Drain+return the warmed channel to guarantee the pool is at capacity before
+        // we test the surplus path. Just waiting on ReceivedCalls races with the write.
+        var warmed = await pool.GetAsync();
+        await pool.ReturnAsync(warmed);
+
         var surplusChannel = Substitute.For<IRabbitMQChannel>();
         surplusChannel.IsOpen.Returns(true);
 
         await pool.ReturnAsync(surplusChannel);
 
+        await surplusChannel.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReturnAsync_WhenSurplusChannelDisposeThrows_SwallowsException()
+    {
+        // Covers the catch arm inside DisposeSurplusChannelAsync. A surplus channel
+        // whose DisposeAsync throws must not propagate the exception to the caller
+        // (RabbitMQClient.PublishAsync's finally); the error is best-effort logged
+        // to SelfLog.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        var warmed = await pool.GetAsync();
+        await pool.ReturnAsync(warmed);
+
+        var surplusChannel = Substitute.For<IRabbitMQChannel>();
+        surplusChannel.IsOpen.Returns(true);
+        surplusChannel.When(c => c.DisposeAsync())
+            .Do(_ => throw new InvalidOperationException("surplus-dispose-fail"));
+
+        await Should.NotThrowAsync(async () => await pool.ReturnAsync(surplusChannel));
         await surplusChannel.Received(1).DisposeAsync();
     }
 

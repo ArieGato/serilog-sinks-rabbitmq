@@ -163,7 +163,11 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         Justification = "Warm-up retries on any transient broker error so the pool can recover from network or broker hiccups without taking the sink down.")]
     private async Task<bool> WarmUpSingleAsync(CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        // while (true): all exits happen through return paths inside the body (success,
+        // orphan, or cancellation from one of the awaited operations). Looping with an
+        // explicit cancellation-check as the condition added an unreachable-in-practice
+        // branch that skewed coverage for no added safety.
+        while (true)
         {
             try
             {
@@ -194,8 +198,6 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                 }
             }
         }
-
-        return false;
     }
 
     private async Task<IRabbitMQChannel> CreateChannelAsync(CancellationToken cancellationToken)
