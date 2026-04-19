@@ -321,6 +321,211 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task Warmup_DeclaresExchangeOnce_UnderConcurrentWarmup()
+    {
+        // Deterministic reproducer for the exchange-declare race on _exchangeDeclared.
+        // The first channel's ExchangeDeclareAsync blocks on a gate; while blocked, a
+        // parallel Task.Run(WarmUpAsync(1)) is spawned via ReturnAsync(brokenChannel).
+        // On master both warmups see _exchangeDeclared == false and each declare the
+        // exchange — declareCalls == 2, test fails. After the fix, the second path
+        // serialises on the guard and sees the flag set, so declareCalls == 1.
+        // TaskCompletionSource non-generic is .NET 5+; use bool variant for net48.
+        var gate = new TaskCompletionSource<bool>();
+        var createdChannels = new List<IChannel>();
+
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            var channel = CreateOpenChannel();
+            channel.ExchangeDeclareAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<IDictionary<string, object?>?>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(gate.Task);
+
+            lock (createdChannels)
+            {
+                createdChannels.Add(channel);
+            }
+
+            return channel;
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            Exchange = "x",
+            ExchangeType = "topic",
+            AutoCreateExchange = true,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until the first channel has entered ExchangeDeclareAsync (now blocked on the gate).
+        await WaitForAsync(() =>
+        {
+            lock (createdChannels)
+            {
+                return createdChannels.Any(c => c.ReceivedCalls()
+                    .Any(call => call.GetMethodInfo().Name == nameof(IChannel.ExchangeDeclareAsync)));
+            }
+        });
+
+        // Spawn a parallel warmup. ReturnAsync of a broken channel triggers
+        // Task.Run(WarmUpAsync(1)); while the initial warmup is blocked inside
+        // ExchangeDeclareAsync, _exchangeDeclared is still false, so the buggy
+        // code enters the declare branch a second time.
+        var brokenChannel = Substitute.For<IRabbitMQChannel>();
+        brokenChannel.IsOpen.Returns(false);
+        await pool.ReturnAsync(brokenChannel);
+
+        // Wait until the second channel has been created so we know the parallel
+        // WarmUpAsync has reached CreateChannelAsync's declare check.
+        await WaitForAsync(() =>
+        {
+            lock (createdChannels)
+            {
+                return createdChannels.Count >= 2;
+            }
+        });
+
+        // Give the second warmup time to pass CreateChannelAsync and enter the declare
+        // check. On master (buggy code) it must reach ExchangeDeclareAsync before we
+        // release the gate, otherwise the flag will already be set by the first warmup
+        // and the race will not fire (false green). 500 ms is generous for slow CI
+        // workers; this happens on every run so the cost is bounded.
+        await Task.Delay(500);
+
+        gate.SetResult(true);
+
+        IChannel[] snapshot;
+        lock (createdChannels)
+        {
+            snapshot = createdChannels.ToArray();
+        }
+
+        var declareCalls = snapshot.Sum(c => c.ReceivedCalls()
+            .Count(call => call.GetMethodInfo().Name == nameof(IChannel.ExchangeDeclareAsync)));
+
+        declareCalls.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetAsync_AfterDispose_ThrowsInvalidOperationException()
+    {
+        // Covers the new ChannelClosedException-to-InvalidOperationException mapping
+        // in GetAsync, which replaces the old OperationCanceledException signalling
+        // for pool disposal.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => connection.ReceivedCalls()
+            .Any(c => c.GetMethodInfo().Name == nameof(IConnection.CreateChannelAsync)));
+
+        await pool.DisposeAsync();
+
+        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+    }
+
+    [Fact]
+    public async Task ReturnAsync_WhenPoolIsFull_DisposesSurplusChannel()
+    {
+        // Covers the new surplus-channel branch in ReturnAsync: Writer.TryWrite returns
+        // false when the bounded Channel<T> is at capacity and no GetAsync has drained
+        // it. The channel should be disposed via DisposeSurplusChannelAsync rather than
+        // leaking.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Drain+return the warmed channel to guarantee the pool is at capacity before
+        // we test the surplus path. Just waiting on ReceivedCalls races with the write.
+        var warmed = await pool.GetAsync();
+        await pool.ReturnAsync(warmed);
+
+        var surplusChannel = Substitute.For<IRabbitMQChannel>();
+        surplusChannel.IsOpen.Returns(true);
+
+        await pool.ReturnAsync(surplusChannel);
+
+        await surplusChannel.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ReturnAsync_WhenSurplusChannelDisposeThrows_SwallowsException()
+    {
+        // Covers the catch arm inside DisposeSurplusChannelAsync. A surplus channel
+        // whose DisposeAsync throws must not propagate the exception to the caller
+        // (RabbitMQClient.PublishAsync's finally); the error is best-effort logged
+        // to SelfLog.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        var warmed = await pool.GetAsync();
+        await pool.ReturnAsync(warmed);
+
+        var surplusChannel = Substitute.For<IRabbitMQChannel>();
+        surplusChannel.IsOpen.Returns(true);
+        surplusChannel.When(c => c.DisposeAsync())
+            .Do(_ => throw new InvalidOperationException("surplus-dispose-fail"));
+
+        await Should.NotThrowAsync(async () => await pool.ReturnAsync(surplusChannel));
+        await surplusChannel.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task WarmUp_DisposesOrphanChannel_WhenPoolClosesBeforeTryWrite()
+    {
+        // Covers the orphan-dispose branch in WarmUpSingleAsync: CreateChannelAsync
+        // completes AFTER the pool has been disposed, so Writer.TryWrite returns false
+        // and the newly-created channel must be disposed rather than leaked.
+        var gate = new TaskCompletionSource<bool>();
+        var channelCreationEntered = new TaskCompletionSource<bool>();
+        var disposedChannels = new List<IChannel>();
+
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                channelCreationEntered.TrySetResult(true);
+                await gate.Task;
+                var ch = CreateOpenChannel();
+                ch.When(c => c.Dispose()).Do(_ => disposedChannels.Add(ch));
+                return ch;
+            });
+
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until WarmUp has entered CreateChannelAsync (now blocked on the gate).
+        await channelCreationEntered.Task;
+
+        // Dispose the pool while the channel is still being "created". This calls
+        // Writer.TryComplete(), so the eventual TryWrite in WarmUpSingleAsync fails.
+        await pool.DisposeAsync();
+
+        // Release the gate: CreateChannelAsync now returns, WarmUpSingleAsync attempts
+        // TryWrite, fails, and should dispose the orphan channel.
+        gate.SetResult(true);
+
+        await WaitForAsync(() => disposedChannels.Count >= 1);
+        disposedChannels.Count.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Constructor_DefaultsToSixtyFourChannels_WhenChannelCountIsZero()
     {
         // Arrange

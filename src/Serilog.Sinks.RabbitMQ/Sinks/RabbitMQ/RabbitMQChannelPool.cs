@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading.Channels;
 using RabbitMQ.Client;
 using Serilog.Debugging;
 
@@ -31,8 +31,8 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     private readonly RabbitMQClientConfiguration _config;
     private readonly IRabbitMQConnectionFactory _connectionFactory;
     private readonly int _size;
-    private readonly ConcurrentBag<IRabbitMQChannel> _available = new();
-    private readonly SemaphoreSlim _signal;
+    private readonly Channel<IRabbitMQChannel> _channels;
+    private readonly SemaphoreSlim _exchangeDeclareLock = new(1, 1);
     private readonly CancellationTokenSource _shutdownCts = new();
     private volatile bool _exchangeDeclared;
     private int _disposed;
@@ -50,7 +50,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         _config = configuration;
         _connectionFactory = connectionFactory;
         _size = configuration.ChannelCount > 0 ? configuration.ChannelCount : RabbitMQClient.DEFAULT_CHANNEL_COUNT;
-        _signal = new SemaphoreSlim(0, _size);
+        _channels = Channel.CreateBounded<IRabbitMQChannel>(_size);
 
         _ = Task.Run(() => WarmUpAsync(_size, _shutdownCts.Token));
     }
@@ -58,10 +58,14 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// <inheritdoc />
     public async ValueTask<IRabbitMQChannel> GetAsync(CancellationToken cancellationToken = default)
     {
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdownCts.Token);
-        await _signal.WaitAsync(linked.Token).ConfigureAwait(false);
-        _available.TryTake(out var channel);
-        return channel!;
+        try
+        {
+            return await _channels.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (ChannelClosedException)
+        {
+            throw new InvalidOperationException("Channel pool has been disposed.");
+        }
     }
 
     /// <inheritdoc />
@@ -74,8 +78,15 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 
         if (channel.IsOpen)
         {
-            _available.Add(channel);
-            _signal.Release();
+            // TryWrite returns false when the writer has been completed (disposal raced
+            // with the return) or when the queue is full (caller returned more channels
+            // than they rented). Either way, the pool cannot take the channel; dispose
+            // it and log so accidental over-returns are visible rather than silent.
+            if (!_channels.Writer.TryWrite(channel))
+            {
+                return DisposeSurplusChannelAsync(channel);
+            }
+
             return default;
         }
 
@@ -95,6 +106,23 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         return default;
     }
 
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Surplus-channel disposal is best-effort clean-up for channels we cannot re-pool; any failure is logged to SelfLog and must not propagate into the caller's publish path (RabbitMQClient.PublishAsync's finally).")]
+    private static async ValueTask DisposeSurplusChannelAsync(IRabbitMQChannel channel)
+    {
+        SelfLog.WriteLine("Returned channel could not be re-pooled (pool full or closed); disposing.");
+        try
+        {
+            await channel.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            SelfLog.WriteLine("Failed to dispose surplus RabbitMQ channel: {0}", ex.Message);
+        }
+    }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
@@ -104,8 +132,9 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         }
 
         _shutdownCts.Cancel();
+        _channels.Writer.TryComplete();
 
-        while (_available.TryTake(out var channel))
+        while (_channels.Reader.TryRead(out var channel))
         {
             try
             {
@@ -117,42 +146,59 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             }
         }
 
-        _signal.Dispose();
+        _exchangeDeclareLock.Dispose();
         _shutdownCts.Dispose();
+    }
+
+    private async Task WarmUpAsync(int count, CancellationToken cancellationToken)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (!await WarmUpSingleAsync(cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
+        }
     }
 
     [SuppressMessage(
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Warm-up retries on any transient broker error so the pool can recover from network or broker hiccups without taking the sink down.")]
-    private async Task WarmUpAsync(int count, CancellationToken cancellationToken)
+    private async Task<bool> WarmUpSingleAsync(CancellationToken cancellationToken)
     {
-        for (int i = 0; i < count; i++)
+        // while (true): all exits happen through return paths inside the body (success,
+        // orphan, or cancellation from one of the awaited operations). Looping with an
+        // explicit cancellation-check as the condition added an unreachable-in-practice
+        // branch that skewed coverage for no added safety.
+        while (true)
         {
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
+                var channel = await CreateChannelAsync(cancellationToken).ConfigureAwait(false);
+                if (!_channels.Writer.TryWrite(channel))
+                {
+                    // Pool closed while we were creating the channel; dispose the orphan.
+                    await channel.DisposeAsync().ConfigureAwait(false);
+                    return false;
+                }
+
+                return true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+            catch (Exception ex)
+            {
+                SelfLog.WriteLine("Failed to warm up RabbitMQ channel: {0}", ex);
                 try
                 {
-                    var channel = await CreateChannelAsync(cancellationToken).ConfigureAwait(false);
-                    _available.Add(channel);
-                    _signal.Release();
-                    break;
+                    await Task.Delay(WarmUpRetryDelay, cancellationToken).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException)
                 {
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    SelfLog.WriteLine("Failed to warm up RabbitMQ channel: {0}", ex);
-                    try
-                    {
-                        await Task.Delay(WarmUpRetryDelay, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        return;
-                    }
+                    return false;
                 }
             }
         }
@@ -163,14 +209,27 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         var connection = await _connectionFactory.GetConnectionAsync().ConfigureAwait(false);
         var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        if (!_exchangeDeclared && _config.AutoCreateExchange)
+        if (_config.AutoCreateExchange && !_exchangeDeclared)
         {
-            await channel.ExchangeDeclareAsync(
-                _config.Exchange,
-                _config.ExchangeType,
-                _config.DeliveryMode == RabbitMQDeliveryMode.Durable,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            _exchangeDeclared = true;
+            await _exchangeDeclareLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                // Double-check under the lock: another warm-up may have declared the
+                // exchange while we were waiting for the semaphore.
+                if (!_exchangeDeclared)
+                {
+                    await channel.ExchangeDeclareAsync(
+                        _config.Exchange,
+                        _config.ExchangeType,
+                        _config.DeliveryMode == RabbitMQDeliveryMode.Durable,
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                    _exchangeDeclared = true;
+                }
+            }
+            finally
+            {
+                _exchangeDeclareLock.Release();
+            }
         }
 
         return new RabbitMQChannel(channel);
