@@ -12,6 +12,10 @@ public class RabbitMQConnectionFactoryTests
         typeof(RabbitMQConnectionFactory).GetField("_connection", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("RabbitMQConnectionFactory._connection field not found.");
 
+    private static readonly FieldInfo ConnectionLockField =
+        typeof(RabbitMQConnectionFactory).GetField("_connectionLock", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("RabbitMQConnectionFactory._connectionLock field not found.");
+
     private static RabbitMQClientConfiguration SslSample(params string[] hostnames) => new()
     {
         Hostnames = hostnames.ToList(),
@@ -294,31 +298,38 @@ public class RabbitMQConnectionFactoryTests
     }
 
     [Fact]
-    public async Task CloseAsync_ReleasesLock_SoSubsequentCallsProceed()
+    public async Task CloseAsync_ReleasesLock_AndDoesNotStarveConcurrentCallers()
     {
-        // Regression guard for #284: pre-fix, CloseAsync did WaitAsync(10) whose
+        // Regression guard for #284. Pre-fix, CloseAsync did `WaitAsync(10)`, whose
         // Task<bool> result was awaited but never checked, and whose acquired slot
-        // was never released in a finally. Each call drained one slot from the (1,1)
-        // semaphore; the second call would then hang forever waiting for a slot that
-        // had been permanently lost. The fix wraps Release() in a finally, so
-        // back-to-back CloseAsync calls both complete and both forward to the
-        // cached connection's CloseAsync.
+        // was never released in a finally. `WaitAsync(10)` completes after 10 ms
+        // whether or not the slot was acquired, so the method ran to completion —
+        // hiding the bug from shape-of-completion assertions. The ACTUAL symptom is
+        // that the (1,1) semaphore's slot is drained after one call and never
+        // restored, which starves subsequent WaitAsync callers (primarily
+        // GetConnectionAsync). Assert the slot is restored directly via
+        // SemaphoreSlim.CurrentCount — under the old code this is 0 after
+        // CloseAsync; under the fix it's back to 1.
         using var cts = new CancellationTokenSource();
         var sut = Build(PlainSample(), cts);
         var connection = Substitute.For<IConnection>();
         SetCachedConnection(sut, connection);
 
+        var semaphore = ConnectionLockField.GetValue(sut) as SemaphoreSlim
+            ?? throw new InvalidOperationException("_connectionLock was null");
+        semaphore.CurrentCount.ShouldBe(1); // sanity: lock starts free
+
         await sut.CloseAsync();
 
-        // Without the fix the second call would hang on the semaphore forever; the
-        // Task.WhenAny race below bounds a regression to a fast test failure.
-        // Task.WaitAsync(TimeSpan) is .NET 6+ only, and the test assembly also
-        // targets net48.
-        var second = sut.CloseAsync();
-        var completed = await Task.WhenAny(second, Task.Delay(TimeSpan.FromSeconds(2)));
-        completed.ShouldBeSameAs(second, "second CloseAsync hung — semaphore slot was not released");
-        await second;
+        semaphore.CurrentCount.ShouldBe(1); // fix: slot released in `finally`
 
+        // Also prove back-to-back calls are observationally correct — both forward
+        // to the cached connection and both return. Under the old code this still
+        // passed (WaitAsync(10) timed out on the second call and the method
+        // proceeded anyway), so this is a shape-of-completion sanity check rather
+        // than the regression guard.
+        await sut.CloseAsync();
+        semaphore.CurrentCount.ShouldBe(1);
         await connection.Received(2).CloseAsync();
     }
 
