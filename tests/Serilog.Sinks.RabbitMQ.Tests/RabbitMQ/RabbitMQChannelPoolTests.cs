@@ -480,6 +480,72 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task CreateChannelAsync_WhenDeclareFailsAndDisposeAlsoThrows_SwallowsDisposeAndRetries()
+    {
+        // Covers the nested catch in CreateChannelAsync that protects the original
+        // declare exception from being masked by a throwing DisposeAsync. Setup:
+        // ExchangeDeclareAsync throws the "real" error, and _channel.Dispose() also
+        // throws during cleanup. Without the nested try/catch, the Dispose failure
+        // would replace the declare failure as the observed exception. With it, the
+        // dispose error is swallowed and the warmup loop retries cleanly — proven by
+        // a second channel being created after the 500 ms retry delay.
+        var createdChannels = new List<IChannel>();
+
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            var channel = CreateOpenChannel();
+            channel.ExchangeDeclareAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<IDictionary<string, object?>?>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.FromException(new InvalidOperationException("declare-fail")));
+            channel.When(c => c.Dispose())
+                .Do(_ => throw new InvalidOperationException("dispose-fail"));
+
+            lock (createdChannels)
+            {
+                createdChannels.Add(channel);
+            }
+
+            return channel;
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            Exchange = "x",
+            ExchangeType = "topic",
+            AutoCreateExchange = true,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until the first channel has had Dispose() invoked. Dispose is called
+        // from RabbitMQChannel.DisposeAsync and (per the mock setup) throws, so the
+        // swallow path in CreateChannelAsync's nested catch MUST have executed for
+        // this to observe as completed. Deterministic — no dependency on the 500 ms
+        // retry delay, so it stays stable even when tests run in parallel classes.
+        IChannel? first = null;
+        await WaitForAsync(() =>
+        {
+            lock (createdChannels)
+            {
+                first = createdChannels.FirstOrDefault();
+                return first?.ReceivedCalls()
+                    .Any(call => call.GetMethodInfo().Name == nameof(IDisposable.Dispose)) == true;
+            }
+        });
+
+        first.ShouldNotBeNull();
+        first.Received().Dispose();
+    }
+
+    [Fact]
     public async Task CreateChannelAsync_WhenDeclareCancelled_ClosesUnderlyingChannel()
     {
         // Companion to CreateChannelAsync_WhenDeclareFails_ClosesUnderlyingChannel,
