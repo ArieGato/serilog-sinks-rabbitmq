@@ -291,8 +291,11 @@ public class LoggerConfigurationRabbitMQExtensionsTests
     public void BuildWriteToConfigurations_AppliesDefaults_WhenOptionalArgsAreNullOrDefault()
     {
         // All optional reference-ish args are null; numeric defaults match the public
-        // flat overload's parameter defaults. Every null-coalescing / default-substitution
-        // branch resolves to its library default.
+        // flat overload's parameter defaults. Every null-coalescing branch resolves to
+        // its library default. Batching values are passed through verbatim — default
+        // substitution for BatchPostingLimit / BufferingTimeLimit now lives solely in
+        // RegisterSink (covered end-to-end by
+        // WriteTo_RabbitMQ_AppliesDefaults_WhenBatchingValuesAreDefault).
         var (client, sink) = LoggerConfigurationRabbitMQExtensions.BuildWriteToConfigurations(
             hostnames: ["host-a"],
             username: "user",
@@ -330,9 +333,9 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         client.SendMessageEvents.ShouldBeOfType<SendMessageEvents>();
         client.SslOption.ShouldBeNull();
 
-        // Default-substitution on the sink side: explicit 0 / TimeSpan.Zero → library defaults.
-        sink.BatchPostingLimit.ShouldBe(50);
-        sink.BufferingTimeLimit.ShouldBe(TimeSpan.FromSeconds(2));
+        // Batching values pass through unchanged; RegisterSink is the single defaulting site.
+        sink.BatchPostingLimit.ShouldBe(0);
+        sink.BufferingTimeLimit.ShouldBe(TimeSpan.Zero);
         sink.QueueLimit.ShouldBeNull();
         sink.TextFormatter.ShouldBeOfType<CompactJsonFormatter>();
         sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Verbose);
