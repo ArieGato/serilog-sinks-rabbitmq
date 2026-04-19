@@ -146,7 +146,7 @@ public class RabbitMQClientConfiguration
     /// previously observed when the checks lived in <c>LoggerConfigurationRabbitMQExtensions</c>.
     /// </remarks>
     /// <exception cref="ArgumentException">Thrown when <see cref="Hostnames"/> is null or empty, <see cref="Username"/> is null or empty, or <see cref="Password"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range or <see cref="ChannelCount"/> is not greater than zero.</exception>
     [SuppressMessage(
         "Major Code Smell",
         "S3928:Parameter names used into ArgumentException constructors should match an existing one",
@@ -171,6 +171,11 @@ public class RabbitMQClientConfiguration
         if (Port is < 0 or > 65535)
         {
             throw new ArgumentOutOfRangeException(nameof(Port), "port must be in a valid range (1 and 65535)");
+        }
+
+        if (ChannelCount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ChannelCount), "ChannelCount must be greater than zero.");
         }
     }
 }

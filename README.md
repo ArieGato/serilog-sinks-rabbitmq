@@ -419,6 +419,10 @@ and integration tests.
 - **`QueueLimit` validation.** `QueueLimit`, when set, must be greater than zero —
   `QueueLimit = 0` now throws `ArgumentOutOfRangeException` rather than silently creating a
   zero-capacity queue. Leave the property unset (`null`) for an unbounded queue.
+- **`ChannelCount` validation.** `ChannelCount` must be greater than zero. `ChannelCount = 0`
+  or a negative value now throws `ArgumentOutOfRangeException` at configuration time;
+  previously the channel pool silently substituted the default of 64. Omit the property (or
+  leave the parameter at its default) to keep the default pool size.
 - **`Microsoft.Extensions.ObjectPool` dependency removed.** No action needed unless your
   application referenced it transitively through this package.
 - **Target frameworks:** `net6.0` and `net9.0` were removed. Supported targets are

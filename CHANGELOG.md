@@ -213,8 +213,15 @@ hand to a custom `RabbitMQSink`) can use it to get the same safety net that
 
 Existing client-configuration checks (non-empty hostnames, non-empty username,
 non-null password, valid port range) were moved verbatim — exception types and
-messages are preserved. `RabbitMQSinkConfiguration.Validate()` is new and
-additionally checks:
+messages are preserved. `RabbitMQClientConfiguration.Validate()` additionally
+checks:
+
+- `ChannelCount > 0` — **tightened constraint**: a zero or negative
+  `ChannelCount` was previously silently substituted with the default of 64
+  inside the channel pool; it is now rejected at configuration time. The
+  defensive clamp in the pool constructor has been removed.
+
+`RabbitMQSinkConfiguration.Validate()` is new and additionally checks:
 
 - `TextFormatter` is non-null
 - `BatchPostingLimit > 0`
@@ -242,6 +249,9 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
 - `RabbitMQClientConfiguration.MaxChannels` is now `[Obsolete]`; use `ChannelCount`
 - `RabbitMQSinkConfiguration.QueueLimit` must be greater than zero when set; zero or
   negative values now throw `ArgumentOutOfRangeException` at configuration time
+- `RabbitMQClientConfiguration.ChannelCount` must be greater than zero; zero or
+  negative values now throw `ArgumentOutOfRangeException` at configuration time
+  (previously silently substituted with the default of 64)
 - `RabbitMQSink.EmitBatchAsync` propagates publish exceptions by default instead of
   silently swallowing them. Use `EmitEventFailureHandling.WriteToFailureSink` to keep
   legacy catch-and-route behaviour.
