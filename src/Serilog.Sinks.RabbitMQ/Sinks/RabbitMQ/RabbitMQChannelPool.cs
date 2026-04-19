@@ -204,34 +204,59 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         }
     }
 
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "Cleanup path for a newly-created IChannel: any post-creation failure (declare error, cancellation, etc.) must route through DisposeAsync before the original exception is rethrown, regardless of source.")]
     private async Task<IRabbitMQChannel> CreateChannelAsync(CancellationToken cancellationToken)
     {
         var connection = await _connectionFactory.GetConnectionAsync().ConfigureAwait(false);
-        var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var underlyingChannel = await connection.CreateChannelAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var channel = new RabbitMQChannel(underlyingChannel);
 
-        if (_config.AutoCreateExchange && !_exchangeDeclared)
+        try
         {
-            await _exchangeDeclareLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
+            if (_config.AutoCreateExchange && !_exchangeDeclared)
             {
-                // Double-check under the lock: another warm-up may have declared the
-                // exchange while we were waiting for the semaphore.
-                if (!_exchangeDeclared)
+                await _exchangeDeclareLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    await channel.ExchangeDeclareAsync(
-                        _config.Exchange,
-                        _config.ExchangeType,
-                        _config.DeliveryMode == RabbitMQDeliveryMode.Durable,
-                        cancellationToken: cancellationToken).ConfigureAwait(false);
-                    _exchangeDeclared = true;
+                    // Double-check under the lock: another warm-up may have declared the
+                    // exchange while we were waiting for the semaphore.
+                    if (!_exchangeDeclared)
+                    {
+                        await underlyingChannel.ExchangeDeclareAsync(
+                            _config.Exchange,
+                            _config.ExchangeType,
+                            _config.DeliveryMode == RabbitMQDeliveryMode.Durable,
+                            cancellationToken: cancellationToken).ConfigureAwait(false);
+                        _exchangeDeclared = true;
+                    }
+                }
+                finally
+                {
+                    _exchangeDeclareLock.Release();
                 }
             }
-            finally
-            {
-                _exchangeDeclareLock.Release();
-            }
-        }
 
-        return new RabbitMQChannel(channel);
+            return channel;
+        }
+        catch
+        {
+            // Close the newly-created channel before rethrowing so WarmUpSingleAsync's
+            // retry loop does not leak IChannel instances on repeated declare failures.
+            // Nested try/catch: a failure inside DisposeAsync must not mask the
+            // original exception (e.g. ExchangeDeclareAsync's error).
+            try
+            {
+                await channel.DisposeAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // best-effort cleanup
+            }
+
+            throw;
+        }
     }
 }
