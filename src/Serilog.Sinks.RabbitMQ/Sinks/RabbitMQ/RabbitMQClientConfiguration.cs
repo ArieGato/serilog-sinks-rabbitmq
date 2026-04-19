@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Diagnostics.CodeAnalysis;
 using RabbitMQ.Client;
 
 namespace Serilog.Sinks.RabbitMQ;
@@ -133,4 +134,37 @@ public class RabbitMQClientConfiguration
             Username = Username,
             VHost = VHost,
         };
+
+    /// <summary>
+    /// Validate this configuration. Throws if any required value is missing or out of range.
+    /// Idempotent and safe to call multiple times.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when <see cref="Hostnames"/> is empty, <see cref="Username"/> is null/empty, or <see cref="Password"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range.</exception>
+    [SuppressMessage(
+        "Major Code Smell",
+        "S3928:Parameter names used into ArgumentException constructors should match an existing one",
+        Justification = "Validating an instance property: paramName refers to the property, not a method parameter. Preserves the exception shape callers saw when this validation lived in LoggerConfigurationRabbitMQExtensions.")]
+    public void Validate()
+    {
+        if (Hostnames.Count == 0)
+        {
+            throw new ArgumentException("hostnames cannot be empty, specify at least one hostname");
+        }
+
+        if (string.IsNullOrEmpty(Username))
+        {
+            throw new ArgumentException("username cannot be 'null' or and empty string.");
+        }
+
+        if (Password == null)
+        {
+            throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
+        }
+
+        if (Port is < 0 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(Port), "port must be in a valid range (1 and 65535)");
+        }
+    }
 }

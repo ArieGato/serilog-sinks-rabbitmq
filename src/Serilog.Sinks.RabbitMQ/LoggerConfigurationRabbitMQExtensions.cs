@@ -324,7 +324,8 @@ public static class LoggerConfigurationRabbitMQExtensions
             ? _defaultBufferingTimeLimit
             : sinkConfiguration.BufferingTimeLimit;
 
-        ValidateRabbitMQClientConfiguration(clientConfiguration);
+        clientConfiguration.Validate();
+        sinkConfiguration.Validate();
 
         if (failureSinkConfiguration == null)
         {
@@ -347,7 +348,8 @@ public static class LoggerConfigurationRabbitMQExtensions
             throw new ArgumentNullException(nameof(loggerAuditSinkConfiguration));
         }
 
-        ValidateRabbitMQClientConfiguration(clientConfiguration);
+        clientConfiguration.Validate();
+        sinkConfiguration.Validate();
 
         return loggerAuditSinkConfiguration.Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration, null), sinkConfiguration.RestrictedToMinimumLevel);
     }
@@ -371,28 +373,5 @@ public static class LoggerConfigurationRabbitMQExtensions
         }
 
         return LoggerSinkConfiguration.CreateSink(lc => lc.Sink(rabbitMQSink, options));
-    }
-
-    private static void ValidateRabbitMQClientConfiguration(RabbitMQClientConfiguration clientConfiguration)
-    {
-        if (clientConfiguration.Hostnames.Count == 0)
-        {
-            throw new ArgumentException("hostnames cannot be empty, specify at least one hostname");
-        }
-
-        if (string.IsNullOrEmpty(clientConfiguration.Username))
-        {
-            throw new ArgumentException("username cannot be 'null' or and empty string.");
-        }
-
-        if (clientConfiguration.Password == null)
-        {
-            throw new ArgumentException("password cannot be 'null'. Specify an empty string if password is empty.");
-        }
-
-        if (clientConfiguration.Port is < 0 or > 65535)
-        {
-            throw new ArgumentOutOfRangeException(nameof(clientConfiguration.Port), "port must be in a valid range (1 and 65535)");
-        }
     }
 }
