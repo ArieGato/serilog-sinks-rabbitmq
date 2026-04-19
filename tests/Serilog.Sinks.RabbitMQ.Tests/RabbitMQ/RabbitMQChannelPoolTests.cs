@@ -886,7 +886,11 @@ public class RabbitMQChannelPoolTests
         // the orphan channel is disposed — we synchronise on that dispose to know the
         // warm-up has run through its finally block.
         declareGate.SetResult(true);
-        await disposed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        // Task.WaitAsync(TimeSpan) is .NET 6+; use Task.WhenAny for net48 compatibility.
+        var completed = await Task.WhenAny(disposed.Task, Task.Delay(TimeSpan.FromSeconds(2)));
+        completed.ShouldBeSameAs(disposed.Task, "warm-up did not reach the orphan-dispose path within the timeout");
+        await disposed.Task;
 
         selfLogBuilder.ToString().ShouldNotContain(nameof(ObjectDisposedException));
     }

@@ -294,6 +294,35 @@ public class RabbitMQConnectionFactoryTests
     }
 
     [Fact]
+    public async Task CloseAsync_ReleasesLock_SoSubsequentCallsProceed()
+    {
+        // Regression guard for #284: pre-fix, CloseAsync did WaitAsync(10) whose
+        // Task<bool> result was awaited but never checked, and whose acquired slot
+        // was never released in a finally. Each call drained one slot from the (1,1)
+        // semaphore; the second call would then hang forever waiting for a slot that
+        // had been permanently lost. The fix wraps Release() in a finally, so
+        // back-to-back CloseAsync calls both complete and both forward to the
+        // cached connection's CloseAsync.
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
+        var connection = Substitute.For<IConnection>();
+        SetCachedConnection(sut, connection);
+
+        await sut.CloseAsync();
+
+        // Without the fix the second call would hang on the semaphore forever; the
+        // Task.WhenAny race below bounds a regression to a fast test failure.
+        // Task.WaitAsync(TimeSpan) is .NET 6+ only, and the test assembly also
+        // targets net48.
+        var second = sut.CloseAsync();
+        var completed = await Task.WhenAny(second, Task.Delay(TimeSpan.FromSeconds(2)));
+        completed.ShouldBeSameAs(second, "second CloseAsync hung — semaphore slot was not released");
+        await second;
+
+        await connection.Received(2).CloseAsync();
+    }
+
+    [Fact]
     public async Task DisposeAsync_ClosesAndDisposesConnection_WhenCached()
     {
         using var cts = new CancellationTokenSource();
