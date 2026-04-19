@@ -5,6 +5,12 @@ using Serilog.Formatting.Compact;
 
 namespace Serilog.Sinks.RabbitMQ.Tests;
 
+// The flat-overload tests below construct real RabbitMQSink instances, which spawn a
+// background channel-pool warmup task. When no broker is reachable the warmup writes
+// "Failed to warm up RabbitMQ channel" to SelfLog. Joining the "SelfLog" collection
+// serialises these tests against the SelfLog-asserting tests in other classes so those
+// writes do not land in a sibling test's StringWriter (issue #282).
+[Collection("SelfLog")]
 public class LoggerConfigurationRabbitMQExtensionsTests
 {
     private static RabbitMQClientConfiguration ValidClientConfiguration() => new()

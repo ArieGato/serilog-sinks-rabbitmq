@@ -27,8 +27,11 @@ public class RabbitMQConnectionFactoryTests
         Password = "guest",
     };
 
-    private static RabbitMQConnectionFactory Build(RabbitMQClientConfiguration configuration) =>
-        new(configuration, new CancellationTokenSource());
+    // CTS ownership stays with the test (caller declares `using var cts`) so the native
+    // handle is released deterministically. Every call must pass a CTS — returning a
+    // factory with an undisposed CTS would leak one per test.
+    private static RabbitMQConnectionFactory Build(RabbitMQClientConfiguration configuration, CancellationTokenSource cts) =>
+        new(configuration, cts);
 
     private static void SetCachedConnection(RabbitMQConnectionFactory sut, IConnection? connection) =>
         ConnectionField.SetValue(sut, connection);
@@ -116,7 +119,8 @@ public class RabbitMQConnectionFactoryTests
     [Fact]
     public void GetConnectionFactory_EnablesAutomaticRecovery_ByDefault()
     {
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
 
         var factory = sut.GetConnectionFactory();
 
@@ -127,7 +131,8 @@ public class RabbitMQConnectionFactoryTests
     [Fact]
     public void GetConnectionFactory_AppliesCredentials_WhenMinimalConfig()
     {
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
 
         var factory = sut.GetConnectionFactory();
 
@@ -145,7 +150,8 @@ public class RabbitMQConnectionFactoryTests
     {
         var configuration = PlainSample();
         configuration.ClientProvidedName = "audit-sink";
-        var sut = Build(configuration);
+        using var cts = new CancellationTokenSource();
+        var sut = Build(configuration, cts);
 
         sut.GetConnectionFactory().ClientProvidedName.ShouldBe("audit-sink");
     }
@@ -155,7 +161,8 @@ public class RabbitMQConnectionFactoryTests
     {
         var configuration = PlainSample();
         configuration.Heartbeat = 45000;
-        var sut = Build(configuration);
+        using var cts = new CancellationTokenSource();
+        var sut = Build(configuration, cts);
 
         sut.GetConnectionFactory().RequestedHeartbeat.ShouldBe(TimeSpan.FromMilliseconds(45000));
     }
@@ -165,7 +172,8 @@ public class RabbitMQConnectionFactoryTests
     {
         var configuration = PlainSample();
         configuration.VHost = "/tenant-a";
-        var sut = Build(configuration);
+        using var cts = new CancellationTokenSource();
+        var sut = Build(configuration, cts);
 
         sut.GetConnectionFactory().VirtualHost.ShouldBe("/tenant-a");
     }
@@ -175,7 +183,8 @@ public class RabbitMQConnectionFactoryTests
     {
         var configuration = PlainSample();
         configuration.Port = 5673;
-        var sut = Build(configuration);
+        using var cts = new CancellationTokenSource();
+        var sut = Build(configuration, cts);
 
         sut.GetConnectionFactory().Port.ShouldBe(5673);
     }
@@ -183,7 +192,8 @@ public class RabbitMQConnectionFactoryTests
     [Fact]
     public void GetConnectionFactory_SetsHostName_ForSingleHostname()
     {
-        var sut = Build(PlainSample("rabbit-a.example.com"));
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample("rabbit-a.example.com"), cts);
 
         sut.GetConnectionFactory().HostName.ShouldBe("rabbit-a.example.com");
     }
@@ -194,7 +204,8 @@ public class RabbitMQConnectionFactoryTests
         // Multi-host cluster: HostName is not populated — the endpoint list drives the
         // connection attempts. Asserting the default (localhost) proves the branch that
         // sets it for the single-host case did not fire.
-        var sut = Build(PlainSample("rabbit-a.example.com", "rabbit-b.example.com"));
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample("rabbit-a.example.com", "rabbit-b.example.com"), cts);
 
         sut.GetConnectionFactory().HostName.ShouldBe("localhost");
     }
@@ -205,7 +216,8 @@ public class RabbitMQConnectionFactoryTests
         var configuration = SslSample("rabbit-a.example.com");
         configuration.SslOption!.Version = SslProtocols.Tls12;
         configuration.SslOption.AcceptablePolicyErrors = SslPolicyErrors.RemoteCertificateNameMismatch;
-        var sut = Build(configuration);
+        using var cts = new CancellationTokenSource();
+        var sut = Build(configuration, cts);
 
         var factory = sut.GetConnectionFactory();
 
@@ -219,7 +231,8 @@ public class RabbitMQConnectionFactoryTests
     {
         var configuration = SslSample("rabbit-a.example.com");
         configuration.SslOption!.CertPath = "/etc/ssl/client.pem";
-        var sut = Build(configuration);
+        using var cts = new CancellationTokenSource();
+        var sut = Build(configuration, cts);
 
         var mechanism = sut.GetConnectionFactory().AuthMechanisms.ShouldHaveSingleItem();
         mechanism.ShouldBeOfType<ExternalMechanismFactory>();
@@ -229,7 +242,8 @@ public class RabbitMQConnectionFactoryTests
     public void GetConnectionFactory_UsesDefaultAuthMechanisms_WhenSslHasNoCertPath()
     {
         var configuration = SslSample("rabbit-a.example.com");
-        var sut = Build(configuration);
+        using var cts = new CancellationTokenSource();
+        var sut = Build(configuration, cts);
 
         // No ExternalMechanismFactory override — the client-library default chain applies.
         sut.GetConnectionFactory().AuthMechanisms.ShouldNotContain(m => m is ExternalMechanismFactory);
@@ -241,7 +255,8 @@ public class RabbitMQConnectionFactoryTests
         // Fast-path: when _connection is already set, GetConnectionAsync short-circuits
         // before taking the semaphore. Covers the pre-lock return in GetConnectionAsync
         // without requiring a live broker.
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
         var cached = Substitute.For<IConnection>();
         SetCachedConnection(sut, cached);
 
@@ -259,7 +274,8 @@ public class RabbitMQConnectionFactoryTests
         // code is tracked separately as an open bug (#284 was auto-closed without a
         // fix). Pinning the current semaphore behaviour here would make the fix harder
         // to land.
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
         var connection = Substitute.For<IConnection>();
         SetCachedConnection(sut, connection);
 
@@ -271,7 +287,8 @@ public class RabbitMQConnectionFactoryTests
     [Fact]
     public async Task CloseAsync_DoesNotThrow_WhenNoConnectionCached()
     {
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
 
         await Should.NotThrowAsync(() => sut.CloseAsync());
     }
@@ -279,7 +296,8 @@ public class RabbitMQConnectionFactoryTests
     [Fact]
     public async Task DisposeAsync_ClosesAndDisposesConnection_WhenCached()
     {
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
         var connection = Substitute.For<IConnection>();
         SetCachedConnection(sut, connection);
 
@@ -292,7 +310,8 @@ public class RabbitMQConnectionFactoryTests
     [Fact]
     public async Task DisposeAsync_Noop_WhenNoConnection()
     {
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+        var sut = Build(PlainSample(), cts);
 
         await Should.NotThrowAsync(() => sut.DisposeAsync().AsTask());
     }
@@ -305,7 +324,9 @@ public class RabbitMQConnectionFactoryTests
         // the swallowed exception to SelfLog.
         using var selfLog = new SelfLogScope(out var selfLogBuilder);
 
-        var sut = Build(PlainSample());
+        using var cts = new CancellationTokenSource();
+
+        var sut = Build(PlainSample(), cts);
         var connection = Substitute.For<IConnection>();
         connection.When(c => c.CloseAsync(Arg.Any<CancellationToken>()))
             .Do(_ => throw new InvalidOperationException("close-boom"));
