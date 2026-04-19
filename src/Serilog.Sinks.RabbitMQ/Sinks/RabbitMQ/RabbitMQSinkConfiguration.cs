@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Diagnostics.CodeAnalysis;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Compact;
@@ -63,7 +64,7 @@ public class RabbitMQSinkConfiguration
     /// </summary>
     /// <exception cref="ArgumentException">Thrown when <see cref="TextFormatter"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="BatchPostingLimit"/>, <see cref="BufferingTimeLimit"/>, or <see cref="QueueLimit"/> is out of range.</exception>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+    [SuppressMessage(
         "Major Code Smell",
         "S3928:Parameter names used into ArgumentException constructors should match an existing one",
         Justification = "Validating instance properties: paramName refers to the property, not a method parameter.")]

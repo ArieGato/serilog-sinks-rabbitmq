@@ -45,6 +45,16 @@ public class RabbitMQSinkConfigurationTests
         Should.Throw<ArgumentOutOfRangeException>(sut.Validate).ParamName.ShouldBe("BufferingTimeLimit");
     }
 
+    [Fact]
+    public void Validate_Accepts_BufferingTimeLimitOfZero()
+    {
+        // Boundary: the check is `< TimeSpan.Zero`, so zero is legal (means "flush immediately").
+        var sut = ValidSample();
+        sut.BufferingTimeLimit = TimeSpan.Zero;
+
+        Should.NotThrow(sut.Validate);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

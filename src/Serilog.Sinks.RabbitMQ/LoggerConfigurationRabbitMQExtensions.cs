@@ -316,6 +316,10 @@ public static class LoggerConfigurationRabbitMQExtensions
             throw new ArgumentNullException(nameof(loggerSinkConfiguration));
         }
 
+        // Order-dependent: defaults must be applied BEFORE Validate() so that a user who
+        // passed default(int)/default(TimeSpan) (e.g. appsettings omission) doesn't trip the
+        // positive-value checks. Do not reorder these blocks without moving the defaulting
+        // into RabbitMQSinkConfiguration.Validate() itself.
         sinkConfiguration.BatchPostingLimit = sinkConfiguration.BatchPostingLimit == default
             ? DEFAULT_BATCH_POSTING_LIMIT
             : sinkConfiguration.BatchPostingLimit;

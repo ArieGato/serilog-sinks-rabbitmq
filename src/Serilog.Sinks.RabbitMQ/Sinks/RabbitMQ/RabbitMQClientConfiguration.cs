@@ -139,7 +139,13 @@ public class RabbitMQClientConfiguration
     /// Validate this configuration. Throws if any required value is missing or out of range.
     /// Idempotent and safe to call multiple times.
     /// </summary>
-    /// <exception cref="ArgumentException">Thrown when <see cref="Hostnames"/> is empty, <see cref="Username"/> is null/empty, or <see cref="Password"/> is null.</exception>
+    /// <remarks>
+    /// The <see cref="ArgumentException"/> overloads thrown for <see cref="Hostnames"/>,
+    /// <see cref="Username"/>, and <see cref="Password"/> deliberately do not set
+    /// <see cref="ArgumentException.ParamName"/> — this preserves the exception shape callers
+    /// previously observed when the checks lived in <c>LoggerConfigurationRabbitMQExtensions</c>.
+    /// </remarks>
+    /// <exception cref="ArgumentException">Thrown when <see cref="Hostnames"/> is null or empty, <see cref="Username"/> is null or empty, or <see cref="Password"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range.</exception>
     [SuppressMessage(
         "Major Code Smell",
@@ -147,7 +153,7 @@ public class RabbitMQClientConfiguration
         Justification = "Validating an instance property: paramName refers to the property, not a method parameter. Preserves the exception shape callers saw when this validation lived in LoggerConfigurationRabbitMQExtensions.")]
     public void Validate()
     {
-        if (Hostnames.Count == 0)
+        if (Hostnames is null || Hostnames.Count == 0)
         {
             throw new ArgumentException("hostnames cannot be empty, specify at least one hostname");
         }
