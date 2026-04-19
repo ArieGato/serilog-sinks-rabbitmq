@@ -384,6 +384,38 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
+    public async Task EmitBatchAsync_ShouldLogToSelfLogAndEmitToFailureSinkWithoutRethrowing_WhenWriteToFailureSinkAndWriteToSelfLogAreCombined()
+    {
+        // Pins the WriteToFailureSink | WriteToSelfLog row of the behaviour matrix: both
+        // the SelfLog entry and the per-event emit to the failure sink run, and the
+        // exception is swallowed (WriteToFailureSink suppresses the rethrow).
+        var selfLogStringBuilder = new StringBuilder();
+        var writer = new StringWriter(selfLogStringBuilder);
+        SelfLog.Enable(writer);
+
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
+            .Do(_ => throw new InvalidOperationException("publish-fail"));
+
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = new RabbitMQSink(
+            rabbitMQClient,
+            textFormatter,
+            messageEvents,
+            EmitEventFailureHandling.WriteToSelfLog | EmitEventFailureHandling.WriteToFailureSink,
+            failureSink);
+
+        var logEvent = LogEventBuilder.Create().Build();
+        var act = () => sut.EmitBatchAsync([logEvent]);
+
+        await Should.NotThrowAsync(act);
+        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
+        failureSink.Received(1).Emit(logEvent);
+    }
+
+    [Fact]
     public async Task EmitBatchAsync_ShouldRouteToFailureSinkAndStillRethrow_WhenWriteToFailureSinkIsCombinedWithThrowException()
     {
         // The combination "route events to my failure sink AND still throw" — covers users
@@ -499,7 +531,7 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public void Emit_Audit_DoesNotBreak_WhenListenerItselfThrows()
+    public void Emit_Audit_SwallowsListenerException_AndStillRethrowsOriginal()
     {
         // A throwing listener must be swallowed (SelfLog entry) without recursing; the
         // original publish exception still propagates.

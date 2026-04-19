@@ -172,8 +172,8 @@ The `EmitEventFailureHandling` flags still work and compose as follows:
 
 | Flags set                                | Behaviour                                                                 |
 |------------------------------------------|---------------------------------------------------------------------------|
-| *(default: `Ignore`)*                    | Rethrow. `BatchingSink` catches, notifies its listener.                   |
-| `WriteToSelfLog`                         | Log to `SelfLog`, then rethrow.                                           |
+| *(default: `Ignore`)*                    | Rethrow. `BatchingSink` catches, notifies its listener. **(CHANGED — was silent swallow.)** |
+| `WriteToSelfLog`                         | Log to `SelfLog`, then rethrow. **(CHANGED — was log-and-swallow.)**      |
 | `WriteToFailureSink` *(legacy routing)*  | Emit events to the configured failure sink, **do not rethrow** (unchanged). |
 | `WriteToFailureSink | WriteToSelfLog`    | Log + emit, **do not rethrow** (unchanged).                               |
 | `ThrowException`                         | Rethrow (unchanged).                                                      |

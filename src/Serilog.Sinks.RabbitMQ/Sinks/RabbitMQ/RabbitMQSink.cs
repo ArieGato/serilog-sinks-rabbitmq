@@ -99,8 +99,13 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
         }
         catch (Exception ex) when (_failureListener is not null)
         {
-            // Audit path: notify the listener before propagating so a Fallback-wrapped
-            // audit pipeline sees the failed event. Preserves audit semantics by rethrowing.
+            // The `when (_failureListener is not null)` filter above means this catch frame
+            // is not entered at all when no listener is registered — the exception propagates
+            // with its original stack intact, and we avoid the LogEvent[] allocation on the
+            // hot no-listener path.
+            //
+            // Audit path: notify the listener before propagating so a Fallback-wrapped audit
+            // pipeline sees the failed event. The `throw;` below preserves the original stack.
             NotifyListener(new[] { logEvent }, ex);
             throw;
         }
