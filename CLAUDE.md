@@ -52,6 +52,7 @@ Before `git commit`:
 3. `dotnet format --no-restore --verify-no-changes --severity warn` — CI gate.
 4. **Code coverage** on any method you added or modified in `src/` — see the coverlet command above. Zero uncovered lines/branches on new code.
 5. For integration-test-touching changes: run integration tests on net10.0 against the docker-compose brokers.
+6. **Update [CHANGELOG.md](CHANGELOG.md) and [README.md](README.md) whenever the change is user-visible** — new/changed/removed public API, behaviour changes, new configuration options, migration notes, or anything a consumer would need to read about before upgrading. Pure internals / test-only changes don't require updates, but default to updating when in doubt. For breaking changes, extend the `Migrating to X.Y.Z` section in README.
 
 Skipping step 4 has repeatedly meant shipping a commit, watching Codecov flag it, then following up. Don't.
 
