@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/check-coauthor.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/check-coauthor.py\""
           }
         ]
       }

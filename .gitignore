@@ -2,5 +2,6 @@
 .idea/
 obj/
 bin/
+out/
 *.user
 settings.local.json
