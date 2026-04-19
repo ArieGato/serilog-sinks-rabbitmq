@@ -176,7 +176,7 @@ public class RabbitMQSinkTests
         // / ETW without any explicit opt-in. Trace.Listeners is process-global; the
         // [Collection("SelfLog")] attribute on this class serialises against other
         // tests that mutate similar global diagnostics state.
-        var listener = new StringBuilderTraceListener();
+        using var listener = new StringBuilderTraceListener();
         System.Diagnostics.Trace.Listeners.Add(listener);
         try
         {
@@ -195,8 +195,9 @@ public class RabbitMQSinkTests
         }
         finally
         {
+            // Must detach from the process-global Trace.Listeners; `using` only
+            // handles Dispose, not removal from the collection.
             System.Diagnostics.Trace.Listeners.Remove(listener);
-            listener.Dispose();
         }
     }
 
