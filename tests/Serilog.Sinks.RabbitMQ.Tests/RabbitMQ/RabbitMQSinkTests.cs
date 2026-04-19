@@ -390,7 +390,7 @@ public class RabbitMQSinkTests
         // the SelfLog entry and the per-event emit to the failure sink run, and the
         // exception is swallowed (WriteToFailureSink suppresses the rethrow).
         var selfLogStringBuilder = new StringBuilder();
-        var writer = new StringWriter(selfLogStringBuilder);
+        using var writer = new StringWriter(selfLogStringBuilder);
         SelfLog.Enable(writer);
 
         var textFormatter = Substitute.For<ITextFormatter>();

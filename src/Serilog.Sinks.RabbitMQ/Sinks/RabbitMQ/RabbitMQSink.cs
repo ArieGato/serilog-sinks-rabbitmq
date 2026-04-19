@@ -250,6 +250,10 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
     /// </summary>
     /// <param name="events">Log events associated with the failure.</param>
     /// <param name="ex">Original publish exception.</param>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A throwing failure listener must not recurse or break the sink; swallow and log to SelfLog. The original publish exception is propagated by the caller.")]
     private void NotifyListener(IReadOnlyCollection<LogEvent> events, Exception ex)
     {
         try
