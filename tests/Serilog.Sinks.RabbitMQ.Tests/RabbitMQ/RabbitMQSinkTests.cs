@@ -98,19 +98,25 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public async Task OnEmptyBatchAsync_ShouldReturnTask()
+    public async Task OnEmptyBatchAsync_ReturnsCompletedTask_AndDoesNotTouchClient()
     {
-        // Arrange
+        // OnEmptyBatchAsync is part of IBatchedLogEventSink and fires when Serilog's
+        // BatchingSink has no events to emit — it must be a cheap no-op that neither
+        // publishes nor allocates a broker round-trip. Assert both: the returned Task
+        // is already completed (synchronous no-op) and the client sees no interaction.
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
-        // Act
-        await sut.OnEmptyBatchAsync();
+        var task = sut.OnEmptyBatchAsync();
 
-        // should not throw exception
+        // RanToCompletion is the portable equivalent of IsCompletedSuccessfully
+        // (which is .NET Core+ only, and this test assembly also targets net48).
+        task.Status.ShouldBe(TaskStatus.RanToCompletion);
+        await task;
+        await rabbitMQClient.DidNotReceive().PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>());
     }
 
     [Fact]
