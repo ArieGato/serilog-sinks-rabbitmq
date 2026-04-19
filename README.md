@@ -241,13 +241,44 @@ and ignore them.
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `emitEventFailure` | `EmitEventFailureHandling` | `WriteToSelfLog` | Combination of `Ignore`, `WriteToSelfLog`, `WriteToFailureSink`, `ThrowException`. |
-| `failureSinkConfiguration` | `Action<LoggerSinkConfiguration>?` | `null` | Sink(s) that receive events when the primary sink fails. Used together with `WriteToFailureSink`. |
+| `emitEventFailure` | `EmitEventFailureHandling` | `WriteToSelfLog` | Combination of `Ignore`, `WriteToSelfLog`, `WriteToFailureSink`, `ThrowException`. See behaviour table below. |
+| `failureSinkConfiguration` | `Action<LoggerSinkConfiguration>?` | `null` | Legacy sink(s) that receive events when the primary sink fails. Used together with `WriteToFailureSink`. Prefer `WriteTo.Fallback(...)` for new code. |
 | `formatter` | `ITextFormatter?` | `CompactJsonFormatter` | Formatter used to render the event into the message body. |
 | `levelSwitch` | `LogEventLevel` | `Verbose` | Minimum level for events emitted by the sink. |
 | `sendMessageEvents` | `ISendMessageEvents?` | `null` | Hooks for customising message properties and routing keys (see below). |
 
-Example with a console failure sink:
+`WriteTo.RabbitMQ` runs inside Serilog's `BatchingSink`. When a batch fails, the sink's behaviour depends on `emitEventFailure`:
+
+| Flags | Behaviour |
+|---|---|
+| `Ignore` | Rethrow. BatchingSink's failure listener observes the exception (defaults to `SelfLog`). |
+| `WriteToSelfLog` (default) | Log to `SelfLog`, then rethrow. |
+| `ThrowException` | Rethrow (same as `Ignore`; kept for clarity). |
+| `WriteToFailureSink` | Route events to the legacy failure sink; do **not** rethrow. |
+| `WriteToFailureSink \| WriteToSelfLog` | Log and route to failure sink; do not rethrow. |
+| `WriteToFailureSink \| ThrowException` | Route to failure sink **and** rethrow. |
+
+#### Recommended: `WriteTo.Fallback(...)` (Serilog 4.1+)
+
+For new code, use Serilog's native fallback chain instead of `failureSinkConfiguration`:
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Fallback(
+        primary => primary.RabbitMQ((client, sink) =>
+        {
+            client.Hostnames = ["localhost"];
+            client.Username  = "guest";
+            client.Password  = "guest";
+            client.Exchange  = "logs";
+        }),
+        fallback => fallback.Console())
+    .CreateLogger();
+```
+
+Leave `emitEventFailure` at its default — the fallback chain relies on the sink rethrowing.
+
+#### Legacy: `failureSinkConfiguration`
 
 ```csharp
 Log.Logger = new LoggerConfiguration()
@@ -371,6 +402,23 @@ and integration tests.
   in the background at startup. When all channels are in use, additional publish calls
   await until one is returned (previous behaviour grew the pool on demand). Broken channels
   are replaced automatically in the background.
+- **Failure handling aligns with Serilog's `BatchingSink`.** `EmitBatchAsync` now rethrows
+  by default so the BatchingSink's failure listener observes the error (it writes to
+  `SelfLog` unless a listener is configured). Previously, failures were swallowed when
+  `WriteToFailureSink` was not set. If you relied on the old silent behaviour, set
+  `emitEventFailure` to `WriteToFailureSink` with a `failureSinkConfiguration`, or wire a
+  `WriteTo.Fallback(...)` chain. `AuditTo.RabbitMQ` also notifies any configured
+  `ILoggingFailureListener` before rethrowing.
+- **`WriteTo.Fallback(...)` is now the recommended pattern.** Serilog 4.1's native fallback
+  chain is preferred over `failureSinkConfiguration`. See the [Failure handling](#failure-handling)
+  section.
+- **`Validate()` on configuration objects.** `RabbitMQClientConfiguration` and
+  `RabbitMQSinkConfiguration` now expose public `Validate()` methods and are invoked during
+  sink construction. Misconfiguration (missing hostnames, invalid port, zero batch limit,
+  etc.) throws at startup instead of failing at first publish.
+- **`QueueLimit` validation.** `QueueLimit`, when set, must be greater than zero —
+  `QueueLimit = 0` now throws `ArgumentOutOfRangeException` rather than silently creating a
+  zero-capacity queue. Leave the property unset (`null`) for an unbounded queue.
 - **`Microsoft.Extensions.ObjectPool` dependency removed.** No action needed unless your
   application referenced it transitively through this package.
 - **Target frameworks:** `net6.0` and `net9.0` were removed. Supported targets are

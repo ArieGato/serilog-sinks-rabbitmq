@@ -22,9 +22,11 @@ namespace Serilog.Sinks.RabbitMQ;
 internal interface IRabbitMQConnectionFactory : IAsyncDisposable
 {
     /// <summary>
-    /// Returns the connection. Creates a new connection if none exists.
+    /// Returns the cached <see cref="IConnection"/>, creating it on the first call.
+    /// Subsequent calls return the same instance. Creation is gated internally so
+    /// concurrent callers see a single connection.
     /// </summary>
-    /// <returns>New or already created connection.</returns>
+    /// <returns>The shared, lazily-created connection.</returns>
     Task<IConnection> GetConnectionAsync();
 
     /// <summary>

@@ -26,7 +26,7 @@ namespace Serilog.Sinks.RabbitMQ;
 /// </summary>
 internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 {
-    private static readonly TimeSpan WarmUpRetryDelay = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan WARM_UP_RETRY_DELAY = TimeSpan.FromMilliseconds(500);
 
     private readonly RabbitMQClientConfiguration _config;
     private readonly IRabbitMQConnectionFactory _connectionFactory;
@@ -194,7 +194,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                 SelfLog.WriteLine("Failed to warm up RabbitMQ channel: {0}", ex);
                 try
                 {
-                    await Task.Delay(WarmUpRetryDelay, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(WARM_UP_RETRY_DELAY, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {

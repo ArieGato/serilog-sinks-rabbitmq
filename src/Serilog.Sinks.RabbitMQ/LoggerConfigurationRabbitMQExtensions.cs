@@ -36,7 +36,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <summary>
     /// Default value for the time to wait between checking for event batches.
     /// </summary>
-    internal static readonly TimeSpan _defaultBufferingTimeLimit = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan DEFAULT_BUFFERING_TIME_LIMIT = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Adds a sink that lets you push log messages to RabbitMQ.
@@ -167,7 +167,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         var sinkConfiguration = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = batchPostingLimit == default ? DEFAULT_BATCH_POSTING_LIMIT : batchPostingLimit,
-            BufferingTimeLimit = bufferingTimeLimit == default ? _defaultBufferingTimeLimit : bufferingTimeLimit,
+            BufferingTimeLimit = bufferingTimeLimit == default ? DEFAULT_BUFFERING_TIME_LIMIT : bufferingTimeLimit,
             QueueLimit = queueLimit,
             EmitEventFailure = emitEventFailure,
             RestrictedToMinimumLevel = levelSwitch,
@@ -325,7 +325,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             : sinkConfiguration.BatchPostingLimit;
 
         sinkConfiguration.BufferingTimeLimit = sinkConfiguration.BufferingTimeLimit == default
-            ? _defaultBufferingTimeLimit
+            ? DEFAULT_BUFFERING_TIME_LIMIT
             : sinkConfiguration.BufferingTimeLimit;
 
         clientConfiguration.Validate();
