@@ -727,27 +727,6 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public async Task Constructor_DefaultsToSixtyFourChannels_WhenChannelCountIsZero()
-    {
-        // Arrange
-        int created = 0;
-        var connection = BuildConnectionWithChannelFactory(() =>
-        {
-            Interlocked.Increment(ref created);
-            return CreateOpenChannel();
-        });
-        var connectionFactory = BuildConnectionFactory(connection);
-        var configuration = new RabbitMQClientConfiguration { ChannelCount = 0 };
-
-        // Act
-        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        await WaitForAsync(() => Volatile.Read(ref created) == 64);
-
-        // Assert
-        Volatile.Read(ref created).ShouldBe(64);
-    }
-
-    [Fact]
     public async Task ReturnAsync_AfterDispose_DisposesChannel()
     {
         // Arrange

@@ -125,6 +125,17 @@ public class RabbitMQClientConfigurationTests
         Should.Throw<ArgumentOutOfRangeException>(sut.Validate).ParamName.ShouldBe("Port");
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Validate_Throws_WhenChannelCountIsNotPositive(int channelCount)
+    {
+        var sut = ValidSample();
+        sut.ChannelCount = channelCount;
+
+        Should.Throw<ArgumentOutOfRangeException>(sut.Validate).ParamName.ShouldBe("ChannelCount");
+    }
+
     [Fact]
     public void Validate_IsIdempotent_WhenCalledRepeatedlyOnValidConfiguration()
     {

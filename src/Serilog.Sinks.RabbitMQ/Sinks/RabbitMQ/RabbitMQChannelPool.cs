@@ -49,7 +49,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     {
         _config = configuration;
         _connectionFactory = connectionFactory;
-        _size = configuration.ChannelCount > 0 ? configuration.ChannelCount : RabbitMQClient.DEFAULT_CHANNEL_COUNT;
+        _size = configuration.ChannelCount;
         _channels = Channel.CreateBounded<IRabbitMQChannel>(_size);
 
         _ = Task.Run(() => WarmUpAsync(_size, _shutdownCts.Token));
