@@ -98,19 +98,25 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public async Task OnEmptyBatchAsync_ShouldReturnTask()
+    public async Task OnEmptyBatchAsync_ReturnsCompletedTask_AndDoesNotTouchClient()
     {
-        // Arrange
+        // OnEmptyBatchAsync is part of IBatchedLogEventSink and fires when Serilog's
+        // BatchingSink has no events to emit — it must be a cheap no-op that neither
+        // publishes nor allocates a broker round-trip. Assert both: the returned Task
+        // is already completed (synchronous no-op) and the client sees no interaction.
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
-        // Act
-        await sut.OnEmptyBatchAsync();
+        var task = sut.OnEmptyBatchAsync();
 
-        // should not throw exception
+        // RanToCompletion is the portable equivalent of IsCompletedSuccessfully
+        // (which is .NET Core+ only, and this test assembly also targets net48).
+        task.Status.ShouldBe(TaskStatus.RanToCompletion);
+        await task;
+        await rabbitMQClient.DidNotReceive().PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>());
     }
 
     [Fact]
@@ -165,6 +171,51 @@ public class RabbitMQSinkTests
 
         // Assert
         await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public void Dispose_WritesToTraceError_WhenRabbitMQClientDisposeThrowsException()
+    {
+        // Item 3 from #286: Dispose() routes disposal exceptions to SelfLog, but
+        // callers who have not opted into SelfLog lose diagnostics silently. Also
+        // emit to System.Diagnostics.Trace so messages surface in debugger output
+        // / ETW without any explicit opt-in. Trace.Listeners is process-global; the
+        // [Collection("SelfLog")] attribute on this class serialises against other
+        // tests that mutate similar global diagnostics state.
+        using var listener = new StringBuilderTraceListener();
+        System.Diagnostics.Trace.Listeners.Add(listener);
+        try
+        {
+            var textFormatter = Substitute.For<ITextFormatter>();
+            var messageEvents = Substitute.For<ISendMessageEvents>();
+            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+            rabbitMQClient.When(x => x.DisposeAsync())
+                .Do(_ => throw new Exception("trace-boom"));
+
+            var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+            sut.Dispose();
+
+            listener.Output.ShouldContain("trace-boom");
+            listener.Output.ShouldContain("RabbitMQClient");
+        }
+        finally
+        {
+            // Must detach from the process-global Trace.Listeners; `using` only
+            // handles Dispose, not removal from the collection.
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+        }
+    }
+
+    private sealed class StringBuilderTraceListener : System.Diagnostics.TraceListener
+    {
+        private readonly StringBuilder _output = new();
+
+        public string Output => _output.ToString();
+
+        public override void Write(string? message) => _output.Append(message);
+
+        public override void WriteLine(string? message) => _output.AppendLine(message);
     }
 
     [Fact]

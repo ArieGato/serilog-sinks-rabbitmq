@@ -186,10 +186,23 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     /// <inheritdoc />
     public async Task CloseAsync()
     {
-        await _connectionLock.WaitAsync(10).ConfigureAwait(false);
-        if (_connection is not null)
+        // Previously used `WaitAsync(10)` whose Task<bool> result was awaited but never
+        // checked, and whose successfully-acquired slot was never released. Every call
+        // therefore drained one slot from the (1,1) semaphore; subsequent GetConnectionAsync
+        // callers could deadlock. Wait unconditionally (disposal is cooperative; there is
+        // no correctness story in giving up after 10 ms) and always release in a finally
+        // so the lock's state stays consistent (issue #284).
+        await _connectionLock.WaitAsync().ConfigureAwait(false);
+        try
         {
-            await _connection.CloseAsync().ConfigureAwait(false);
+            if (_connection is not null)
+            {
+                await _connection.CloseAsync().ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _connectionLock.Release();
         }
     }
 

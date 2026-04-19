@@ -832,4 +832,88 @@ public class RabbitMQChannelPoolTests
         // Act + Assert
         await Should.NotThrowAsync(async () => await pool.DisposeAsync());
     }
+
+    [Fact]
+    public async Task CreateChannelAsync_SwallowsObjectDisposedException_OnRelease_WhenDisposeRacesDeclare()
+    {
+        // Item 4 from #286: if DisposeAsync disposes _exchangeDeclareLock while a warm-up
+        // is still holding it (inside ExchangeDeclareAsync), the `finally { Release(); }`
+        // in CreateChannelAsync throws ObjectDisposedException into the catch-all handler
+        // and SelfLog gets a noisy (non-fatal) entry. The narrow fix swallows the
+        // ObjectDisposedException specifically, so the ODE neither leaks out nor hits
+        // the broader warm-up catch. Asserts: DisposeAsync completes, and SelfLog
+        // contains no ObjectDisposedException trace from the warm-up path.
+        using var selfLog = new SelfLogScope(out var selfLogBuilder);
+
+        var declareGate = new TaskCompletionSource<bool>();
+        var disposed = new TaskCompletionSource<bool>();
+        var channel = CreateOpenChannel();
+        channel.When(c => c.Dispose()).Do(_ => disposed.TrySetResult(true));
+        channel.ExchangeDeclareAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<IDictionary<string, object?>?>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+            .Returns(declareGate.Task);
+
+        var connection = BuildConnectionWithChannelFactory(() => channel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            Exchange = "x",
+            ExchangeType = "topic",
+            AutoCreateExchange = true,
+        };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until warm-up is inside ExchangeDeclareAsync, holding _exchangeDeclareLock.
+        await WaitForAsync(() => channel.ReceivedCalls()
+            .Any(call => call.GetMethodInfo().Name == nameof(IChannel.ExchangeDeclareAsync)));
+
+        // Dispose the pool while the lock is held. DisposeAsync does not wait for the
+        // warm-up; it disposes _exchangeDeclareLock synchronously as part of shutdown.
+        await pool.DisposeAsync();
+
+        // Release the declare. The `finally` in CreateChannelAsync now hits a disposed
+        // semaphore; the targeted catch swallows the ObjectDisposedException. The pool
+        // writer is completed at this point so WarmUpSingleAsync's TryWrite fails and
+        // the orphan channel is disposed — we synchronise on that dispose to know the
+        // warm-up has run through its finally block.
+        declareGate.SetResult(true);
+
+        // Task.WaitAsync(TimeSpan) is .NET 6+; use Task.WhenAny for net48 compatibility.
+        var completed = await Task.WhenAny(disposed.Task, Task.Delay(TimeSpan.FromSeconds(2)));
+        completed.ShouldBeSameAs(disposed.Task, "warm-up did not reach the orphan-dispose path within the timeout");
+        await disposed.Task;
+
+        selfLogBuilder.ToString().ShouldNotContain(nameof(ObjectDisposedException));
+    }
+
+    [Fact]
+    public async Task GetAsync_WithPreCancelledToken_AfterDispose_ThrowsInvalidOperationException()
+    {
+        // Item 2 from #286: shutdown-cancellation must win deterministically over the
+        // caller's own token cancellation. Without the OperationCanceledException-to-
+        // InvalidOperationException mapping in GetAsync, a pre-cancelled user token
+        // would cause ReadAsync to throw OCE before the ChannelClosedException surfaces,
+        // and callers would see a cancellation exception instead of the disposal signal.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await pool.DisposeAsync();
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync(cts.Token));
+        ex.Message.ShouldContain("disposed");
+    }
 }
