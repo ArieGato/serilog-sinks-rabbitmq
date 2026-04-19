@@ -1265,10 +1265,11 @@ public class RabbitMQChannelPoolTests
     public async Task GetAsync_InFlightWaiter_WakesOnTransitionToBroken_AndRoutesToFallback()
     {
         // The key queue-bloat mitigation: a GetAsync parked on ReadAsync during the
-        // 62 s warm-up backoff window would otherwise stay hung for the entire
-        // outage, blocking BatchingSink's flush loop. When warm-up exhausts and
-        // transitions to Broken, the unhealthy signal fires and the in-flight waiter
-        // wakes, observes Broken, and throws the exhaustion exception so the batch
+        // cumulative warm-up backoff window (controlled by WarmUpMaxRetries and the
+        // backoff schedule) would otherwise stay hung for the entire outage,
+        // blocking BatchingSink's flush loop. When warm-up exhausts and transitions
+        // to Broken, the unhealthy signal fires and the in-flight waiter wakes,
+        // observes Broken, and throws the exhaustion exception so the batch
         // rethrows to BatchingSink's failure listener / Fallback chain.
         var connection = Substitute.For<IConnection>();
         connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())

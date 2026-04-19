@@ -256,12 +256,15 @@ The warm-up path now:
   the pool re-enters `Broken` with a fresh 60 s cooldown. Concurrent `GetAsync` callers
   during the probe see exhaustion — only one probe runs at a time.
 - **Wakes in-flight waiters on exhaustion**: a `GetAsync` call that parked on the empty
-  channel during the 62 s backoff window (typical for a broker-down scenario starting
-  with no channels in the pool) now wakes as soon as the breaker trips, instead of
-  staying hung for the rest of the outage. Without this, `BatchingSink`'s flush loop
-  would sit behind the hung `EmitBatchAsync` and the in-memory event queue would grow
-  indefinitely. With it, the hung call surfaces the exhaustion exception and
-  subsequent batches drain through the failure listener / `Fallback` chain.
+  channel during the cumulative warm-up backoff (the time spent in the retry loop before
+  the breaker trips — roughly ~2 minutes with the default `WarmUpMaxRetries = 10` and
+  the backoff schedule above, and shorter/longer when `WarmUpMaxRetries` is tuned) now
+  wakes as soon as the breaker trips, instead of staying hung for the rest of the
+  outage. Without this, `BatchingSink`'s flush loop would sit behind the hung
+  `EmitBatchAsync` and the in-memory event queue would grow indefinitely. With it, the
+  hung call surfaces the exhaustion exception and subsequent batches drain through the
+  failure listener / `Fallback` chain. The separate 60 s cooldown window (after the
+  breaker has tripped, before the next probe) is handled by the fail-fast path above.
 
 Set `WarmUpMaxRetries = 0` to preserve the pre-9.0 behaviour of retrying indefinitely. The
 backoff schedule itself is not configurable.

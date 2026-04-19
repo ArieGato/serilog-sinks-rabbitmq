@@ -138,12 +138,13 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 
         // Link the caller's token with the "pool became unhealthy" signal so a
         // state transition to Broken wakes up any in-flight ReadAsync waiter —
-        // otherwise a caller that parked during Warming (before the 62 s
-        // exhaustion tipped the breaker) stays hung on the empty channel until
-        // the probe eventually succeeds, blocking BatchingSink from processing
-        // new batches and letting the queue grow indefinitely. Waking the
-        // waiter lets it route through the catch below to the exhaustion
-        // exception, which in turn routes events to the configured fallback.
+        // otherwise a caller that parked during Warming (before the cumulative
+        // warm-up backoff, controlled by WarmUpMaxRetries + GetBackoffDelay,
+        // exhausts) stays hung on the empty channel until the probe eventually
+        // succeeds, blocking BatchingSink from processing new batches and letting
+        // the queue grow indefinitely. Waking the waiter lets it route through
+        // the catch below to the exhaustion exception, which in turn routes events
+        // to the configured fallback.
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _unhealthySignalCts.Token);
         try
         {
