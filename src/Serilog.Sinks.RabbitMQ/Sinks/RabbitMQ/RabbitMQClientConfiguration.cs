@@ -107,6 +107,15 @@ public class RabbitMQClientConfiguration
     }
 
     /// <summary>
+    /// Maximum number of consecutive warm-up failures before the channel pool enters a
+    /// broken state and fails fast from <see cref="IRabbitMQChannelPool.GetAsync"/>.
+    /// A half-open circuit breaker attempts recovery after a cooldown window.
+    /// Default is 10. Set to 0 to retry indefinitely (preserves pre-9.0 behaviour).
+    /// The failure counter resets on any successful channel creation.
+    /// </summary>
+    public int WarmUpMaxRetries { get; set; } = 10;
+
+    /// <summary>
     /// Contains events for sending messages.
     /// </summary>
     public ISendMessageEvents? SendMessageEvents { get; set; }
@@ -126,6 +135,7 @@ public class RabbitMQClientConfiguration
             Heartbeat = Heartbeat,
             Hostnames = Hostnames.ToList(),
             ChannelCount = ChannelCount,
+            WarmUpMaxRetries = WarmUpMaxRetries,
             Password = Password,
             Port = Port,
             RoutingKey = RoutingKey,
@@ -146,7 +156,7 @@ public class RabbitMQClientConfiguration
     /// previously observed when the checks lived in <c>LoggerConfigurationRabbitMQExtensions</c>.
     /// </remarks>
     /// <exception cref="ArgumentException">Thrown when <see cref="Hostnames"/> is null or empty, <see cref="Username"/> is null or empty, or <see cref="Password"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range or <see cref="ChannelCount"/> is not greater than zero.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range, <see cref="ChannelCount"/> is not greater than zero, or <see cref="WarmUpMaxRetries"/> is negative.</exception>
     [SuppressMessage(
         "Major Code Smell",
         "S3928:Parameter names used into ArgumentException constructors should match an existing one",
@@ -176,6 +186,11 @@ public class RabbitMQClientConfiguration
         if (ChannelCount <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(ChannelCount), "ChannelCount must be greater than zero.");
+        }
+
+        if (WarmUpMaxRetries < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(WarmUpMaxRetries), "WarmUpMaxRetries must be zero (unlimited) or positive.");
         }
     }
 }

@@ -230,6 +230,35 @@ checks:
   `QueueLimit` previously passed through to Serilog's batching layer silently;
   it is now rejected at configuration time.
 
+### Bounded warm-up retry with exponential backoff and circuit-breaker self-heal
+
+`RabbitMQChannelPool` used to retry warm-up forever on a fixed 500 ms interval. Under a
+sustained broker outage that meant constant wake-ups, `SelfLog` flooded with "Failed to
+warm up RabbitMQ channel" entries, and callers blocked on `GetAsync` indefinitely because
+the pool never filled.
+
+The warm-up path now:
+
+- **Backs off exponentially**: 500 ms → 1 s → 2 s → 4 s → 8 s → 16 s → 30 s (cap). The
+  failure counter resets on any successful channel creation, so a single transient blip
+  cannot combine with later failures to reach the cap.
+- **Gives up after `RabbitMQClientConfiguration.WarmUpMaxRetries` consecutive failures**
+  (default **10**). On exhaustion the pool transitions to a `Broken` state.
+- **Fails fast from `GetAsync`** while broken — throws
+  `InvalidOperationException("Channel pool exhausted after N consecutive warm-up failures; broker is unreachable.")`.
+  That propagates through `RabbitMQClient.PublishAsync` → `RabbitMQSink.EmitBatchAsync` →
+  Serilog's `BatchingSink`, which invokes its failure listener. If you wrap the sink with
+  `WriteTo.Fallback(primary: s => s.RabbitMQ(...), fallback: s => s.File(...))`, failed
+  events automatically route to the fallback instead of piling up in the batching queue.
+- **Self-heals after a 60 s cooldown**: the first `GetAsync` after the cooldown elapses
+  claims a probe slot via CAS, attempts one warm-up, and on success transitions the pool
+  back to `Warming` (with a background refill of the remaining channels). On probe failure
+  the pool re-enters `Broken` with a fresh 60 s cooldown. Concurrent `GetAsync` callers
+  during the probe see exhaustion — only one probe runs at a time.
+
+Set `WarmUpMaxRetries = 0` to preserve the pre-9.0 behaviour of retrying indefinitely. The
+backoff schedule itself is not configurable.
+
 ### Renamed `MaxChannels` to `ChannelCount`
 
 `RabbitMQClientConfiguration.MaxChannels` has been renamed to `ChannelCount` to reflect that
@@ -255,3 +284,6 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
 - `RabbitMQSink.EmitBatchAsync` propagates publish exceptions by default instead of
   silently swallowing them. Use `EmitEventFailureHandling.WriteToFailureSink` to keep
   legacy catch-and-route behaviour.
+- Warm-up now stops after `WarmUpMaxRetries` consecutive failures (default `10`) and a
+  broken pool fails `GetAsync` fast instead of blocking waiters. Set
+  `WarmUpMaxRetries = 0` to opt back into unlimited retries.
