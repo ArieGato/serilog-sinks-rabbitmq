@@ -393,8 +393,12 @@ public class RabbitMQChannelPoolTests
             }
         });
 
-        // Give the second warmup time to enter the declare branch if the race fires.
-        await Task.Delay(150);
+        // Give the second warmup time to pass CreateChannelAsync and enter the declare
+        // check. On master (buggy code) it must reach ExchangeDeclareAsync before we
+        // release the gate, otherwise the flag will already be set by the first warmup
+        // and the race will not fire (false green). 500 ms is generous for slow CI
+        // workers; this happens on every run so the cost is bounded.
+        await Task.Delay(500);
 
         gate.SetResult(true);
 
