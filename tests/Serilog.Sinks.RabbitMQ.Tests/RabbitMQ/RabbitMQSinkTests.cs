@@ -168,6 +168,50 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
+    public void Dispose_WritesToTraceError_WhenRabbitMQClientDisposeThrowsException()
+    {
+        // Item 3 from #286: Dispose() routes disposal exceptions to SelfLog, but
+        // callers who have not opted into SelfLog lose diagnostics silently. Also
+        // emit to System.Diagnostics.Trace so messages surface in debugger output
+        // / ETW without any explicit opt-in. Trace.Listeners is process-global; the
+        // [Collection("SelfLog")] attribute on this class serialises against other
+        // tests that mutate similar global diagnostics state.
+        var listener = new StringBuilderTraceListener();
+        System.Diagnostics.Trace.Listeners.Add(listener);
+        try
+        {
+            var textFormatter = Substitute.For<ITextFormatter>();
+            var messageEvents = Substitute.For<ISendMessageEvents>();
+            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+            rabbitMQClient.When(x => x.DisposeAsync())
+                .Do(_ => throw new Exception("trace-boom"));
+
+            var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+            sut.Dispose();
+
+            listener.Output.ShouldContain("trace-boom");
+            listener.Output.ShouldContain("RabbitMQClient");
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+            listener.Dispose();
+        }
+    }
+
+    private sealed class StringBuilderTraceListener : System.Diagnostics.TraceListener
+    {
+        private readonly StringBuilder _output = new();
+
+        public string Output => _output.ToString();
+
+        public override void Write(string? message) => _output.Append(message);
+
+        public override void WriteLine(string? message) => _output.AppendLine(message);
+    }
+
+    [Fact]
     public void Dispose_ShouldNotDeadlock_WhenCalledOnSingleThreadedSynchronizationContext()
     {
         // AsyncHelpers.RunSync must fully isolate async continuations from the caller's

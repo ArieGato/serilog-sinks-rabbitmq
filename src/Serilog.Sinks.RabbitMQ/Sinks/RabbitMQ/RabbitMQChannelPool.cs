@@ -66,6 +66,15 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         {
             throw new InvalidOperationException("Channel pool has been disposed.");
         }
+        catch (OperationCanceledException) when (Volatile.Read(ref _disposed) != 0)
+        {
+            // Shutdown and the user's token can race inside ReadAsync; whichever fires
+            // first observably "wins". Map to the disposal exception when _disposed is
+            // set so callers see a deterministic failure mode rather than an
+            // OperationCanceledException whose token might belong to either party
+            // (issue #286 item 2).
+            throw new InvalidOperationException("Channel pool has been disposed.");
+        }
     }
 
     /// <inheritdoc />
@@ -235,7 +244,20 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                 }
                 finally
                 {
-                    _exchangeDeclareLock.Release();
+                    // DisposeAsync can dispose _exchangeDeclareLock while we hold it —
+                    // Release() then throws ObjectDisposedException into the warm-up's
+                    // catch-all, which logs it to SelfLog as noise (issue #286 item 4).
+                    // The race is benign (disposal happens after the lock has served its
+                    // purpose), so swallow the specific exception type without polluting
+                    // SelfLog or the broader catch in WarmUpSingleAsync.
+                    try
+                    {
+                        _exchangeDeclareLock.Release();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Pool was disposed while we held the lock; nothing to release.
+                    }
                 }
             }
 

@@ -163,7 +163,12 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
         }
         catch (Exception exception)
         {
+            // Route to both SelfLog and Trace. SelfLog is the canonical diagnostics
+            // channel for Serilog, but callers who never wire a SelfLog listener would
+            // otherwise lose shutdown diagnostics silently. Trace output surfaces in
+            // debugger output / ETW without any opt-in (issue #286 item 3).
             SelfLog.WriteLine("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
+            System.Diagnostics.Trace.TraceError("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
         }
 
         // Dispose the failure sink if it's disposable.
