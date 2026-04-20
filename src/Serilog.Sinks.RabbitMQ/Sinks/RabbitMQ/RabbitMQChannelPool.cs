@@ -65,7 +65,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     private readonly RabbitMQClientConfiguration _config;
     private readonly IRabbitMQConnectionFactory _connectionFactory;
     private readonly int _size;
-    private readonly int _maxRetries;
+    private readonly int? _maxRetries;
     private readonly Channel<IRabbitMQChannel> _channels;
     private readonly SemaphoreSlim _exchangeDeclareLock = new(1, 1);
     private readonly CancellationTokenSource _shutdownCts = new();
@@ -434,23 +434,31 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                 var failures = Interlocked.Increment(ref _consecutiveFailures);
                 SelfLog.WriteLine("Failed to warm up RabbitMQ channel (attempt {0}): {1}", failures, ex);
 
-                if (_maxRetries > 0 && failures >= _maxRetries)
+                if (_maxRetries is int maxRetries && failures >= maxRetries)
                 {
                     SelfLog.WriteLine(
                         "Channel pool exhausted after {0} consecutive warm-up failures; breaking for {1} ms.",
-                        _maxRetries,
+                        maxRetries,
                         BROKEN_COOLDOWN_MS);
                     Volatile.Write(ref _brokenUntilTicks, Stopwatch.GetTimestamp() + BROKEN_COOLDOWN_STOPWATCH_TICKS);
 
                     // Only transition from Warming/Open; the probing path owns its own transitions.
-                    _ = Interlocked.CompareExchange(ref _state, (int)PoolState.Broken, (int)PoolState.Warming);
-                    _ = Interlocked.CompareExchange(ref _state, (int)PoolState.Broken, (int)PoolState.Open);
+                    var previousState = Interlocked.CompareExchange(ref _state, (int)PoolState.Broken, (int)PoolState.Warming);
+                    if (previousState != (int)PoolState.Warming)
+                    {
+                        previousState = Interlocked.CompareExchange(ref _state, (int)PoolState.Broken, (int)PoolState.Open);
+                    }
 
-                    // Wake any in-flight GetAsync waiters so they see Broken and route to
-                    // the failure listener rather than staying hung for the rest of the
-                    // outage. Must happen AFTER the state transition so the woken caller
-                    // observes Broken, not Warming.
-                    SignalUnhealthy();
+                    // Only wake in-flight waiters if we actually caused the transition to
+                    // Broken. If state was Probing, a concurrent probe is mid-flight and
+                    // might still succeed — prematurely signalling unhealthy would wake
+                    // waiters who then throw exhausted, bypassing the probe's recovery.
+                    // If state was already Broken, the signal is a no-op anyway.
+                    if (previousState == (int)PoolState.Warming || previousState == (int)PoolState.Open)
+                    {
+                        SignalUnhealthy();
+                    }
+
                     return false;
                 }
 

@@ -138,11 +138,13 @@ public class RabbitMQClientConfigurationTests
     }
 
     [Theory]
+    [InlineData(0)]
     [InlineData(-1)]
     [InlineData(int.MinValue)]
-    public void Validate_Throws_WhenWarmUpMaxRetriesIsNegative(int maxRetries)
+    public void Validate_Throws_WhenWarmUpMaxRetriesIsNotPositive(int maxRetries)
     {
-        // 0 is valid (unlimited retries, preserves pre-9.0 behaviour); only negatives throw.
+        // null is valid (unlimited retries, preserves pre-9.0 behaviour); zero or
+        // negative throws because there must be at least one permitted retry.
         var sut = ValidSample();
         sut.WarmUpMaxRetries = maxRetries;
 
@@ -150,14 +152,23 @@ public class RabbitMQClientConfigurationTests
     }
 
     [Theory]
-    [InlineData(0)]
     [InlineData(1)]
     [InlineData(10)]
     [InlineData(int.MaxValue)]
-    public void Validate_DoesNotThrow_WhenWarmUpMaxRetriesIsNonNegative(int maxRetries)
+    public void Validate_DoesNotThrow_WhenWarmUpMaxRetriesIsPositive(int maxRetries)
     {
         var sut = ValidSample();
         sut.WarmUpMaxRetries = maxRetries;
+
+        Should.NotThrow(sut.Validate);
+    }
+
+    [Fact]
+    public void Validate_DoesNotThrow_WhenWarmUpMaxRetriesIsNull()
+    {
+        // Null opts into unlimited retries (pre-9.0 behaviour).
+        var sut = ValidSample();
+        sut.WarmUpMaxRetries = null;
 
         Should.NotThrow(sut.Validate);
     }

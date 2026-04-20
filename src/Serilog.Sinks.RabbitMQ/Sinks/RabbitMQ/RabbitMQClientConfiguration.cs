@@ -110,10 +110,10 @@ public class RabbitMQClientConfiguration
     /// Maximum number of consecutive warm-up failures before the channel pool enters a
     /// broken state and fails fast from <see cref="IRabbitMQChannelPool.GetAsync"/>.
     /// A half-open circuit breaker attempts recovery after a cooldown window.
-    /// Default is 10. Set to 0 to retry indefinitely (preserves pre-9.0 behaviour).
-    /// The failure counter resets on any successful channel creation.
+    /// Default is 10. Set to <see langword="null"/> to retry indefinitely (preserves
+    /// pre-9.0 behaviour). The failure counter resets on any successful channel creation.
     /// </summary>
-    public int WarmUpMaxRetries { get; set; } = 10;
+    public int? WarmUpMaxRetries { get; set; } = 10;
 
     /// <summary>
     /// Contains events for sending messages.
@@ -156,7 +156,7 @@ public class RabbitMQClientConfiguration
     /// previously observed when the checks lived in <c>LoggerConfigurationRabbitMQExtensions</c>.
     /// </remarks>
     /// <exception cref="ArgumentException">Thrown when <see cref="Hostnames"/> is null or empty, <see cref="Username"/> is null or empty, or <see cref="Password"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range, <see cref="ChannelCount"/> is not greater than zero, or <see cref="WarmUpMaxRetries"/> is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="Port"/> is outside the valid TCP range, <see cref="ChannelCount"/> is not greater than zero, or <see cref="WarmUpMaxRetries"/> is specified and not greater than zero.</exception>
     [SuppressMessage(
         "Major Code Smell",
         "S3928:Parameter names used into ArgumentException constructors should match an existing one",
@@ -188,9 +188,9 @@ public class RabbitMQClientConfiguration
             throw new ArgumentOutOfRangeException(nameof(ChannelCount), "ChannelCount must be greater than zero.");
         }
 
-        if (WarmUpMaxRetries < 0)
+        if (WarmUpMaxRetries is int retries && retries <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(WarmUpMaxRetries), "WarmUpMaxRetries must be zero (unlimited) or positive.");
+            throw new ArgumentOutOfRangeException(nameof(WarmUpMaxRetries), "WarmUpMaxRetries must be greater than zero, or null for unlimited retries.");
         }
     }
 }

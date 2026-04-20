@@ -221,7 +221,7 @@ Keys are case-insensitive.
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `channelCount` | `int` | `64` | Number of channels held in the pool. Channels are opened eagerly in the background at startup; broken channels are replaced automatically. When all channels are in use, additional publish calls await until one is returned. |
-| `warmUpMaxRetries` | `int` | `10` | Maximum consecutive warm-up failures before the pool enters a broken state. While broken, `GetAsync` throws `InvalidOperationException` immediately so publish failures surface to the `BatchingSink` failure listener (or `WriteTo.Fallback(...)` chain) instead of blocking waiters. A 60 s cooldown elapses between exhaustion and the next probe attempt; probe success transitions the pool back to warming. Set to `0` for unlimited retries (pre-9.0 behaviour). The exponential backoff schedule between attempts (500 ms → 30 s cap) is not configurable. |
+| `warmUpMaxRetries` | `int?` | `10` | Maximum consecutive warm-up failures before the pool enters a broken state. While broken, `GetAsync` throws `InvalidOperationException` immediately so publish failures surface to the `BatchingSink` failure listener (or `WriteTo.Fallback(...)` chain) instead of blocking waiters. A 60 s cooldown elapses between exhaustion and the next probe attempt; probe success transitions the pool back to warming. Set to `null` for unlimited retries (pre-9.0 behaviour). The exponential backoff schedule between attempts (500 ms → 30 s cap) is not configurable. |
 
 > **Deprecated:** `maxChannels` (parameter) and `MaxChannels` (property) are kept as
 > `[Obsolete]` shims that forward to `channelCount` / `ChannelCount`. They will be removed in
@@ -429,7 +429,7 @@ and integration tests.
   failures (default `10`). A broken pool fails `GetAsync` fast so events surface to Serilog's
   `BatchingSink` failure listener (or `WriteTo.Fallback(...)`) instead of blocking waiters.
   Self-heals via a half-open probe after a 60 s cooldown. Set
-  `RabbitMQClientConfiguration.WarmUpMaxRetries = 0` for unlimited retries — matches pre-9.0
+  `RabbitMQClientConfiguration.WarmUpMaxRetries = null` for unlimited retries — matches pre-9.0
   behaviour, but prefer `WriteTo.Fallback(...)` for resilience instead.
 - **`Microsoft.Extensions.ObjectPool` dependency removed.** No action needed unless your
   application referenced it transitively through this package.

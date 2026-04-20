@@ -94,7 +94,7 @@ namespace Serilog.Sinks.RabbitMQ
         public RabbitMQ.Client.SslOption? SslOption { get; set; }
         public string Username { get; set; }
         public string VHost { get; set; }
-        public int WarmUpMaxRetries { get; set; }
+        public int? WarmUpMaxRetries { get; set; }
         public Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration Clone() { }
         public void Validate() { }
     }

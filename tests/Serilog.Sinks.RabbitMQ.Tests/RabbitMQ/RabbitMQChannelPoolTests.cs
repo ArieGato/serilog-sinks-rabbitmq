@@ -1299,6 +1299,101 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task WarmUp_WithNullMaxRetries_KeepsRetrying_WithoutTransitioningToBroken()
+    {
+        // `WarmUpMaxRetries = null` is the opt-in for unlimited retries (pre-9.0 behaviour);
+        // covers the short-circuit arm of `_maxRetries is int maxRetries && failures >= maxRetries`
+        // where the pattern match fails. Warm-up must keep retrying with the exponential
+        // backoff rather than transitioning to Broken — no matter how many failures stack up.
+        var attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("permanent");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = null,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until warm-up has retried enough times that the default MaxRetries of 10
+        // would have tripped the breaker — confirms the null opt-out disables exhaustion
+        // entirely. Two attempts suffice given the backoff (~500 ms of wall-clock delay
+        // after the first failure).
+        await WaitForAsync(() => Volatile.Read(ref attempts) >= 2);
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Warming);
+    }
+
+    [Fact]
+    public async Task RefillExhaustion_DuringProbing_DoesNotPrematurelySignalUnhealthy()
+    {
+        // If a refill WarmUpAsync (spawned by ReturnAsync) is still looping when
+        // HandleBrokenStateAsync has flipped state to Probing, and the refill itself
+        // reaches _maxRetries, it must NOT signal unhealthy — a concurrent probe is
+        // mid-flight and prematurely waking waiters (who would then observe Probing
+        // and throw exhausted) bypasses the probe's recovery.
+        //
+        // The guard in WarmUpSingleAsync only calls SignalUnhealthy when one of the two
+        // Warming/Open→Broken CAS calls succeeds; if state was Probing, both fail and
+        // the signal is suppressed. This test uses TestingSetState to force the Probing
+        // state deterministically, then spawns a refill via ReturnAsync that will hit
+        // _maxRetries, and asserts the unhealthy CTS is never cancelled.
+        var attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                var attempt = Interlocked.Increment(ref attempts);
+                if (attempt == 1)
+                {
+                    // Initial warm-up succeeds so the pool reaches Open.
+                    return Task.FromResult(CreateOpenChannel());
+                }
+
+                throw new InvalidOperationException("transient");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        // Simulate HandleBrokenStateAsync already owning the probe.
+        pool.TestingSetState(RabbitMQChannelPool.PoolState.Probing);
+
+        var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_unhealthySignalCts field not found.");
+        var signalCts = ctsField.GetValue(pool) as CancellationTokenSource
+            ?? throw new InvalidOperationException("_unhealthySignalCts value was null.");
+        signalCts.IsCancellationRequested.ShouldBeFalse();
+
+        // Return a broken channel — spawns a refill WarmUpAsync that will keep failing.
+        var brokenChannel = Substitute.For<IRabbitMQChannel>();
+        brokenChannel.IsOpen.Returns(false);
+        await pool.ReturnAsync(brokenChannel);
+
+        // Wait until the refill has failed _maxRetries times plus the initial success.
+        await WaitForAsync(() => Volatile.Read(ref attempts) >= 1 + configuration.WarmUpMaxRetries!.Value);
+
+        // Give the exhaustion block a beat to run its CAS pair + guarded SignalUnhealthy.
+        await Task.Delay(50);
+
+        // State must still be Probing (both CAS no-op'd) and the signal must NOT have fired.
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Probing);
+        signalCts.IsCancellationRequested.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task ReturnAsync_Refill_WhenPoolBroken_AbortsWithoutMoreAttempts()
     {
         // Once the pool has transitioned to Broken, refills triggered by ReturnAsync must

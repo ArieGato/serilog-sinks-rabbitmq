@@ -266,7 +266,7 @@ The warm-up path now:
   failure listener / `Fallback` chain. The separate 60 s cooldown window (after the
   breaker has tripped, before the next probe) is handled by the fail-fast path above.
 
-Set `WarmUpMaxRetries = 0` to preserve the pre-9.0 behaviour of retrying indefinitely. The
+Set `WarmUpMaxRetries = null` to preserve the pre-9.0 behaviour of retrying indefinitely. The
 backoff schedule itself is not configurable.
 
 ### Renamed `MaxChannels` to `ChannelCount`
@@ -296,4 +296,4 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
   legacy catch-and-route behaviour.
 - Warm-up now stops after `WarmUpMaxRetries` consecutive failures (default `10`) and a
   broken pool fails `GetAsync` fast instead of blocking waiters. Set
-  `WarmUpMaxRetries = 0` to opt back into unlimited retries.
+  `WarmUpMaxRetries = null` to opt back into unlimited retries.
