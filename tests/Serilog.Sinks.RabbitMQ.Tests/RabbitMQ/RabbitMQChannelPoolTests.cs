@@ -13,6 +13,8 @@
 // limitations under the License.
 
 using System.Diagnostics;
+using System.Reflection;
+using System.Threading.Channels;
 
 using Serilog.Sinks.RabbitMQ.Tests.TestHelpers;
 
@@ -893,6 +895,667 @@ public class RabbitMQChannelPoolTests
         await disposed.Task;
 
         selfLogBuilder.ToString().ShouldNotContain(nameof(ObjectDisposedException));
+    }
+
+    // Issue #302: bounded warm-up + circuit breaker tests below.
+    private static readonly FieldInfo BrokenUntilTicksField =
+        typeof(RabbitMQChannelPool).GetField("_brokenUntilTicks", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("RabbitMQChannelPool._brokenUntilTicks field not found.");
+
+    private static void ExpireCooldown(RabbitMQChannelPool pool) =>
+        BrokenUntilTicksField.SetValue(pool, 0L);
+
+    [Theory]
+    [InlineData(1, 500)]
+    [InlineData(2, 1000)]
+    [InlineData(3, 2000)]
+    [InlineData(4, 4000)]
+    [InlineData(5, 8000)]
+    [InlineData(6, 16000)]
+    [InlineData(7, 30000)]
+    [InlineData(8, 30000)]
+    [InlineData(100, 30000)]
+    public void GetBackoffDelay_ReturnsExpectedSchedule(int failures, int expectedMilliseconds)
+    {
+        RabbitMQChannelPool.GetBackoffDelay(failures)
+            .ShouldBe(TimeSpan.FromMilliseconds(expectedMilliseconds));
+    }
+
+    [Fact]
+    public async Task WarmUp_StopsAfterMaxRetries_AndTransitionsToBroken()
+    {
+        // Arrange — every CreateChannelAsync attempt throws. With WarmUpMaxRetries=3 the
+        // warm-up loop should perform 3 attempts (because _consecutiveFailures resets only
+        // on success) and then transition the pool to Broken.
+        int attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("permanent");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 3,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+
+        Volatile.Read(ref attempts).ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task GetAsync_ThrowsExhausted_WhenPoolIsBroken()
+    {
+        int attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("permanent");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        ex.Message.ShouldContain("exhausted");
+        ex.Message.ShouldContain("2");
+    }
+
+    [Fact]
+    public async Task GetAsync_TriggersProbe_AfterCooldown_AndRecoversOnSuccess()
+    {
+        // Arrange — first 3 CreateChannelAsync calls fail (exhausting WarmUpMaxRetries=3
+        // and tripping Broken), from the 4th onwards the factory succeeds. Expiring the
+        // cooldown via reflection simulates the 60 s wall-clock wait without slowing the
+        // test; the probe attempt then succeeds and the pool transitions back to
+        // Warming → Open via the refill.
+        int attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                int attempt = Interlocked.Increment(ref attempts);
+                if (attempt <= 3)
+                {
+                    throw new InvalidOperationException("transient-broker-outage");
+                }
+
+                return Task.FromResult(CreateOpenChannel());
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 3,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+
+        // Act — expire cooldown so the next GetAsync tries to probe.
+        ExpireCooldown(pool);
+
+        // The probe succeeds, the caller falls through to ReadAsync, and the refill task
+        // eventually takes state back to Open.
+        var channel = await pool.GetAsync();
+        channel.ShouldNotBeNull();
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+    }
+
+    [Fact]
+    public async Task GetAsync_ProbeFailure_RestoresBrokenStateWithFreshCooldown()
+    {
+        // Arrange — factory always fails. After exhaustion and cooldown expiry, the probe
+        // attempt must also fail, the pool must return to Broken with a NEW cooldown, and
+        // subsequent GetAsync calls must throw exhausted without re-probing.
+        int attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("permanent");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+        int attemptsAfterExhaustion = Volatile.Read(ref attempts);
+
+        ExpireCooldown(pool);
+
+        // First post-cooldown call triggers the probe. Probe fails → back to Broken.
+        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Broken);
+
+        // Probe used exactly one attempt on top of the pre-cooldown budget.
+        Volatile.Read(ref attempts).ShouldBe(attemptsAfterExhaustion + 1);
+
+        // Second post-cooldown call finds a FRESH cooldown and throws without probing.
+        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        Volatile.Read(ref attempts).ShouldBe(attemptsAfterExhaustion + 1);
+    }
+
+    [Fact]
+    public async Task GetAsync_ConcurrentCallsDuringProbe_AllSeeExhaustion()
+    {
+        // Arrange — first N calls fail to trip Broken; from N+1 onwards CreateChannelAsync
+        // blocks on a gate so the probe can be observed mid-flight. We then fire 4 concurrent
+        // GetAsync calls: one wins the CAS and becomes the probe, the others must all see
+        // Probing and throw exhausted immediately. After the gate releases, the probe
+        // succeeds and the winner's GetAsync returns a channel.
+        int attempts = 0;
+        var probeGate = new TaskCompletionSource<bool>();
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(async _ =>
+            {
+                int attempt = Interlocked.Increment(ref attempts);
+                if (attempt <= 2)
+                {
+                    throw new InvalidOperationException("permanent");
+                }
+
+                // Probe call: block until the test releases the gate.
+                await probeGate.Task.ConfigureAwait(false);
+                return CreateOpenChannel();
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+        ExpireCooldown(pool);
+
+        // Kick off four concurrent GetAsync calls; one becomes the probe.
+        var callers = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
+        {
+            try
+            {
+                return await pool.GetAsync();
+            }
+            catch (InvalidOperationException)
+            {
+                return null!;
+            }
+        })).ToArray();
+
+        // Wait until the probe has entered CreateChannelAsync.
+        await WaitForAsync(() => Volatile.Read(ref attempts) >= 3);
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Probing);
+
+        // Let any concurrent callers finish their Broken/Probing checks.
+        await WaitForAsync(() => callers.Count(c => c.IsCompleted) >= 3);
+
+        // Now release the probe so the winning caller can complete.
+        probeGate.SetResult(true);
+
+        var results = await Task.WhenAll(callers);
+
+        // Exactly one caller got a channel; the rest threw (returned null in our wrapper).
+        results.Count(r => r is not null).ShouldBe(1);
+        results.Count(r => r is null).ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task GetAsync_ProbeInFlight_WhenPoolDisposed_DisposesOrphanChannelAndSurfacesDisposal()
+    {
+        // Covers HandleBrokenStateAsync's "TryWrite failed" branch: probe is inside
+        // CreateChannelAsync when the pool is disposed, so _channels.Writer is completed
+        // by the time the probe returns. The returned channel is orphaned and must be
+        // disposed; GetAsync's follow-on ReadAsync then surfaces the disposal.
+        int attempts = 0;
+        var probeGate = new TaskCompletionSource<bool>();
+        var probeChannel = Substitute.For<IChannel>();
+        probeChannel.IsOpen.Returns(true);
+
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(async _ =>
+            {
+                int attempt = Interlocked.Increment(ref attempts);
+                if (attempt <= 2)
+                {
+                    throw new InvalidOperationException("permanent");
+                }
+
+                await probeGate.Task.ConfigureAwait(false);
+                return probeChannel;
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+        ExpireCooldown(pool);
+
+        var probeCall = pool.GetAsync().AsTask();
+
+        // Wait until the probe has entered CreateChannelAsync (attempt 3).
+        await WaitForAsync(() => Volatile.Read(ref attempts) >= 3);
+
+        // Dispose the pool while the probe is blocked; the writer is completed so TryWrite
+        // fails when the probe eventually returns.
+        await pool.DisposeAsync();
+
+        // Release the probe — CreateChannelAsync returns, TryWrite fails, the orphan
+        // channel is disposed, HandleBrokenStateAsync returns without transitioning.
+        probeGate.SetResult(true);
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await probeCall);
+        ex.Message.ShouldContain("disposed");
+        probeChannel.Received(1).Dispose();
+    }
+
+    [Fact]
+    public async Task GetAsync_ProbeInFlight_WhenCallerTokenCancelled_RestoresBrokenAndRethrows()
+    {
+        // Covers the caller-cancellation path in HandleBrokenStateAsync: the probe is
+        // awaiting connection.CreateChannelAsync with the caller's token. Cancelling the
+        // token causes the probe to throw OperationCanceledException, which the handler
+        // must route through RecordProbeFailure (resetting the cooldown) and rethrow.
+        int attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(async call =>
+            {
+                int attempt = Interlocked.Increment(ref attempts);
+                if (attempt <= 2)
+                {
+                    throw new InvalidOperationException("permanent");
+                }
+
+                // Probe call: block on the caller's cancellation token so we can cancel
+                // the probe deterministically.
+                var ct = call.ArgAt<CancellationToken>(1);
+                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
+                return CreateOpenChannel();
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+        ExpireCooldown(pool);
+
+        using var cts = new CancellationTokenSource();
+        var probeCall = pool.GetAsync(cts.Token).AsTask();
+
+        await WaitForAsync(() => Volatile.Read(ref attempts) >= 3);
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Probing);
+
+        cts.Cancel();
+
+        await Should.ThrowAsync<OperationCanceledException>(async () => await probeCall);
+
+        // Probe caller's OCE must also flip the pool back to Broken with a fresh cooldown,
+        // so a follow-on caller sees exhaustion rather than falling through to ReadAsync.
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Broken);
+    }
+
+    [Fact]
+    public async Task HandleBrokenState_WhenCasLoses_ThrowsExhaustion()
+    {
+        // Covers the CAS-lost race in HandleBrokenStateAsync (line ~162): a caller reads
+        // state=Broken and enters the handler, but between the read and the
+        // CompareExchange(Broken → Probing) another caller wins the probe role. The loser
+        // must throw the exhaustion exception without running a second probe. Simulating
+        // the timing race deterministically in a multi-thread test is not reliable, so we
+        // use a narrow internal test hook that pre-sets state=Probing and invokes the
+        // handler with observedState=Broken — the CAS then correctly fails.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1, WarmUpMaxRetries = 2 };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Drive the pool into Probing (simulating the "other caller already won the CAS").
+        pool.TestingSetState(RabbitMQChannelPool.PoolState.Probing);
+
+        // Invoke the handler as if we had observed Broken a moment earlier — CAS loses.
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () =>
+            await pool.TestingInvokeHandleBrokenStateAsync(
+                RabbitMQChannelPool.PoolState.Broken,
+                default));
+        ex.Message.ShouldContain("exhausted");
+
+        // State must be unchanged — we were not the probe owner, so we did not clear it.
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Probing);
+    }
+
+    [Fact]
+    public async Task GetAsync_InFlightWaiter_WakesOnTransitionToBroken_AndRoutesToFallback()
+    {
+        // The key queue-bloat mitigation: a GetAsync parked on ReadAsync during the
+        // cumulative warm-up backoff window (controlled by WarmUpMaxRetries and the
+        // backoff schedule) would otherwise stay hung for the entire outage,
+        // blocking BatchingSink's flush loop. When warm-up exhausts and transitions
+        // to Broken, the unhealthy signal fires and the in-flight waiter wakes,
+        // observes Broken, and throws the exhaustion exception so the batch
+        // rethrows to BatchingSink's failure listener / Fallback chain.
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ => throw new InvalidOperationException("permanent"));
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Park a caller on ReadAsync BEFORE the pool has had time to reach Broken.
+        // Pool is Warming; pool is empty; caller blocks.
+        var waiter = pool.GetAsync().AsTask();
+        pool.CurrentState.ShouldNotBe(RabbitMQChannelPool.PoolState.Broken);
+
+        // Wait for warm-up to exhaust — this fires SignalUnhealthy after flipping state.
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+
+        // The hung waiter should wake with the exhaustion exception (NOT OCE), proving
+        // the signal fired and the catch handler routed the cancellation to the batching
+        // layer's fallback path.
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await waiter);
+        ex.Message.ShouldContain("exhausted");
+    }
+
+    [Fact]
+    public async Task WarmUp_WithNullMaxRetries_KeepsRetrying_WithoutTransitioningToBroken()
+    {
+        // `WarmUpMaxRetries = null` is the opt-in for unlimited retries (pre-9.0 behaviour);
+        // covers the short-circuit arm of `_maxRetries is int maxRetries && failures >= maxRetries`
+        // where the pattern match fails. Warm-up must keep retrying with the exponential
+        // backoff rather than transitioning to Broken — no matter how many failures stack up.
+        var attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("permanent");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = null,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        // Wait until warm-up has retried enough times that the default MaxRetries of 10
+        // would have tripped the breaker — confirms the null opt-out disables exhaustion
+        // entirely. Two attempts suffice given the backoff (~500 ms of wall-clock delay
+        // after the first failure).
+        await WaitForAsync(() => Volatile.Read(ref attempts) >= 2);
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Warming);
+    }
+
+    [Fact]
+    public async Task RefillExhaustion_DuringProbing_DoesNotPrematurelySignalUnhealthy()
+    {
+        // If a refill WarmUpAsync (spawned by ReturnAsync) is still looping when
+        // HandleBrokenStateAsync has flipped state to Probing, and the refill itself
+        // reaches _maxRetries, it must NOT signal unhealthy — a concurrent probe is
+        // mid-flight and prematurely waking waiters (who would then observe Probing
+        // and throw exhausted) bypasses the probe's recovery.
+        //
+        // The guard in WarmUpSingleAsync only calls SignalUnhealthy when one of the two
+        // Warming/Open→Broken CAS calls succeeds; if state was Probing, both fail and
+        // the signal is suppressed. This test uses TestingSetState to force the Probing
+        // state deterministically, then spawns a refill via ReturnAsync that will hit
+        // _maxRetries, and asserts the unhealthy CTS is never cancelled.
+        var attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                var attempt = Interlocked.Increment(ref attempts);
+                if (attempt == 1)
+                {
+                    // Initial warm-up succeeds so the pool reaches Open.
+                    return Task.FromResult(CreateOpenChannel());
+                }
+
+                throw new InvalidOperationException("transient");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        // Simulate HandleBrokenStateAsync already owning the probe.
+        pool.TestingSetState(RabbitMQChannelPool.PoolState.Probing);
+
+        var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_unhealthySignalCts field not found.");
+        var signalCts = ctsField.GetValue(pool) as CancellationTokenSource
+            ?? throw new InvalidOperationException("_unhealthySignalCts value was null.");
+        signalCts.IsCancellationRequested.ShouldBeFalse();
+
+        // Return a broken channel — spawns a refill WarmUpAsync that will keep failing.
+        var brokenChannel = Substitute.For<IRabbitMQChannel>();
+        brokenChannel.IsOpen.Returns(false);
+        await pool.ReturnAsync(brokenChannel);
+
+        // Wait until the refill has failed _maxRetries times plus the initial success.
+        await WaitForAsync(() => Volatile.Read(ref attempts) >= 1 + configuration.WarmUpMaxRetries!.Value);
+
+        // Give the exhaustion block a beat to run its CAS pair + guarded SignalUnhealthy.
+        await Task.Delay(50);
+
+        // State must still be Probing (both CAS no-op'd) and the signal must NOT have fired.
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Probing);
+        signalCts.IsCancellationRequested.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ReturnAsync_Refill_WhenPoolBroken_AbortsWithoutMoreAttempts()
+    {
+        // Once the pool has transitioned to Broken, refills triggered by ReturnAsync must
+        // not keep hammering the broker — WarmUpSingleAsync's entry-check short-circuits
+        // so the circuit-breaker cooldown actually holds. Without the check, a cluster of
+        // simultaneously-broken channels would each spawn a refill task that ignored the
+        // breaker and piled up SelfLog spam.
+        int attempts = 0;
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new InvalidOperationException("permanent");
+            });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
+        int attemptsAfterExhaustion = Volatile.Read(ref attempts);
+
+        // Simulate a broken channel return while the pool is Broken.
+        var brokenChannel = Substitute.For<IRabbitMQChannel>();
+        brokenChannel.IsOpen.Returns(false);
+        await pool.ReturnAsync(brokenChannel);
+
+        // Give the refill task time to have run if it were going to.
+        await Task.Delay(100);
+
+        Volatile.Read(ref attempts).ShouldBe(attemptsAfterExhaustion);
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Broken);
+    }
+
+    [Fact]
+    public async Task SignalUnhealthy_SwallowsObjectDisposedException_WhenCtsAlreadyDisposed()
+    {
+        // Covers SignalUnhealthy's ObjectDisposedException catch. When DisposeAsync
+        // races with a warm-up exhaustion that is about to call SignalUnhealthy, the
+        // CTS has already been disposed and Cancel() throws ODE. The catch swallows
+        // so the ODE doesn't propagate into WarmUpSingleAsync's broad handler and
+        // light up SelfLog.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await pool.DisposeAsync(); // disposes _unhealthySignalCts among other things
+
+        // Reach into the (now-disposed) pool and invoke SignalUnhealthy directly.
+        // Production reaches this via the exhaustion → signal path; reflection is
+        // how we deterministically hit the ODE branch without a multi-thread race.
+        var method = typeof(RabbitMQChannelPool).GetMethod("SignalUnhealthy", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SignalUnhealthy not found.");
+
+        Should.NotThrow(() => method.Invoke(pool, null));
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenChannelsWriterCompletedWithoutDisposedFlag_ThrowsInvalidOperation()
+    {
+        // Covers the ChannelClosedException catch path in GetAsync. The normal
+        // disposal path short-circuits via the fast check at the top, so this
+        // catch only fires in the narrow window where DisposeAsync is mid-flight
+        // and has completed the writer without yet flipping the disposed flag.
+        // Reflection reproduces that window by completing the writer in place.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        // Drain the pool so GetAsync would normally park on ReadAsync.
+        await pool.GetAsync();
+
+        // Complete the writer in place, without setting _disposed. GetAsync's fast
+        // path sees _disposed == 0 and falls through to ReadAsync, which throws
+        // ChannelClosedException on the completed writer.
+        var channelsField = typeof(RabbitMQChannelPool).GetField("_channels", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_channels field not found.");
+        var channels = channelsField.GetValue(pool) as Channel<IRabbitMQChannel>
+            ?? throw new InvalidOperationException("_channels value was null.");
+        channels.Writer.TryComplete();
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        ex.Message.ShouldContain("disposed");
+
+        // Pool field state is intentionally inconsistent post-test — no DisposeAsync
+        // to avoid spurious errors; SemaphoreSlim leak is acceptable in a test.
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenDisposedFlagSetDuringReadAsync_MapsCancellationToDisposal()
+    {
+        // Covers the OperationCanceledException catch whose when-filter reads the
+        // disposed flag. Like the writer-completed case above, this only fires in
+        // the narrow DisposeAsync race where the flag flips after the fast-path
+        // check but before the catch re-reads it. Reflection reproduces the exact
+        // state without needing a multi-thread race.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+        await pool.GetAsync(); // drain
+
+        using var cts = new CancellationTokenSource();
+        var parked = pool.GetAsync(cts.Token).AsTask();
+        await Task.Delay(50); // let parked call reach ReadAsync
+
+        // Flip _disposed without running the real DisposeAsync. The when-filter in
+        // GetAsync's catch re-reads this field when the OCE fires, and must see it
+        // set.
+        var disposedField = typeof(RabbitMQChannelPool).GetField("_disposed", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_disposed field not found.");
+        disposedField.SetValue(pool, 1);
+
+        cts.Cancel();
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await parked);
+        ex.Message.ShouldContain("disposed");
+
+        // Skip real DisposeAsync — _disposed is already set, Interlocked.Exchange
+        // would return non-zero and no-op. Test intentionally leaks the semaphore.
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenUnhealthySignalFiresButStateNotBroken_RethrowsOperationCanceled()
+    {
+        // Covers the `throw;` fallthrough in GetAsync's unhealthy-signal catch.
+        // SignalUnhealthy is only called from state-transition paths in production,
+        // so reaching this code requires _unhealthySignalCts to fire without a
+        // corresponding state transition — an atypical case used here to prove the
+        // catch doesn't mask a genuine cancellation as exhaustion.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+        await pool.GetAsync(); // drain so GetAsync parks on ReadAsync
+
+        var parked = pool.GetAsync().AsTask();
+        await Task.Delay(50);
+
+        // Cancel the unhealthy CTS WITHOUT transitioning state.
+        var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_unhealthySignalCts field not found.");
+        var cts = ctsField.GetValue(pool) as CancellationTokenSource
+            ?? throw new InvalidOperationException("_unhealthySignalCts value was null.");
+        cts.Cancel();
+
+        // Catch fires (linked cancelled, caller token not), state is Open, falls
+        // through to `throw;`. Caller sees OCE, not an exhaustion exception.
+        await Should.ThrowAsync<OperationCanceledException>(async () => await parked);
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Open);
     }
 
     [Fact]

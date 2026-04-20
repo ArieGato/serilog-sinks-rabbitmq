@@ -19,6 +19,7 @@ public class RabbitMQClientConfigurationTests
             RoutingKey = "log",
             DeliveryMode = RabbitMQDeliveryMode.NonDurable,
             ChannelCount = 65,
+            WarmUpMaxRetries = 15,
             Port = 5673,
             AutoCreateExchange = true,
             Heartbeat = 21,
@@ -134,6 +135,42 @@ public class RabbitMQClientConfigurationTests
         sut.ChannelCount = channelCount;
 
         Should.Throw<ArgumentOutOfRangeException>(sut.Validate).ParamName.ShouldBe("ChannelCount");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(int.MinValue)]
+    public void Validate_Throws_WhenWarmUpMaxRetriesIsNotPositive(int maxRetries)
+    {
+        // null is valid (unlimited retries, preserves pre-9.0 behaviour); zero or
+        // negative throws because there must be at least one permitted retry.
+        var sut = ValidSample();
+        sut.WarmUpMaxRetries = maxRetries;
+
+        Should.Throw<ArgumentOutOfRangeException>(sut.Validate).ParamName.ShouldBe("WarmUpMaxRetries");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(10)]
+    [InlineData(int.MaxValue)]
+    public void Validate_DoesNotThrow_WhenWarmUpMaxRetriesIsPositive(int maxRetries)
+    {
+        var sut = ValidSample();
+        sut.WarmUpMaxRetries = maxRetries;
+
+        Should.NotThrow(sut.Validate);
+    }
+
+    [Fact]
+    public void Validate_DoesNotThrow_WhenWarmUpMaxRetriesIsNull()
+    {
+        // Null opts into unlimited retries (pre-9.0 behaviour).
+        var sut = ValidSample();
+        sut.WarmUpMaxRetries = null;
+
+        Should.NotThrow(sut.Validate);
     }
 
     [Fact]
