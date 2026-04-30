@@ -28,7 +28,11 @@ internal sealed class RabbitMQConnectionFactory : IRabbitMQConnectionFactory
     private readonly ConnectionFactory _connectionFactory;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
 
-    private IConnection? _connection;
+    // volatile so the lock-free fast path in GetConnectionAsync sees a fully-published
+    // reference; without it, a concurrent reader can observe a non-null _connection
+    // whose construction is not yet visible (release-store reordering) and call methods
+    // on a partially-initialised IConnection.
+    private volatile IConnection? _connection;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQConnectionFactory"/> class.

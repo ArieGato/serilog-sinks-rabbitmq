@@ -99,6 +99,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="formatter">The text formatter.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="channelCount">Number of channels held in the pool. Channels are opened eagerly at startup.</param>
+    /// <param name="warmUpMaxRetries">Maximum consecutive warm-up failures before the pool transitions to a broken state and <c>GetAsync</c> fails fast. Set to <c>null</c> for unlimited retries (pre-9.0 behaviour).</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
     /// <param name="emitEventFailure">The handling of event failure.</param>
     /// <param name="failureSinkConfiguration">The failure sink configuration.</param>
@@ -128,6 +129,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int channelCount = RabbitMQClient.DEFAULT_CHANNEL_COUNT,
+        int? warmUpMaxRetries = 10,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         EmitEventFailureHandling emitEventFailure = EmitEventFailureHandling.WriteToSelfLog,
         Action<LoggerSinkConfiguration>? failureSinkConfiguration = null,
@@ -156,6 +158,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             formatter: formatter,
             autoCreateExchange: autoCreateExchange,
             channelCount: channelCount,
+            warmUpMaxRetries: warmUpMaxRetries,
             levelSwitch: levelSwitch,
             emitEventFailure: emitEventFailure,
             sendMessageEvents: sendMessageEvents);
@@ -216,6 +219,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="formatter">The text formatter.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="channelCount">Number of channels held in the pool. Channels are opened eagerly at startup.</param>
+    /// <param name="warmUpMaxRetries">Maximum consecutive warm-up failures before the pool transitions to a broken state and <c>GetAsync</c> fails fast. Set to <c>null</c> for unlimited retries (pre-9.0 behaviour).</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
     /// <param name="sendMessageEvents">Contains events for sending messages.</param>
     /// <returns>The logger configuration.</returns>
@@ -240,6 +244,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int channelCount = RabbitMQClient.DEFAULT_CHANNEL_COUNT,
+        int? warmUpMaxRetries = 10,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
         ISendMessageEvents? sendMessageEvents = null)
     {
@@ -263,6 +268,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             formatter: formatter,
             autoCreateExchange: autoCreateExchange,
             channelCount: channelCount,
+            warmUpMaxRetries: warmUpMaxRetries,
             levelSwitch: levelSwitch,
             sendMessageEvents: sendMessageEvents);
 
@@ -347,6 +353,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         bool sslCheckCertificateRevocation,
         bool autoCreateExchange,
         int channelCount,
+        int? warmUpMaxRetries,
         ISendMessageEvents? sendMessageEvents)
     {
         var clientConfiguration = new RabbitMQClientConfiguration
@@ -364,6 +371,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             Heartbeat = heartbeat,
             AutoCreateExchange = autoCreateExchange,
             ChannelCount = channelCount,
+            WarmUpMaxRetries = warmUpMaxRetries,
             SendMessageEvents = sendMessageEvents ?? new SendMessageEvents(),
         };
 
@@ -410,6 +418,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter,
         bool autoCreateExchange,
         int channelCount,
+        int? warmUpMaxRetries,
         LogEventLevel levelSwitch,
         EmitEventFailureHandling emitEventFailure,
         ISendMessageEvents? sendMessageEvents)
@@ -433,6 +442,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             sslCheckCertificateRevocation: sslCheckCertificateRevocation,
             autoCreateExchange: autoCreateExchange,
             channelCount: channelCount,
+            warmUpMaxRetries: warmUpMaxRetries,
             sendMessageEvents: sendMessageEvents);
 
         // Default substitution for BatchPostingLimit / BufferingTimeLimit lives in
@@ -481,6 +491,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         ITextFormatter? formatter,
         bool autoCreateExchange,
         int channelCount,
+        int? warmUpMaxRetries,
         LogEventLevel levelSwitch,
         ISendMessageEvents? sendMessageEvents)
     {
@@ -503,6 +514,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             sslCheckCertificateRevocation: sslCheckCertificateRevocation,
             autoCreateExchange: autoCreateExchange,
             channelCount: channelCount,
+            warmUpMaxRetries: warmUpMaxRetries,
             sendMessageEvents: sendMessageEvents);
 
         var sinkConfiguration = new RabbitMQSinkConfiguration

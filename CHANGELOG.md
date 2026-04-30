@@ -117,6 +117,51 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Gated cohort-completion `_consecutiveFailures` reset to authoritative cohorts
+
+After moving the consecutive-failure reset from per-channel to per-cohort (#315),
+a follow-up review found that opportunistic `Return`-driven refills (single
+channel, `markOpenOnCompletion: false`) could still wipe failures another
+concurrent cohort was actively accumulating. Two simultaneous broken-channel
+returns where one refill succeeded and the other was mid-failure had the
+success erase the failure count, delaying or hiding a legitimate breaker
+trip. The reset is now gated on `markOpenOnCompletion == true`, so only
+initial warm-up and post-probe refill — both authoritative for the state
+machine — clear failure history.
+
+### Fixed `_consecutiveFailures` per-channel reset masking sustained flapping
+
+The warm-up loop previously reset `_consecutiveFailures` to zero on every successful
+channel addition. A flaky broker that let one channel through per cohort therefore
+silently kept clearing the counter mid-cohort and never reached `WarmUpMaxRetries`,
+so the breaker never tripped — even with cumulative failures well past the
+configured budget. The reset now happens on **cohort completion** (in `WarmUpAsync`,
+after the inner loop), so failures accumulate across the cohort while still letting
+a clean refill or initial warm-up clear stale failure history from a previous
+outage. The previously-skipped reproducer test
+`WarmUp_WithFlakyBrokerOneSuccessPerCohort_TripsBrokenAfterMaxRetriesCumulativeFailures`
+is now passing. Tracked as [#315](https://github.com/ArieGato/serilog-sinks-rabbitmq/issues/315).
+
+This is a behaviour change for users with `WarmUpMaxRetries` set: a sustained
+flapping pattern that previously kept the breaker dormant will now correctly trip
+it once the cumulative-failure threshold is reached.
+
+### Wired `warmUpMaxRetries` through the public extension overloads
+
+`WriteTo.RabbitMQ(...)` and `AuditTo.RabbitMQ(...)` now expose a `warmUpMaxRetries`
+parameter (default `10`, `null` for unlimited). Previously the option was only
+reachable by hand-constructing `RabbitMQClientConfiguration`, so the README and
+CHANGELOG documentation of it didn't match the actual surface.
+
+### Fixed misleading `PoolExhaustedException` message when retries are unlimited
+
+When `WarmUpMaxRetries = null` the warm-up loop never trips Broken, but
+`HandleBrokenStateAsync` could still surface `InvalidOperationException` on probe
+paths (CAS-lost, probe-already-in-flight, or probe-failed). The interpolated
+message previously read `"Channel pool exhausted after  consecutive warm-up
+failures..."` (empty number). The probe-path message is now distinct and the
+counted-retries variant is only emitted when a numeric retry budget exists.
+
 ### Fixed partial-batch duplication when forwarding to the in-sink failure sink
 
 When a publish failed mid-batch (e.g. event 30 of 50 throws) the sink previously
@@ -133,6 +178,33 @@ original batch to its failure listener — so `WriteTo.Fallback(...)` wrappers
 still observe the full batch, not the tail. Surfacing the slice through
 `BatchingSink` would require an upstream contract change; tracked separately as
 [#318](https://github.com/ArieGato/serilog-sinks-rabbitmq/issues/318).
+
+### Fixed channel-pool concurrency bugs in the warm-up / circuit-breaker path
+
+Three latent races in the bounded-warm-up and self-heal logic, surfaced by an
+architect-level review of the new state machine:
+
+- **`GetAsync` could leak `ObjectDisposedException`.** The probe-success path in
+  `HandleBrokenStateAsync` rotates `_unhealthySignalCts` and disposes the
+  previous instance. A concurrent `GetAsync` caller that loaded the old
+  reference before the rotation could then call `.Token` on a disposed CTS,
+  bypassing the structured `ChannelClosedException` / `OperationCanceledException`
+  catch blocks and surfacing an unstructured failure to publish-path callers.
+  The field is now `volatile` and `GetAsync` snapshots the reference once and
+  tolerates `ObjectDisposedException` from the snapshot's `Token`, mapping the
+  race to the structured disposal exception.
+- **Probe recovery could leave the pool stuck in `Warming`.** After a successful
+  probe, the refill task spawned `WarmUpAsync(_size, ...)` — but the probe had
+  already written one channel into the bounded queue. The last `TryWrite`
+  therefore overflowed, the orphan was disposed, `WarmUpSingleAsync` returned
+  false, and `WarmUpAsync` exited before the `Warming → Open` CAS — leaving the
+  pool stuck in `Warming` even though the broker had recovered. Refill now asks
+  for `_size - 1` channels.
+- **`RabbitMQConnectionFactory` lock-free fast path was racy.** The non-volatile
+  read of `_connection` could observe a non-null reference whose construction
+  was not yet fully published (release-store reordering), letting a concurrent
+  caller invoke methods on a partially-initialised `IConnection`. The field is
+  now `volatile`.
 
 ### Added support for .net 10
 
@@ -272,16 +344,21 @@ The warm-up path now:
   back to `Warming` (with a background refill of the remaining channels). On probe failure
   the pool re-enters `Broken` with a fresh 60 s cooldown. Concurrent `GetAsync` callers
   during the probe see exhaustion — only one probe runs at a time.
-- **Wakes in-flight waiters on exhaustion**: a `GetAsync` call that parked on the empty
-  channel during the cumulative warm-up backoff (the time spent in the retry loop before
-  the breaker trips — roughly ~2 minutes with the default `WarmUpMaxRetries = 10` and
-  the backoff schedule above, and shorter/longer when `WarmUpMaxRetries` is tuned) now
-  wakes as soon as the breaker trips, instead of staying hung for the rest of the
-  outage. Without this, `BatchingSink`'s flush loop would sit behind the hung
-  `EmitBatchAsync` and the in-memory event queue would grow indefinitely. With it, the
-  hung call surfaces the exhaustion exception and subsequent batches drain through the
-  failure listener / `Fallback` chain. The separate 60 s cooldown window (after the
-  breaker has tripped, before the next probe) is handled by the fail-fast path above.
+- **Wakes in-flight waiters when the breaker trips**: there are two distinct windows
+  to think about:
+  - **Pre-trip backoff window** (the time spent retrying warm-up before the breaker
+    flips to `Broken` — roughly ~2 minutes with the default `WarmUpMaxRetries = 10`).
+    A `GetAsync` parked on the empty channel during this window used to stay hung for
+    the rest of the outage. It now wakes the moment the breaker trips and throws the
+    exhaustion exception, so `BatchingSink`'s flush loop is unblocked.
+  - **Post-trip cooldown window** (the 60 s between trip and the next probe). New
+    `GetAsync` calls during this window throw the exhaustion exception synchronously
+    via the fail-fast path described above; nothing parks.
+
+  Without the wake on trip, `BatchingSink`'s in-memory queue would grow indefinitely
+  behind a hung `EmitBatchAsync`. With it, the hung call surfaces the exhaustion
+  exception and subsequent batches drain through the failure listener / `Fallback`
+  chain.
 
 Set `WarmUpMaxRetries = null` to preserve the pre-9.0 behaviour of retrying indefinitely. The
 backoff schedule itself is not configurable.

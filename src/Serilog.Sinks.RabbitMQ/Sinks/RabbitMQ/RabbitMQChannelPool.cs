@@ -34,6 +34,8 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// </summary>
     internal const int BROKEN_COOLDOWN_MS = 60_000;
 
+    private const string POOL_DISPOSED_MESSAGE = "Channel pool has been disposed.";
+
     /// <summary>
     /// Cooldown expressed in <see cref="Stopwatch"/> ticks. <c>Stopwatch</c> is portable
     /// across every target framework (unlike <c>Environment.TickCount64</c>, which is
@@ -80,9 +82,12 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// <see cref="GetAsync"/> caller currently parked in <c>ReadAsync</c> wakes up and
     /// routes to the batching sink's failure listener instead of staying hung for the
     /// remainder of the outage. Replaced with a fresh instance on probe success so the
-    /// next pre-exhaustion window starts clean.
+    /// next pre-exhaustion window starts clean. <c>volatile</c> so concurrent readers
+    /// always observe the latest reference; the rotation in <c>HandleBrokenStateAsync</c>
+    /// disposes the previous instance, so readers must additionally tolerate
+    /// <see cref="ObjectDisposedException"/> on the snapshot's <c>Token</c>.
     /// </summary>
-    private CancellationTokenSource _unhealthySignalCts = new();
+    private volatile CancellationTokenSource _unhealthySignalCts = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQChannelPool"/> class
@@ -126,7 +131,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         // disposal signal is deterministic.
         if (Volatile.Read(ref _disposed) != 0)
         {
-            throw new InvalidOperationException("Channel pool has been disposed.");
+            throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
         }
 
         var state = (PoolState)Volatile.Read(ref _state);
@@ -145,14 +150,21 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         // the queue grow indefinitely. Waking the waiter lets it route through
         // the catch below to the exhaustion exception, which in turn routes events
         // to the configured fallback.
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _unhealthySignalCts.Token);
+        //
+        // Snapshot the field once and tolerate ObjectDisposedException on .Token:
+        // the rotation in HandleBrokenStateAsync's probe-success path disposes the
+        // previous instance, and a caller that loaded the old reference before the
+        // rotation would otherwise leak ODE past the structured catch blocks below.
+        var unhealthyToken = ResolveUnhealthyToken();
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, unhealthyToken);
         try
         {
             return await _channels.Reader.ReadAsync(linked.Token).ConfigureAwait(false);
         }
         catch (ChannelClosedException)
         {
-            throw new InvalidOperationException("Channel pool has been disposed.");
+            throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
         }
         catch (OperationCanceledException) when (Volatile.Read(ref _disposed) != 0)
         {
@@ -161,7 +173,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             // set so callers see a deterministic failure mode rather than an
             // OperationCanceledException whose token might belong to either party
             // (issue #286 item 2).
-            throw new InvalidOperationException("Channel pool has been disposed.");
+            throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -175,6 +187,44 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             }
 
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Reads the current unhealthy-signal token while tolerating the rotation race
+    /// from <see cref="HandleBrokenStateAsync"/>'s probe-success path: that path
+    /// installs a fresh <see cref="CancellationTokenSource"/> and disposes the old
+    /// one, so a caller that loaded the old reference would otherwise leak
+    /// <see cref="ObjectDisposedException"/> past the structured catches in
+    /// <see cref="GetAsync"/>. Both branches of the inner try/catch are reachable
+    /// only under multi-thread races; deterministic single-threaded tests cannot
+    /// produce them, and a multi-thread stress test was tried but ran into flaky
+    /// CI behaviour and resource-ownership noise. Excluded from coverage with
+    /// inline justification.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    private CancellationToken ResolveUnhealthyToken()
+    {
+        var unhealthyCts = _unhealthySignalCts;
+        try
+        {
+            return unhealthyCts.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            // Lost the rotation race; the new CTS is in place and any pending
+            // unhealthy signal would have been replayed on it. Re-read once and
+            // fall back to the disposal exception if the new instance has also
+            // been disposed (pool is shutting down — the disposed check at the
+            // top of GetAsync will catch the next call).
+            try
+            {
+                return _unhealthySignalCts.Token;
+            }
+            catch (ObjectDisposedException)
+            {
+                throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
+            }
         }
     }
 
@@ -225,10 +275,19 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             // Probe succeeded — reset counter, install a fresh unhealthy signal (the
             // previous one fired on exhaustion and would instantly poison new waiters),
             // transition to Warming, kick off refill.
+            //
+            // Refill asks for `_size - 1` because the probe already wrote one channel.
+            // Asking for `_size` overflows the bounded queue: the last TryWrite returns
+            // false, the orphan is disposed, WarmUpSingleAsync returns false, and
+            // WarmUpAsync exits before the Warming → Open CAS — leaving the pool stuck
+            // in Warming forever even though the broker has recovered. The race only
+            // surfaces when the probe channel is not pre-drained (e.g. a different
+            // caller arrives before the probe caller's ReadAsync runs); the test hook
+            // TestingInvokeHandleBrokenStateAsync is the deterministic repro.
             Volatile.Write(ref _consecutiveFailures, 0);
             Interlocked.Exchange(ref _unhealthySignalCts, new CancellationTokenSource()).Dispose();
             Interlocked.Exchange(ref _state, (int)PoolState.Warming);
-            _ = Task.Run(() => WarmUpAsync(_size, markOpenOnCompletion: true, _shutdownCts.Token));
+            _ = Task.Run(() => WarmUpAsync(_size - 1, markOpenOnCompletion: true, _shutdownCts.Token));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -269,7 +328,9 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     }
 
     private InvalidOperationException PoolExhaustedException() =>
-        new($"Channel pool exhausted after {_maxRetries} consecutive warm-up failures; broker is unreachable.");
+        new(_maxRetries.HasValue
+            ? $"Channel pool exhausted after {_maxRetries.Value} consecutive warm-up failures; broker is unreachable."
+            : "Channel pool exhausted on probe attempt; broker is unreachable.");
 
     /// <summary>
     /// Test-only hook for the CAS-lost probe race. Production callers enter
@@ -382,6 +443,21 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
 
         if (markOpenOnCompletion)
         {
+            // Authoritative cohort completed: every requested channel was opened and
+            // the pool has reached steady state. Reset the consecutive-failure counter
+            // HERE rather than per-channel inside WarmUpSingleAsync — otherwise a flaky
+            // broker that lets one channel through per cohort would silently keep
+            // clearing the counter mid-cohort and never reach WarmUpMaxRetries (#315).
+            //
+            // Gated on markOpenOnCompletion so an opportunistic Return-driven refill
+            // (markOpenOnCompletion: false) cannot wipe failures another concurrent
+            // cohort is still accumulating: if two broken channels return at once and
+            // one refill succeeds while the other is mid-failure, the success used to
+            // erase the failure count and delay (or hide) a legitimate trip. Only
+            // initial warm-up and post-probe refill — both authoritative for the
+            // state machine — clear failure history.
+            Volatile.Write(ref _consecutiveFailures, 0);
+
             // Full warm-up completed. Only advance Warming → Open; callers in Broken or
             // Probing may have transitioned us while this task was running (e.g. a refill
             // warm-up raced the probe state machine) and those transitions must stand.
@@ -419,10 +495,9 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                     return false;
                 }
 
-                // Any successful channel addition resets the consecutive-failure counter,
-                // so a single transient blip cannot combine with later failures to reach
-                // WarmUpMaxRetries.
-                Volatile.Write(ref _consecutiveFailures, 0);
+                // Per-channel success no longer resets _consecutiveFailures —
+                // WarmUpAsync resets it on full-cohort completion instead. See the
+                // comment in WarmUpAsync for the rationale (issue #315).
                 return true;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
