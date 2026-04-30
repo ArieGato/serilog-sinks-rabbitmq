@@ -34,6 +34,8 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// </summary>
     internal const int BROKEN_COOLDOWN_MS = 60_000;
 
+    private const string POOL_DISPOSED_MESSAGE = "Channel pool has been disposed.";
+
     /// <summary>
     /// Cooldown expressed in <see cref="Stopwatch"/> ticks. <c>Stopwatch</c> is portable
     /// across every target framework (unlike <c>Environment.TickCount64</c>, which is
@@ -80,9 +82,12 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// <see cref="GetAsync"/> caller currently parked in <c>ReadAsync</c> wakes up and
     /// routes to the batching sink's failure listener instead of staying hung for the
     /// remainder of the outage. Replaced with a fresh instance on probe success so the
-    /// next pre-exhaustion window starts clean.
+    /// next pre-exhaustion window starts clean. <c>volatile</c> so concurrent readers
+    /// always observe the latest reference; the rotation in <c>HandleBrokenStateAsync</c>
+    /// disposes the previous instance, so readers must additionally tolerate
+    /// <see cref="ObjectDisposedException"/> on the snapshot's <c>Token</c>.
     /// </summary>
-    private CancellationTokenSource _unhealthySignalCts = new();
+    private volatile CancellationTokenSource _unhealthySignalCts = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RabbitMQChannelPool"/> class
@@ -126,7 +131,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         // disposal signal is deterministic.
         if (Volatile.Read(ref _disposed) != 0)
         {
-            throw new InvalidOperationException("Channel pool has been disposed.");
+            throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
         }
 
         var state = (PoolState)Volatile.Read(ref _state);
@@ -145,14 +150,42 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         // the queue grow indefinitely. Waking the waiter lets it route through
         // the catch below to the exhaustion exception, which in turn routes events
         // to the configured fallback.
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _unhealthySignalCts.Token);
+        //
+        // Snapshot the field once and tolerate ObjectDisposedException on .Token:
+        // the rotation in HandleBrokenStateAsync's probe-success path disposes the
+        // previous instance, and a caller that loaded the old reference before the
+        // rotation would otherwise leak ODE past the structured catch blocks below.
+        var unhealthyCts = _unhealthySignalCts;
+        CancellationToken unhealthyToken;
+        try
+        {
+            unhealthyToken = unhealthyCts.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            // Lost the rotation race; the new CTS is in place and any pending
+            // unhealthy signal would have been replayed on it. Re-read once and
+            // fall back to a non-cancellable token if the new instance has also
+            // been disposed (pool is shutting down — the disposed check at the
+            // top will catch the next call).
+            try
+            {
+                unhealthyToken = _unhealthySignalCts.Token;
+            }
+            catch (ObjectDisposedException)
+            {
+                throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
+            }
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, unhealthyToken);
         try
         {
             return await _channels.Reader.ReadAsync(linked.Token).ConfigureAwait(false);
         }
         catch (ChannelClosedException)
         {
-            throw new InvalidOperationException("Channel pool has been disposed.");
+            throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
         }
         catch (OperationCanceledException) when (Volatile.Read(ref _disposed) != 0)
         {
@@ -161,7 +194,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             // set so callers see a deterministic failure mode rather than an
             // OperationCanceledException whose token might belong to either party
             // (issue #286 item 2).
-            throw new InvalidOperationException("Channel pool has been disposed.");
+            throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -225,10 +258,19 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             // Probe succeeded — reset counter, install a fresh unhealthy signal (the
             // previous one fired on exhaustion and would instantly poison new waiters),
             // transition to Warming, kick off refill.
+            //
+            // Refill asks for `_size - 1` because the probe already wrote one channel.
+            // Asking for `_size` overflows the bounded queue: the last TryWrite returns
+            // false, the orphan is disposed, WarmUpSingleAsync returns false, and
+            // WarmUpAsync exits before the Warming → Open CAS — leaving the pool stuck
+            // in Warming forever even though the broker has recovered. The race only
+            // surfaces when the probe channel is not pre-drained (e.g. a different
+            // caller arrives before the probe caller's ReadAsync runs); the test hook
+            // TestingInvokeHandleBrokenStateAsync is the deterministic repro.
             Volatile.Write(ref _consecutiveFailures, 0);
             Interlocked.Exchange(ref _unhealthySignalCts, new CancellationTokenSource()).Dispose();
             Interlocked.Exchange(ref _state, (int)PoolState.Warming);
-            _ = Task.Run(() => WarmUpAsync(_size, markOpenOnCompletion: true, _shutdownCts.Token));
+            _ = Task.Run(() => WarmUpAsync(_size - 1, markOpenOnCompletion: true, _shutdownCts.Token));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
