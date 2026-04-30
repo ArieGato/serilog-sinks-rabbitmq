@@ -132,10 +132,16 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
         var logEvents = batch as LogEvent[] ?? batch.ToArray();
 
         // Track the index we are about to publish so the catch can forward only the
-        // un-published tail to the failure sink. Forwarding the entire batch would
-        // duplicate every event that already published successfully (the broker
+        // un-published tail to the in-sink failure sink. Forwarding the entire batch
+        // would duplicate every event that already published successfully (the broker
         // accepted them, then a later event in the same batch failed) — downstream
         // systems without idempotency on MessageId would see those duplicates.
+        //
+        // Important scope: this slicing only reaches the configured `failureSinkConfiguration`
+        // sink (consumed inside HandleException). On the rethrow path Serilog's BatchingSink
+        // hands its OWN copy of the original batch to its failure listener, so wrappers like
+        // `WriteTo.Fallback(...)` still observe all M events, not the tail. Surfacing the
+        // slice through BatchingSink would require an upstream contract change — see #318.
         int published = 0;
         try
         {
@@ -214,18 +220,32 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
     }
 
     /// <summary>
-    /// Handles the exceptions from <see cref="EmitBatchAsync"/>.
+    /// Handles the exceptions from <see cref="EmitBatchAsync"/>. Routes the failure to
+    /// SelfLog and/or the in-sink <c>failureSinkConfiguration</c> failure sink according
+    /// to <see cref="EmitEventFailureHandling"/>, and decides whether to swallow or
+    /// rethrow.
     /// </summary>
-    /// <param name="ex">Occurred exception.</param>
-    /// <param name="events">Batch of log events.</param>
+    /// <param name="ex">The exception thrown by <see cref="EmitAsync"/>.</param>
+    /// <param name="unpublishedEvents">
+    /// The failing event followed by every event in the batch that came after it — the
+    /// suffix that the broker did not accept. Events that already published successfully
+    /// in the same batch are not in this slice and must not be re-emitted to the
+    /// in-sink failure sink.
+    /// </param>
     /// <returns>
     /// <see langword="true"/> when the exception has been fully handled and must not be
-    /// rethrown (legacy catch-and-route). <see langword="false"/> when the caller should
-    /// rethrow so Serilog's <see cref="IBatchedLogEventSink"/> pipeline (typically
+    /// rethrown (legacy catch-and-route via <see cref="EmitEventFailureHandling.WriteToFailureSink"/>
+    /// without <see cref="EmitEventFailureHandling.ThrowException"/>). <see langword="false"/>
+    /// when the caller should rethrow.
+    ///
+    /// On rethrow Serilog's <see cref="IBatchedLogEventSink"/> pipeline (typically
     /// <c>BatchingSink</c>) observes the failure and routes it through its own listener
-    /// machinery — this is how <c>WriteTo.Fallback(...)</c> composes.
+    /// machinery — this is how <c>WriteTo.Fallback(...)</c> composes. Note that the
+    /// listener receives the ORIGINAL batch <c>BatchingSink</c> passed in, not the
+    /// <paramref name="unpublishedEvents"/> slice; the slicing only narrows what reaches
+    /// the in-sink failure sink. See issue #318.
     /// </returns>
-    private bool HandleException(Exception ex, LogEvent[] events)
+    private bool HandleException(Exception ex, LogEvent[] unpublishedEvents)
     {
         if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToSelfLog))
         {
@@ -235,10 +255,12 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
 
         if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink) && _failureSink != null)
         {
-            // Send to a failure sink
+            // Send the un-published tail to the failure sink. Events that already
+            // published successfully in this batch are NOT in unpublishedEvents — they
+            // were sliced out in EmitBatchAsync's catch and must not be re-emitted.
             try
             {
-                foreach (var e in events)
+                foreach (var e in unpublishedEvents)
                 {
                     _failureSink.Emit(e);
                 }

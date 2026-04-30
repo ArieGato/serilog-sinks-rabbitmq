@@ -285,6 +285,61 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
+    public async Task EmitBatchAsync_ShouldRethrowOriginalException_WhenWriteToSelfLogAndThrowExceptionAreSetOnPartialBatch()
+    {
+        // No failure sink configured: WriteToSelfLog + ThrowException is the diagnostic-
+        // only-then-rethrow path. On a partial-batch failure the slicing computed inside
+        // EmitBatchAsync is not consumed by anything (no failure sink to receive it),
+        // and the rethrown exception must be the ORIGINAL instance — preserved via
+        // `throw;` so the stack walks back to the failing PublishAsync. SelfLog should
+        // record one diagnostic line containing the exception text.
+        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
+
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+
+        var publishCalls = 0;
+        var brokerFailure = new InvalidOperationException("broker-failure");
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
+            .Returns(_ =>
+            {
+                int call = Interlocked.Increment(ref publishCalls);
+                if (call >= 3)
+                {
+                    throw brokerFailure;
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var sut = new RabbitMQSink(
+            rabbitMQClient,
+            textFormatter,
+            messageEvents,
+            EmitEventFailureHandling.WriteToSelfLog | EmitEventFailureHandling.ThrowException,
+            failureSink: null);
+
+        var logEvent1 = LogEventBuilder.Create().Build();
+        var logEvent2 = LogEventBuilder.Create().Build();
+        var logEvent3 = LogEventBuilder.Create().Build();
+        var logEvent4 = LogEventBuilder.Create().Build();
+        var logEvent5 = LogEventBuilder.Create().Build();
+
+        // Act
+        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
+
+        // Assert — the original exception instance propagates (referential equality, not just
+        // type/message match). `throw;` preserves the stack; `throw ex` would not.
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(act);
+        thrown.ShouldBeSameAs(brokerFailure);
+
+        // SelfLog received the diagnostic line.
+        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
+        selfLogStringBuilder.ToString().ShouldContain("broker-failure");
+    }
+
+    [Fact]
     public async Task EmitBatchAsync_ShouldOnlyForwardUnpublishedTailToFailureSink_WhenPublishFailsMidBatch()
     {
         // Partial-batch correctness: events that already published to the broker must
