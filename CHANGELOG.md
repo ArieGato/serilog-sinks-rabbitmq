@@ -117,6 +117,23 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Fixed partial-batch duplication when forwarding to the in-sink failure sink
+
+When a publish failed mid-batch (e.g. event 30 of 50 throws) the sink previously
+forwarded the entire batch to the configured `failureSinkConfiguration` failure
+sink — including the events that had already published successfully to the
+broker. Downstream consumers without `MessageId`-based idempotency would
+therefore see those leading events twice. `EmitBatchAsync` now tracks the index
+of the failing event and forwards only the un-published tail (failing event +
+remainder) to the in-sink failure sink.
+
+**Scope.** This narrowing applies only to the in-sink `failureSinkConfiguration`
+path. On the rethrow path, Serilog's `BatchingSink` hands its own copy of the
+original batch to its failure listener — so `WriteTo.Fallback(...)` wrappers
+still observe the full batch, not the tail. Surfacing the slice through
+`BatchingSink` would require an upstream contract change; tracked separately as
+[#318](https://github.com/ArieGato/serilog-sinks-rabbitmq/issues/318).
+
 ### Added support for .net 10
 
 Add `net10.0` to the target frameworks.
