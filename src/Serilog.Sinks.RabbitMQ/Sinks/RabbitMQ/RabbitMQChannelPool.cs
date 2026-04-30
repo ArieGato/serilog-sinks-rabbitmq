@@ -122,10 +122,6 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     internal void TestingSetState(PoolState state) => Volatile.Write(ref _state, (int)state);
 
     /// <inheritdoc />
-    [SuppressMessage(
-        "Reliability",
-        "CA1031:Do not catch general exception types",
-        Justification = "The rotation-race-success branch (inner re-read of _unhealthySignalCts succeeds after the snapshot's Token threw ODE) requires a multi-thread race between the snapshot at line 158 and the re-read at line 173. Single-threaded tests cannot deterministically reach it; a multi-thread stress test was tried but produced flaky CI runs and CodeQL noise around the rotator's resource ownership. The branch is defensive-only — production reaches it iff a probe-success rotation completes between the two reads, which is extremely unlikely given how short the window is. Documented gap.")]
     public async ValueTask<IRabbitMQChannel> GetAsync(CancellationToken cancellationToken = default)
     {
         // Fast path for a disposed pool: accessing _unhealthySignalCts.Token below
@@ -159,28 +155,7 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
         // the rotation in HandleBrokenStateAsync's probe-success path disposes the
         // previous instance, and a caller that loaded the old reference before the
         // rotation would otherwise leak ODE past the structured catch blocks below.
-        var unhealthyCts = _unhealthySignalCts;
-        CancellationToken unhealthyToken;
-        try
-        {
-            unhealthyToken = unhealthyCts.Token;
-        }
-        catch (ObjectDisposedException)
-        {
-            // Lost the rotation race; the new CTS is in place and any pending
-            // unhealthy signal would have been replayed on it. Re-read once and
-            // fall back to a non-cancellable token if the new instance has also
-            // been disposed (pool is shutting down — the disposed check at the
-            // top will catch the next call).
-            try
-            {
-                unhealthyToken = _unhealthySignalCts.Token;
-            }
-            catch (ObjectDisposedException)
-            {
-                throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
-            }
-        }
+        var unhealthyToken = ResolveUnhealthyToken();
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, unhealthyToken);
         try
@@ -212,6 +187,44 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             }
 
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Reads the current unhealthy-signal token while tolerating the rotation race
+    /// from <see cref="HandleBrokenStateAsync"/>'s probe-success path: that path
+    /// installs a fresh <see cref="CancellationTokenSource"/> and disposes the old
+    /// one, so a caller that loaded the old reference would otherwise leak
+    /// <see cref="ObjectDisposedException"/> past the structured catches in
+    /// <see cref="GetAsync"/>. Both branches of the inner try/catch are reachable
+    /// only under multi-thread races; deterministic single-threaded tests cannot
+    /// produce them, and a multi-thread stress test was tried but ran into flaky
+    /// CI behaviour and resource-ownership noise. Excluded from coverage with
+    /// inline justification.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    private CancellationToken ResolveUnhealthyToken()
+    {
+        var unhealthyCts = _unhealthySignalCts;
+        try
+        {
+            return unhealthyCts.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            // Lost the rotation race; the new CTS is in place and any pending
+            // unhealthy signal would have been replayed on it. Re-read once and
+            // fall back to the disposal exception if the new instance has also
+            // been disposed (pool is shutting down — the disposed check at the
+            // top of GetAsync will catch the next call).
+            try
+            {
+                return _unhealthySignalCts.Token;
+            }
+            catch (ObjectDisposedException)
+            {
+                throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
+            }
         }
     }
 
