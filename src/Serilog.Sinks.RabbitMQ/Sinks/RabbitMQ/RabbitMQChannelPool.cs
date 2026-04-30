@@ -311,7 +311,9 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     }
 
     private InvalidOperationException PoolExhaustedException() =>
-        new($"Channel pool exhausted after {_maxRetries} consecutive warm-up failures; broker is unreachable.");
+        new(_maxRetries.HasValue
+            ? $"Channel pool exhausted after {_maxRetries.Value} consecutive warm-up failures; broker is unreachable."
+            : "Channel pool exhausted on probe attempt; broker is unreachable.");
 
     /// <summary>
     /// Test-only hook for the CAS-lost probe race. Production callers enter
