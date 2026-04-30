@@ -1327,10 +1327,26 @@ public class RabbitMQChannelPoolTests
         {
             while (!stop.Token.IsCancellationRequested)
             {
+                // Track ownership of `fresh`: dispose it ourselves only if reflection
+                // throws BEFORE the SetValue installs it as the new field value.
+                // After installation, ownership transfers to the pool (or, on the
+                // next iteration, to `old`), so we must NOT dispose it here.
                 var fresh = new CancellationTokenSource();
-                var old = (CancellationTokenSource?)ctsField.GetValue(pool);
-                ctsField.SetValue(pool, fresh);
-                old?.Dispose();
+                bool installed = false;
+                try
+                {
+                    var old = (CancellationTokenSource?)ctsField.GetValue(pool);
+                    ctsField.SetValue(pool, fresh);
+                    installed = true;
+                    old?.Dispose();
+                }
+                finally
+                {
+                    if (!installed)
+                    {
+                        fresh.Dispose();
+                    }
+                }
             }
         });
 
@@ -1357,9 +1373,11 @@ public class RabbitMQChannelPoolTests
         {
             await rotator;
         }
-        catch
+        catch (Exception ex)
         {
-            // best-effort
+            // Rotator failures during shutdown are best-effort — we've already
+            // collected `leaked` and don't want to mask the assertion below.
+            _ = ex;
         }
 
         leaked.ShouldBeNull();
@@ -1775,10 +1793,12 @@ public class RabbitMQChannelPoolTests
         {
             leaked = ode;
         }
-        catch
+        catch (Exception ex) when (ex is not ObjectDisposedException)
         {
             // Any other exception type is acceptable — we only care that ODE
-            // doesn't surface unstructured to publish-path callers.
+            // doesn't surface unstructured to publish-path callers. Reference
+            // the variable so CodeQL doesn't flag this as an empty catch block.
+            _ = ex;
         }
 
         leaked.ShouldBeNull();
