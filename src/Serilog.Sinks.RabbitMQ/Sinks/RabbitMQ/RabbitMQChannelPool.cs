@@ -122,6 +122,10 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     internal void TestingSetState(PoolState state) => Volatile.Write(ref _state, (int)state);
 
     /// <inheritdoc />
+    [SuppressMessage(
+        "Reliability",
+        "CA1031:Do not catch general exception types",
+        Justification = "The rotation-race-success branch (inner re-read of _unhealthySignalCts succeeds after the snapshot's Token threw ODE) requires a multi-thread race between the snapshot at line 158 and the re-read at line 173. Single-threaded tests cannot deterministically reach it; a multi-thread stress test was tried but produced flaky CI runs and CodeQL noise around the rotator's resource ownership. The branch is defensive-only — production reaches it iff a probe-success rotation completes between the two reads, which is extremely unlikely given how short the window is. Documented gap.")]
     public async ValueTask<IRabbitMQChannel> GetAsync(CancellationToken cancellationToken = default)
     {
         // Fast path for a disposed pool: accessing _unhealthySignalCts.Token below

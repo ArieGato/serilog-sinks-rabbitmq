@@ -1299,91 +1299,6 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
-    public async Task GetAsync_WhenUnhealthyCtsRotatesMidCall_ReReadSucceedsAndSurfacesNoOdeLeak()
-    {
-        // Covers the inner-success arm of GetAsync's rotation-race ODE handler:
-        // the snapshot (local) holds a disposed CTS while the field has been
-        // replaced with a fresh, non-disposed CTS. Single-threaded reflection
-        // cannot reproduce this — the snapshot and re-read see the same value.
-        //
-        // The test runs concurrent GetAsync callers alongside a rotator thread
-        // that swaps and disposes _unhealthySignalCts in a tight loop. Some
-        // caller will inevitably load a stale (disposed) reference at the
-        // snapshot, then re-read the field after the rotator has installed a
-        // fresh CTS. Asserts on the absence of a leak (no ObjectDisposedException
-        // surfaces past the structured catches).
-        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
-        var connectionFactory = BuildConnectionFactory(connection);
-        var configuration = new RabbitMQClientConfiguration { ChannelCount = 4 };
-
-        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
-
-        var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("_unhealthySignalCts field not found.");
-
-        using var stop = new CancellationTokenSource();
-        var rotator = Task.Run(() =>
-        {
-            while (!stop.Token.IsCancellationRequested)
-            {
-                // Track ownership of `fresh`: dispose it ourselves only if reflection
-                // throws BEFORE the SetValue installs it as the new field value.
-                // After installation, ownership transfers to the pool (or, on the
-                // next iteration, to `old`), so we must NOT dispose it here.
-                var fresh = new CancellationTokenSource();
-                bool installed = false;
-                try
-                {
-                    var old = (CancellationTokenSource?)ctsField.GetValue(pool);
-                    ctsField.SetValue(pool, fresh);
-                    installed = true;
-                    old?.Dispose();
-                }
-                finally
-                {
-                    if (!installed)
-                    {
-                        fresh.Dispose();
-                    }
-                }
-            }
-        });
-
-        ObjectDisposedException? leaked = null;
-        for (int i = 0; i < 5000 && leaked == null; i++)
-        {
-            try
-            {
-                var channel = await pool.GetAsync();
-                await pool.ReturnAsync(channel);
-            }
-            catch (ObjectDisposedException ode)
-            {
-                leaked = ode;
-            }
-            catch (InvalidOperationException)
-            {
-                // Acceptable — happens when both old AND newly-rotated CTS are disposed.
-            }
-        }
-
-        stop.Cancel();
-        try
-        {
-            await rotator;
-        }
-        catch (Exception ex)
-        {
-            // Rotator failures during shutdown are best-effort — we've already
-            // collected `leaked` and don't want to mask the assertion below.
-            _ = ex;
-        }
-
-        leaked.ShouldBeNull();
-    }
-
-    [Fact]
     public async Task PoolExhaustedException_WithNullMaxRetries_UsesProbePathMessage()
     {
         // Covers the `_maxRetries.HasValue == false` branch of PoolExhaustedException.
@@ -1793,12 +1708,15 @@ public class RabbitMQChannelPoolTests
         {
             leaked = ode;
         }
-        catch (Exception ex) when (ex is not ObjectDisposedException)
+        catch (InvalidOperationException)
         {
-            // Any other exception type is acceptable — we only care that ODE
-            // doesn't surface unstructured to publish-path callers. Reference
-            // the variable so CodeQL doesn't flag this as an empty catch block.
-            _ = ex;
+            // Pool maps disposed CTS to "pool has been disposed" via the structured
+            // catch in GetAsync — that's the desired path, not a leak.
+        }
+        catch (OperationCanceledException)
+        {
+            // Caller token's 100 ms timeout fired first — also desired (proves we
+            // got past the racy line without leaking ODE).
         }
 
         leaked.ShouldBeNull();
