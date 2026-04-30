@@ -118,7 +118,11 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// <summary>
     /// Test-only setter for the state field. Used by the CAS-lost probe-race test to
     /// force an atypical state/observedState divergence; not wired up in production.
+    /// Marked <see cref="ObsoleteAttribute"/> so any accidental call from
+    /// <c>src/</c> fails the build via <c>TreatWarningsAsErrors</c>; tests suppress
+    /// with <c>#pragma warning disable CS0618</c>.
     /// </summary>
+    [Obsolete("Test-only hook. Do not call from production code.", error: false)]
     internal void TestingSetState(PoolState state) => Volatile.Write(ref _state, (int)state);
 
     /// <inheritdoc />
@@ -223,7 +227,15 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             }
             catch (ObjectDisposedException)
             {
-                throw new InvalidOperationException(POOL_DISPOSED_MESSAGE);
+                // If the pool is actually disposed (DisposeAsync sets _disposed
+                // BEFORE disposing _unhealthySignalCts), surface the structured
+                // disposal exception. Otherwise this is two consecutive rotation
+                // races in our snapshot/re-read window — essentially unreachable
+                // (#314); mapping it to "exhausted" instead of a misleading
+                // "disposed" message keeps the diagnostic accurate.
+                throw Volatile.Read(ref _disposed) != 0
+                    ? new InvalidOperationException(POOL_DISPOSED_MESSAGE)
+                    : PoolExhaustedException();
             }
         }
     }
@@ -342,7 +354,11 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
     /// calling the handler with <c>observedState = Broken</c> while the real state is
     /// Probing; the <c>CompareExchange(Broken → Probing)</c> then correctly fails and the
     /// handler throws the exhaustion exception.
+    /// Marked <see cref="ObsoleteAttribute"/> so any accidental call from
+    /// <c>src/</c> fails the build via <c>TreatWarningsAsErrors</c>; tests suppress
+    /// with <c>#pragma warning disable CS0618</c>.
     /// </summary>
+    [Obsolete("Test-only hook. Do not call from production code.", error: false)]
     internal Task TestingInvokeHandleBrokenStateAsync(PoolState observedState, CancellationToken cancellationToken) =>
         HandleBrokenStateAsync(observedState, cancellationToken);
 

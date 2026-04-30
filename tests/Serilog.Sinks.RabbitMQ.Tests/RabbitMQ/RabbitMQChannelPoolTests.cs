@@ -18,6 +18,13 @@ using System.Threading.Channels;
 
 using Serilog.Sinks.RabbitMQ.Tests.TestHelpers;
 
+// CS0618: TestingSetState / TestingInvokeHandleBrokenStateAsync are marked
+// [Obsolete] so any accidental call from production code fails the build via
+// TreatWarningsAsErrors. They are still the only deterministic way to drive
+// the CAS-lost probe race and a few state-machine tests; suppress the warning
+// here so legitimate test usages compile. Documented in #316.
+#pragma warning disable CS0618
+
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
 [Collection("SelfLog")]
@@ -1777,6 +1784,42 @@ public class RabbitMQChannelPoolTests
         // With the bug present this WaitForAsync times out: refill orphans the (_size)th
         // channel, returns false from WarmUpSingleAsync, and exits before reaching the
         // Warming → Open CAS. State stays Warming.
+        await WaitForAsync(
+            () => pool.CurrentState == RabbitMQChannelPool.PoolState.Open,
+            TimeSpan.FromSeconds(3));
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Open);
+    }
+
+    [Fact]
+    public async Task ProbeRecovery_WithChannelCountOne_RefillCohortOfZeroReachesOpenState()
+    {
+        // Issue #317: edge case for the `_size - 1` refill math after probe success.
+        // With ChannelCount=1, the probe writes the single channel and refill spawns
+        // WarmUpAsync(0, markOpenOnCompletion: true). The for loop body never runs;
+        // the post-loop block fires the cohort-completion reset (a no-op since no
+        // failures accumulated) and CAS's Warming → Open. End-state must be Open.
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ => Task.FromResult(CreateOpenChannel()));
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        // Drain so probe writes into an empty queue — same approach as the
+        // ChannelCount > 1 sibling test.
+        await pool.GetAsync();
+
+        pool.TestingSetState(RabbitMQChannelPool.PoolState.Broken);
+        ExpireCooldown(pool);
+
+        await pool.TestingInvokeHandleBrokenStateAsync(RabbitMQChannelPool.PoolState.Broken, default);
+
         await WaitForAsync(
             () => pool.CurrentState == RabbitMQChannelPool.PoolState.Open,
             TimeSpan.FromSeconds(3));
