@@ -424,6 +424,16 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             }
         }
 
+        // Whole cohort succeeded: every requested channel was opened and added to the
+        // pool. Reset the consecutive-failure counter HERE rather than per-channel
+        // inside WarmUpSingleAsync — otherwise a flaky broker that lets one channel
+        // through per cohort would silently keep clearing the counter mid-cohort and
+        // never reach WarmUpMaxRetries (issue #315). Resetting on cohort completion
+        // preserves the contract "after N consecutive warm-up failures the breaker
+        // trips" while still letting a clean refill or initial warm-up clear stale
+        // failure history from a previous outage.
+        Volatile.Write(ref _consecutiveFailures, 0);
+
         if (markOpenOnCompletion)
         {
             // Full warm-up completed. Only advance Warming → Open; callers in Broken or
@@ -463,10 +473,9 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
                     return false;
                 }
 
-                // Any successful channel addition resets the consecutive-failure counter,
-                // so a single transient blip cannot combine with later failures to reach
-                // WarmUpMaxRetries.
-                Volatile.Write(ref _consecutiveFailures, 0);
+                // Per-channel success no longer resets _consecutiveFailures —
+                // WarmUpAsync resets it on full-cohort completion instead. See the
+                // comment in WarmUpAsync for the rationale (issue #315).
                 return true;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
