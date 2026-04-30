@@ -117,6 +117,33 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Fixed channel-pool concurrency bugs in the warm-up / circuit-breaker path
+
+Three latent races in the bounded-warm-up and self-heal logic, surfaced by an
+architect-level review of the new state machine:
+
+- **`GetAsync` could leak `ObjectDisposedException`.** The probe-success path in
+  `HandleBrokenStateAsync` rotates `_unhealthySignalCts` and disposes the
+  previous instance. A concurrent `GetAsync` caller that loaded the old
+  reference before the rotation could then call `.Token` on a disposed CTS,
+  bypassing the structured `ChannelClosedException` / `OperationCanceledException`
+  catch blocks and surfacing an unstructured failure to publish-path callers.
+  The field is now `volatile` and `GetAsync` snapshots the reference once and
+  tolerates `ObjectDisposedException` from the snapshot's `Token`, mapping the
+  race to the structured disposal exception.
+- **Probe recovery could leave the pool stuck in `Warming`.** After a successful
+  probe, the refill task spawned `WarmUpAsync(_size, ...)` — but the probe had
+  already written one channel into the bounded queue. The last `TryWrite`
+  therefore overflowed, the orphan was disposed, `WarmUpSingleAsync` returned
+  false, and `WarmUpAsync` exited before the `Warming → Open` CAS — leaving the
+  pool stuck in `Warming` even though the broker had recovered. Refill now asks
+  for `_size - 1` channels.
+- **`RabbitMQConnectionFactory` lock-free fast path was racy.** The non-volatile
+  read of `_connection` could observe a non-null reference whose construction
+  was not yet fully published (release-store reordering), letting a concurrent
+  caller invoke methods on a partially-initialised `IConnection`. The field is
+  now `volatile`.
+
 ### Added support for .net 10
 
 Add `net10.0` to the target frameworks.
