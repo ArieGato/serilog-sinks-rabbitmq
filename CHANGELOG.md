@@ -117,6 +117,23 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Fixed `_consecutiveFailures` per-channel reset masking sustained flapping
+
+The warm-up loop previously reset `_consecutiveFailures` to zero on every successful
+channel addition. A flaky broker that let one channel through per cohort therefore
+silently kept clearing the counter mid-cohort and never reached `WarmUpMaxRetries`,
+so the breaker never tripped — even with cumulative failures well past the
+configured budget. The reset now happens on **cohort completion** (in `WarmUpAsync`,
+after the inner loop), so failures accumulate across the cohort while still letting
+a clean refill or initial warm-up clear stale failure history from a previous
+outage. The previously-skipped reproducer test
+`WarmUp_WithFlakyBrokerOneSuccessPerCohort_TripsBrokenAfterMaxRetriesCumulativeFailures`
+is now passing. Tracked as [#315](https://github.com/ArieGato/serilog-sinks-rabbitmq/issues/315).
+
+This is a behaviour change for users with `WarmUpMaxRetries` set: a sustained
+flapping pattern that previously kept the breaker dormant will now correctly trip
+it once the cumulative-failure threshold is reached.
+
 ### Wired `warmUpMaxRetries` through the public extension overloads
 
 `WriteTo.RabbitMQ(...)` and `AuditTo.RabbitMQ(...)` now expose a `warmUpMaxRetries`

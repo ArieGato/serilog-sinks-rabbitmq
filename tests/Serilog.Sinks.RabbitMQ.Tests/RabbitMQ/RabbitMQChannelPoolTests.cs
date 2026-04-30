@@ -1694,21 +1694,19 @@ public class RabbitMQChannelPoolTests
         pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Open);
     }
 
-    [Fact(Skip = "P0 #3: _consecutiveFailures is reset on every individual successful channel add, so a flaky broker that lets one channel through per cohort never trips the breaker even past WarmUpMaxRetries cumulative failures. Confirmed failing — breaker never trips. Whether to fix vs. document is a design call.")]
+    [Fact]
     public async Task WarmUp_WithFlakyBrokerOneSuccessPerCohort_TripsBrokenAfterMaxRetriesCumulativeFailures()
     {
-        // Pattern: every odd attempt fails, every even attempt succeeds. With
-        // ChannelCount=4 and WarmUpMaxRetries=3, cohorts run:
-        //   cohort 0: fail, success (failures=1, reset to 0)
-        //   cohort 1: fail, success (failures=1, reset to 0)
-        //   cohort 2: fail, success (failures=1, reset to 0)
-        //   cohort 3: fail, success (failures=1, reset to 0)
-        // Total: 4 failures, none "consecutive" by the current definition — pool
-        // reaches Open. A user who set WarmUpMaxRetries=3 reasonably expects the
-        // breaker to trip after 3 cumulative warm-up failures.
-        //
-        // After the fix (track failures per cohort or only reset on full warm-up
-        // completion), state should transition to Broken before reaching Open.
+        // Issue #315: per-channel reset of _consecutiveFailures used to mask
+        // sustained flapping. Pattern: every odd attempt fails, every even attempt
+        // succeeds. With ChannelCount=4 and WarmUpMaxRetries=3, cohorts run:
+        //   cohort 0 (channel 0): fail (failures=1), success → return true
+        //   cohort 1 (channel 1): fail (failures=2), success → return true
+        //   cohort 2 (channel 2): fail (failures=3 ≥ maxRetries) → trip Broken
+        // The fix moves the reset from per-channel (in WarmUpSingleAsync) to
+        // per-cohort (in WarmUpAsync) so failures accumulate across the cohort
+        // and the breaker fires after WarmUpMaxRetries cumulative failures, as
+        // documented.
         int attempts = 0;
         var connection = Substitute.For<IConnection>();
         connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
@@ -1734,5 +1732,6 @@ public class RabbitMQChannelPoolTests
         await WaitForAsync(
             () => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken,
             TimeSpan.FromSeconds(5));
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Broken);
     }
 }
