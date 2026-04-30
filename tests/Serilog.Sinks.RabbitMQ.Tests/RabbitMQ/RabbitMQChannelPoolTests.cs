@@ -1299,6 +1299,104 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task GetAsync_WhenUnhealthyCtsRotatesMidCall_ReReadSucceedsAndSurfacesNoOdeLeak()
+    {
+        // Covers the inner-success arm of GetAsync's rotation-race ODE handler:
+        // the snapshot (local) holds a disposed CTS while the field has been
+        // replaced with a fresh, non-disposed CTS. Single-threaded reflection
+        // cannot reproduce this — the snapshot and re-read see the same value.
+        //
+        // The test runs concurrent GetAsync callers alongside a rotator thread
+        // that swaps and disposes _unhealthySignalCts in a tight loop. Some
+        // caller will inevitably load a stale (disposed) reference at the
+        // snapshot, then re-read the field after the rotator has installed a
+        // fresh CTS. Asserts on the absence of a leak (no ObjectDisposedException
+        // surfaces past the structured catches).
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration { ChannelCount = 4 };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_unhealthySignalCts field not found.");
+
+        using var stop = new CancellationTokenSource();
+        var rotator = Task.Run(() =>
+        {
+            while (!stop.Token.IsCancellationRequested)
+            {
+                var fresh = new CancellationTokenSource();
+                var old = (CancellationTokenSource?)ctsField.GetValue(pool);
+                ctsField.SetValue(pool, fresh);
+                old?.Dispose();
+            }
+        });
+
+        ObjectDisposedException? leaked = null;
+        for (int i = 0; i < 5000 && leaked == null; i++)
+        {
+            try
+            {
+                var channel = await pool.GetAsync();
+                await pool.ReturnAsync(channel);
+            }
+            catch (ObjectDisposedException ode)
+            {
+                leaked = ode;
+            }
+            catch (InvalidOperationException)
+            {
+                // Acceptable — happens when both old AND newly-rotated CTS are disposed.
+            }
+        }
+
+        stop.Cancel();
+        try
+        {
+            await rotator;
+        }
+        catch
+        {
+            // best-effort
+        }
+
+        leaked.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task PoolExhaustedException_WithNullMaxRetries_UsesProbePathMessage()
+    {
+        // Covers the `_maxRetries.HasValue == false` branch of PoolExhaustedException.
+        // When WarmUpMaxRetries is null, the warm-up loop never trips Broken — but
+        // HandleBrokenStateAsync can still throw the exception on probe paths
+        // (probe-already-in-flight, cooldown not elapsed, CAS lost, probe failed).
+        // Without the null branch, the message would interpolate "after  consecutive..."
+        // (empty number). This test forces state=Probing via the testing hook so the
+        // very first guard in HandleBrokenStateAsync trips and the exception is
+        // produced with `_maxRetries == null`.
+        var connection = BuildConnectionWithChannelFactory(CreateOpenChannel);
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = null,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        pool.TestingSetState(RabbitMQChannelPool.PoolState.Probing);
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () =>
+            await pool.TestingInvokeHandleBrokenStateAsync(
+                RabbitMQChannelPool.PoolState.Probing,
+                default));
+
+        ex.Message.ShouldContain("probe attempt");
+        ex.Message.ShouldNotContain("consecutive warm-up failures");
+    }
+
+    [Fact]
     public async Task WarmUp_WithNullMaxRetries_KeepsRetrying_WithoutTransitioningToBroken()
     {
         // `WarmUpMaxRetries = null` is the opt-in for unlimited retries (pre-9.0 behaviour);
