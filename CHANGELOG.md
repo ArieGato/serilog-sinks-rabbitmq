@@ -117,6 +117,18 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Gated cohort-completion `_consecutiveFailures` reset to authoritative cohorts
+
+After moving the consecutive-failure reset from per-channel to per-cohort (#315),
+a follow-up review found that opportunistic `Return`-driven refills (single
+channel, `markOpenOnCompletion: false`) could still wipe failures another
+concurrent cohort was actively accumulating. Two simultaneous broken-channel
+returns where one refill succeeded and the other was mid-failure had the
+success erase the failure count, delaying or hiding a legitimate breaker
+trip. The reset is now gated on `markOpenOnCompletion == true`, so only
+initial warm-up and post-probe refill — both authoritative for the state
+machine — clear failure history.
+
 ### Fixed `_consecutiveFailures` per-channel reset masking sustained flapping
 
 The warm-up loop previously reset `_consecutiveFailures` to zero on every successful

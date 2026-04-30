@@ -424,18 +424,23 @@ internal sealed class RabbitMQChannelPool : IRabbitMQChannelPool
             }
         }
 
-        // Whole cohort succeeded: every requested channel was opened and added to the
-        // pool. Reset the consecutive-failure counter HERE rather than per-channel
-        // inside WarmUpSingleAsync — otherwise a flaky broker that lets one channel
-        // through per cohort would silently keep clearing the counter mid-cohort and
-        // never reach WarmUpMaxRetries (issue #315). Resetting on cohort completion
-        // preserves the contract "after N consecutive warm-up failures the breaker
-        // trips" while still letting a clean refill or initial warm-up clear stale
-        // failure history from a previous outage.
-        Volatile.Write(ref _consecutiveFailures, 0);
-
         if (markOpenOnCompletion)
         {
+            // Authoritative cohort completed: every requested channel was opened and
+            // the pool has reached steady state. Reset the consecutive-failure counter
+            // HERE rather than per-channel inside WarmUpSingleAsync — otherwise a flaky
+            // broker that lets one channel through per cohort would silently keep
+            // clearing the counter mid-cohort and never reach WarmUpMaxRetries (#315).
+            //
+            // Gated on markOpenOnCompletion so an opportunistic Return-driven refill
+            // (markOpenOnCompletion: false) cannot wipe failures another concurrent
+            // cohort is still accumulating: if two broken channels return at once and
+            // one refill succeeds while the other is mid-failure, the success used to
+            // erase the failure count and delay (or hide) a legitimate trip. Only
+            // initial warm-up and post-probe refill — both authoritative for the
+            // state machine — clear failure history.
+            Volatile.Write(ref _consecutiveFailures, 0);
+
             // Full warm-up completed. Only advance Warming → Open; callers in Broken or
             // Probing may have transitioned us while this task was running (e.g. a refill
             // warm-up raced the probe state machine) and those transitions must stand.

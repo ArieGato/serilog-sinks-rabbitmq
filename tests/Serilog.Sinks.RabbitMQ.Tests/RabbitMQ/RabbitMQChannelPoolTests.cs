@@ -1433,6 +1433,59 @@ public class RabbitMQChannelPoolTests
     }
 
     [Fact]
+    public async Task ReturnAsync_OpportunisticRefillSuccess_DoesNotResetConsecutiveFailures()
+    {
+        // Cohort-completion reset of _consecutiveFailures is gated on
+        // markOpenOnCompletion=true so an opportunistic Return-driven refill cannot
+        // erase failures another concurrent cohort is still accumulating. Without
+        // the gate, two simultaneous broken-channel returns where one refill
+        // succeeds and one is mid-failure would have the success wipe the failure
+        // count, delaying or hiding a legitimate breaker trip.
+        //
+        // Test: pool reaches Open. Inject a non-zero _consecutiveFailures via
+        // reflection (simulating an in-flight cohort that is partway to tripping).
+        // Return a broken channel — refill spawns WarmUpAsync(1, markOpenOnCompletion:
+        // false). The connection factory always succeeds, so the refill cohort
+        // completes. Assert _consecutiveFailures was NOT cleared.
+        int created = 0;
+        var connection = BuildConnectionWithChannelFactory(() =>
+        {
+            Interlocked.Increment(ref created);
+            return CreateOpenChannel();
+        });
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 5,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        // Inject simulated in-flight failure count.
+        var failuresField = typeof(RabbitMQChannelPool).GetField("_consecutiveFailures", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("_consecutiveFailures field not found.");
+        failuresField.SetValue(pool, 3);
+
+        // Return a broken channel — spawns refill WarmUpAsync(1, markOpenOnCompletion: false).
+        var brokenChannel = Substitute.For<IRabbitMQChannel>();
+        brokenChannel.IsOpen.Returns(false);
+        int createdBeforeReturn = Volatile.Read(ref created);
+        await pool.ReturnAsync(brokenChannel);
+
+        // Wait for the refill to actually create one new channel.
+        await WaitForAsync(() => Volatile.Read(ref created) > createdBeforeReturn);
+
+        // Allow the cohort-completion block (including the gated reset) to run.
+        await Task.Delay(50);
+
+        // The opportunistic refill must NOT have reset the counter.
+        var failuresAfter = (int)(failuresField.GetValue(pool) ?? throw new InvalidOperationException("_consecutiveFailures value was null."));
+        failuresAfter.ShouldBe(3);
+    }
+
+    [Fact]
     public async Task SignalUnhealthy_SwallowsObjectDisposedException_WhenCtsAlreadyDisposed()
     {
         // Covers SignalUnhealthy's ObjectDisposedException catch. When DisposeAsync
