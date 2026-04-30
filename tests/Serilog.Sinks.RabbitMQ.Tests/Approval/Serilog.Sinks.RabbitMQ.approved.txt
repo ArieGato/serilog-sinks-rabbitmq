@@ -27,6 +27,7 @@ namespace Serilog
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int channelCount = 64,
+                    int? warmUpMaxRetries = 10,
                     Serilog.Events.LogEventLevel levelSwitch = 0,
                     Serilog.Sinks.RabbitMQ.ISendMessageEvents? sendMessageEvents = null) { }
         public static Serilog.LoggerConfiguration RabbitMQ(
@@ -53,6 +54,7 @@ namespace Serilog
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int channelCount = 64,
+                    int? warmUpMaxRetries = 10,
                     Serilog.Events.LogEventLevel levelSwitch = 0,
                     Serilog.Sinks.RabbitMQ.EmitEventFailureHandling emitEventFailure = 1,
                     System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null,

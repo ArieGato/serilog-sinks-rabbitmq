@@ -253,6 +253,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             formatter: formatter,
             autoCreateExchange: true,
             channelCount: 7,
+            warmUpMaxRetries: 5,
             levelSwitch: LogEventLevel.Warning,
             emitEventFailure: EmitEventFailureHandling.ThrowException,
             sendMessageEvents: sendMessageEvents);
@@ -270,6 +271,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         client.Heartbeat.ShouldBe((ushort)45);
         client.AutoCreateExchange.ShouldBeTrue();
         client.ChannelCount.ShouldBe(7);
+        client.WarmUpMaxRetries.ShouldBe(5);
         client.SendMessageEvents.ShouldBeSameAs(sendMessageEvents);
 
         client.SslOption.ShouldNotBeNull();
@@ -319,6 +321,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             formatter: null,
             autoCreateExchange: false,
             channelCount: 64,
+            warmUpMaxRetries: null,
             levelSwitch: LogEventLevel.Verbose,
             emitEventFailure: EmitEventFailureHandling.WriteToSelfLog,
             sendMessageEvents: null);
@@ -332,6 +335,10 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         client.SendMessageEvents.ShouldNotBeNull();
         client.SendMessageEvents.ShouldBeOfType<SendMessageEvents>();
         client.SslOption.ShouldBeNull();
+
+        // null warmUpMaxRetries is the documented opt-out for the breaker (pre-9.0 behaviour)
+        // and must propagate through the build helpers verbatim.
+        client.WarmUpMaxRetries.ShouldBeNull();
 
         // Batching values pass through unchanged; RegisterSink is the single defaulting site.
         sink.BatchPostingLimit.ShouldBe(0);
@@ -371,6 +378,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             formatter: null,
             autoCreateExchange: false,
             channelCount: 64,
+            warmUpMaxRetries: 10,
             levelSwitch: LogEventLevel.Verbose,
             emitEventFailure: EmitEventFailureHandling.WriteToSelfLog,
             sendMessageEvents: null);
@@ -404,6 +412,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             formatter: formatter,
             autoCreateExchange: true,
             channelCount: 3,
+            warmUpMaxRetries: 4,
             levelSwitch: LogEventLevel.Error,
             sendMessageEvents: sendMessageEvents);
 
@@ -420,6 +429,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         client.Heartbeat.ShouldBe((ushort)45);
         client.AutoCreateExchange.ShouldBeTrue();
         client.ChannelCount.ShouldBe(3);
+        client.WarmUpMaxRetries.ShouldBe(4);
         client.SendMessageEvents.ShouldBeSameAs(sendMessageEvents);
 
         client.SslOption.ShouldNotBeNull();
@@ -461,6 +471,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             formatter: null,
             autoCreateExchange: false,
             channelCount: 64,
+            warmUpMaxRetries: null,
             levelSwitch: LogEventLevel.Verbose,
             sendMessageEvents: null);
 
@@ -472,6 +483,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         client.SendMessageEvents.ShouldNotBeNull();
         client.SendMessageEvents.ShouldBeOfType<SendMessageEvents>();
         client.SslOption.ShouldBeNull();
+        client.WarmUpMaxRetries.ShouldBeNull();
 
         sink.TextFormatter.ShouldBeOfType<CompactJsonFormatter>();
         sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Verbose);
@@ -500,6 +512,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             formatter: null,
             autoCreateExchange: false,
             channelCount: 64,
+            warmUpMaxRetries: 10,
             levelSwitch: LogEventLevel.Verbose,
             sendMessageEvents: null);
 
