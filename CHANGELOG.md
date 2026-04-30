@@ -117,6 +117,18 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Fixed partial-batch duplication when forwarding to a failure sink
+
+When a publish failed mid-batch (e.g. event 30 of 50 throws) the sink previously
+forwarded the entire batch to the configured failure sink — including the events
+that had already published successfully to the broker. Downstream consumers
+without `MessageId`-based idempotency would therefore see those leading events
+twice. `EmitBatchAsync` now tracks the index of the failing event and forwards
+only the un-published tail (failing event + remainder) to the failure sink.
+
+This applies to both wirings: the built-in `failureSinkConfiguration` parameter
+and `WriteTo.Fallback(...)` composition.
+
 ### Added support for .net 10
 
 Add `net10.0` to the target frameworks.
