@@ -285,6 +285,55 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
+    public async Task EmitBatchAsync_ShouldOnlyForwardUnpublishedTailToFailureSink_WhenPublishFailsMidBatch()
+    {
+        // Partial-batch correctness: events that already published to the broker must
+        // NOT be re-emitted to the failure sink, otherwise downstream systems without
+        // MessageId-based idempotency would see duplicates (issue: P1 #6 architect
+        // review). Only the failing event and the events after it are un-published
+        // from the broker's perspective.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+
+        // Succeed twice, then throw on the third PublishAsync.
+        var publishCalls = 0;
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
+            .Returns(_ =>
+            {
+                int call = Interlocked.Increment(ref publishCalls);
+                if (call >= 3)
+                {
+                    throw new InvalidOperationException("broker-failure");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
+
+        var logEvent1 = LogEventBuilder.Create().Build();
+        var logEvent2 = LogEventBuilder.Create().Build();
+        var logEvent3 = LogEventBuilder.Create().Build();
+        var logEvent4 = LogEventBuilder.Create().Build();
+        var logEvent5 = LogEventBuilder.Create().Build();
+
+        // Act
+        await sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
+
+        // Assert — events 1 and 2 published successfully and must NOT be forwarded.
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
+
+        // Events 3, 4, 5 were never published from the broker's perspective and
+        // must all be forwarded for the failure sink to surface durably.
+        failureSink.Received(1).Emit(Arg.Is(logEvent3));
+        failureSink.Received(1).Emit(Arg.Is(logEvent4));
+        failureSink.Received(1).Emit(Arg.Is(logEvent5));
+    }
+
+    [Fact]
     public async Task EmitBatchAsync_ShouldWriteAllEventsToFailureSink_WhenPublishThrowsException()
     {
         // Arrange

@@ -131,14 +131,29 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
         // make sure we have an array to avoid multiple enumeration
         var logEvents = batch as LogEvent[] ?? batch.ToArray();
 
+        // Track the index we are about to publish so the catch can forward only the
+        // un-published tail to the failure sink. Forwarding the entire batch would
+        // duplicate every event that already published successfully (the broker
+        // accepted them, then a later event in the same batch failed) — downstream
+        // systems without idempotency on MessageId would see those duplicates.
+        int published = 0;
         try
         {
-            foreach (var logEvent in logEvents)
-                await EmitAsync(logEvent).ConfigureAwait(false);
+            for (; published < logEvents.Length; published++)
+            {
+                await EmitAsync(logEvents[published]).ConfigureAwait(false);
+            }
         }
         catch (Exception exception)
         {
-            if (!HandleException(exception, logEvents))
+            // logEvents[published] is the failing event; the slice [published..] is
+            // failing-plus-remainder, all of which are unpublished from the broker's
+            // perspective. logEvents[..published] succeeded and must not be re-emitted.
+            var unpublished = published == 0
+                ? logEvents
+                : logEvents.AsSpan(published).ToArray();
+
+            if (!HandleException(exception, unpublished))
             {
                 throw;
             }
