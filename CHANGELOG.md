@@ -117,6 +117,28 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Cleanup follow-ups from PR #310 architect review
+
+Three issues filed during the PR #310 review, addressed together:
+
+- **#314**: `GetAsync`'s rotation-race ODE handler (now in `ResolveUnhealthyToken`)
+  used to throw `InvalidOperationException("Channel pool has been disposed.")`
+  when the inner re-read also threw `ObjectDisposedException`, even if the pool
+  wasn't actually disposed. The handler now checks `_disposed` first and only
+  surfaces the disposal message when the flag is set; the (essentially-unreachable)
+  back-to-back rotation case maps to the structured `PoolExhaustedException`
+  instead.
+- **#316**: The internal `TestingSetState` and `TestingInvokeHandleBrokenStateAsync`
+  hooks are now `[Obsolete]`, so any accidental call from production code in
+  `src/` fails the build via the project-wide `TreatWarningsAsErrors`. The test
+  file suppresses CS0618 with a file-scope `#pragma`. The conditional-compilation
+  suggestion from the original review (`[Conditional("DEBUG")]` / `#if DEBUG`)
+  did not fit because tests run in `Release` on CI.
+- **#317**: New `ProbeRecovery_WithChannelCountOne_RefillCohortOfZeroReachesOpenState`
+  test pins the `ChannelCount = 1` edge case after the `_size - 1` refill fix —
+  the cohort of zero never enters the `WarmUpAsync` for-loop and must still
+  reach `Open` via the post-loop `Warming → Open` CAS.
+
 ### Gated cohort-completion `_consecutiveFailures` reset to authoritative cohorts
 
 After moving the consecutive-failure reset from per-channel to per-cohort (#315),

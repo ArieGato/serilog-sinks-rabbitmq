@@ -18,6 +18,13 @@ using System.Threading.Channels;
 
 using Serilog.Sinks.RabbitMQ.Tests.TestHelpers;
 
+// CS0618: TestingSetState / TestingInvokeHandleBrokenStateAsync are marked
+// [Obsolete] so any accidental call from production code fails the build via
+// TreatWarningsAsErrors. They are still the only deterministic way to drive
+// the CAS-lost probe race and a few state-machine tests; suppress the warning
+// here so legitimate test usages compile. Documented in #316.
+#pragma warning disable CS0618
+
 namespace Serilog.Sinks.RabbitMQ.Tests.RabbitMQ;
 
 [Collection("SelfLog")]
@@ -1698,7 +1705,15 @@ public class RabbitMQChannelPoolTests
         // After the fix, this should map to a structured failure type
         // (InvalidOperationException for "disposed" or "exhausted") or succeed —
         // but never leak ObjectDisposedException to the caller.
+        //
+        // Additionally pin the #314 branch: with the CTS disposed but _disposed == 0
+        // (we only disposed the CTS via reflection, not the pool), the inner ODE
+        // catch in ResolveUnhealthyToken must throw the exhaustion exception
+        // ("Channel pool exhausted ...") rather than the misleading "disposed"
+        // message. If we ever see the disposed message here, the #314 fix has
+        // regressed.
         ObjectDisposedException? leaked = null;
+        InvalidOperationException? wrongDisposedMessage = null;
         try
         {
             using var callerCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
@@ -1708,10 +1723,15 @@ public class RabbitMQChannelPoolTests
         {
             leaked = ode;
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex) when (ex.Message.Contains("exhausted"))
         {
-            // Pool maps disposed CTS to "pool has been disposed" via the structured
-            // catch in GetAsync — that's the desired path, not a leak.
+            // Desired path: rotation race resolved as exhaustion (#314).
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("disposed"))
+        {
+            // Should not occur here — the pool itself is not disposed (only the
+            // CTS field was disposed via reflection). #314 regression marker.
+            wrongDisposedMessage = ex;
         }
         catch (OperationCanceledException)
         {
@@ -1720,6 +1740,10 @@ public class RabbitMQChannelPoolTests
         }
 
         leaked.ShouldBeNull();
+        wrongDisposedMessage.ShouldBeNull(
+            wrongDisposedMessage is null
+                ? null
+                : $"#314 regressed: rotation race produced 'disposed' message even though _disposed == 0. Got: {wrongDisposedMessage.Message}");
     }
 
     [Fact]
@@ -1777,6 +1801,42 @@ public class RabbitMQChannelPoolTests
         // With the bug present this WaitForAsync times out: refill orphans the (_size)th
         // channel, returns false from WarmUpSingleAsync, and exits before reaching the
         // Warming → Open CAS. State stays Warming.
+        await WaitForAsync(
+            () => pool.CurrentState == RabbitMQChannelPool.PoolState.Open,
+            TimeSpan.FromSeconds(3));
+        pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Open);
+    }
+
+    [Fact]
+    public async Task ProbeRecovery_WithChannelCountOne_RefillCohortOfZeroReachesOpenState()
+    {
+        // Issue #317: edge case for the `_size - 1` refill math after probe success.
+        // With ChannelCount=1, the probe writes the single channel and refill spawns
+        // WarmUpAsync(0, markOpenOnCompletion: true). The for loop body never runs;
+        // the post-loop block fires the cohort-completion reset (a no-op since no
+        // failures accumulated) and CAS's Warming → Open. End-state must be Open.
+        var connection = Substitute.For<IConnection>();
+        connection.CreateChannelAsync(Arg.Any<CreateChannelOptions?>(), Arg.Any<CancellationToken>())
+            .Returns<Task<IChannel>>(_ => Task.FromResult(CreateOpenChannel()));
+        var connectionFactory = BuildConnectionFactory(connection);
+        var configuration = new RabbitMQClientConfiguration
+        {
+            ChannelCount = 1,
+            WarmUpMaxRetries = 2,
+        };
+
+        await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
+        await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
+
+        // Drain so probe writes into an empty queue — same approach as the
+        // ChannelCount > 1 sibling test.
+        await pool.GetAsync();
+
+        pool.TestingSetState(RabbitMQChannelPool.PoolState.Broken);
+        ExpireCooldown(pool);
+
+        await pool.TestingInvokeHandleBrokenStateAsync(RabbitMQChannelPool.PoolState.Broken, default);
+
         await WaitForAsync(
             () => pool.CurrentState == RabbitMQChannelPool.PoolState.Open,
             TimeSpan.FromSeconds(3));
