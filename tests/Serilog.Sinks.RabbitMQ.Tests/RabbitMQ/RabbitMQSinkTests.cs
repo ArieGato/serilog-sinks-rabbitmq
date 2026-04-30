@@ -334,6 +334,159 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
+    public async Task EmitBatchAsync_ShouldForwardOnlyLastEvent_WhenOnlyLastPublishFails()
+    {
+        // Boundary case for the partial-batch slicing: the failing event is the
+        // very last one, so the un-published tail contains exactly one element.
+        // Proves the slice is `[failingIndex..]` and not `[failingIndex+1..]`
+        // (off-by-one in the other direction would silently drop the failing event).
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+
+        var publishCalls = 0;
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
+            .Returns(_ =>
+            {
+                int call = Interlocked.Increment(ref publishCalls);
+                if (call == 5)
+                {
+                    throw new InvalidOperationException("broker-failure-on-last");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
+
+        var logEvent1 = LogEventBuilder.Create().Build();
+        var logEvent2 = LogEventBuilder.Create().Build();
+        var logEvent3 = LogEventBuilder.Create().Build();
+        var logEvent4 = LogEventBuilder.Create().Build();
+        var logEvent5 = LogEventBuilder.Create().Build();
+
+        // Act
+        await sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
+
+        // Assert — only the last (failing) event is forwarded.
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent3));
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent4));
+        failureSink.Received(1).Emit(Arg.Is(logEvent5));
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_ShouldForwardTailAndRethrow_WhenWriteToFailureSinkAndThrowExceptionAreSet()
+    {
+        // The "route to failure sink AND still throw" combination
+        // (WriteToFailureSink | ThrowException) must observe BOTH semantics on the
+        // same partial-batch slice: the un-published tail goes to the failure sink
+        // AND the original exception propagates so a Fallback wrapper / BatchingSink
+        // listener also sees the failure.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+
+        var publishCalls = 0;
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
+            .Returns(_ =>
+            {
+                int call = Interlocked.Increment(ref publishCalls);
+                if (call >= 3)
+                {
+                    throw new InvalidOperationException("broker-failure");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = new RabbitMQSink(
+            rabbitMQClient,
+            textFormatter,
+            messageEvents,
+            EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.ThrowException,
+            failureSink);
+
+        var logEvent1 = LogEventBuilder.Create().Build();
+        var logEvent2 = LogEventBuilder.Create().Build();
+        var logEvent3 = LogEventBuilder.Create().Build();
+        var logEvent4 = LogEventBuilder.Create().Build();
+        var logEvent5 = LogEventBuilder.Create().Build();
+
+        // Act
+        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
+
+        // Assert — exception still propagates for downstream listeners.
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(act);
+        thrown.Message.ShouldBe("broker-failure");
+
+        // Slicing applies independently of rethrow: only events 3-5 forwarded.
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
+        failureSink.Received(1).Emit(Arg.Is(logEvent3));
+        failureSink.Received(1).Emit(Arg.Is(logEvent4));
+        failureSink.Received(1).Emit(Arg.Is(logEvent5));
+    }
+
+    [Fact]
+    public async Task EmitBatchAsync_ShouldWriteSelfLogAndForwardTail_WhenWriteToSelfLogAndWriteToFailureSinkAreSet()
+    {
+        // WriteToSelfLog | WriteToFailureSink — the diagnostic flag on top of the
+        // failure-sink routing. Confirms both the SelfLog write and the partial-tail
+        // slicing coexist; without the ThrowException flag the legacy catch-and-route
+        // path applies and no exception escapes.
+        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
+
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+
+        var publishCalls = 0;
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
+            .Returns(_ =>
+            {
+                int call = Interlocked.Increment(ref publishCalls);
+                if (call >= 3)
+                {
+                    throw new InvalidOperationException("broker-failure");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var failureSink = Substitute.For<ILogEventSink>();
+        var sut = new RabbitMQSink(
+            rabbitMQClient,
+            textFormatter,
+            messageEvents,
+            EmitEventFailureHandling.WriteToSelfLog | EmitEventFailureHandling.WriteToFailureSink,
+            failureSink);
+
+        var logEvent1 = LogEventBuilder.Create().Build();
+        var logEvent2 = LogEventBuilder.Create().Build();
+        var logEvent3 = LogEventBuilder.Create().Build();
+        var logEvent4 = LogEventBuilder.Create().Build();
+        var logEvent5 = LogEventBuilder.Create().Build();
+
+        // Act
+        await sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
+
+        // Assert — SelfLog received the exception summary.
+        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
+        selfLogStringBuilder.ToString().ShouldContain("broker-failure");
+
+        // And only events 3-5 forwarded.
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
+        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
+        failureSink.Received(1).Emit(Arg.Is(logEvent3));
+        failureSink.Received(1).Emit(Arg.Is(logEvent4));
+        failureSink.Received(1).Emit(Arg.Is(logEvent5));
+    }
+
+    [Fact]
     public async Task EmitBatchAsync_ShouldWriteAllEventsToFailureSink_WhenPublishThrowsException()
     {
         // Arrange
