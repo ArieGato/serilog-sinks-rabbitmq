@@ -26,6 +26,14 @@ namespace Serilog;
 /// <summary>
 /// Extension methods to configure Serilog with a sink for RabbitMQ.
 /// </summary>
+/// <remarks>
+/// Publish failures propagate from the sink so that Serilog core's
+/// <c>WriteTo.FallbackChain(...)</c> / <c>WriteTo.Fallible(...)</c> can route the original
+/// batch to a fallback sink (or report it to a listener). The audit path
+/// (<c>AuditTo.RabbitMQ(...)</c>) has no equivalent wrapper — register an
+/// <c>ILoggingFailureListener</c> via <c>RabbitMQSink.SetFailureListener(...)</c> on a
+/// directly-constructed sink, or wrap the audit call in <c>try/catch</c>.
+/// </remarks>
 public static class LoggerConfigurationRabbitMQExtensions
 {
     /// <summary>
@@ -43,19 +51,17 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// </summary>
     /// <param name="loggerConfiguration">The logger sink configuration.</param>
     /// <param name="configure">Delegate to setup client and sink configuration.</param>
-    /// <param name="failureSinkConfiguration">Delegate to setup failure sink configuration.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
         this LoggerSinkConfiguration loggerConfiguration,
-        Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
+        Action<RabbitMQClientConfiguration, RabbitMQSinkConfiguration> configure)
     {
         var clientConfiguration = new RabbitMQClientConfiguration();
         var sinkConfiguration = new RabbitMQSinkConfiguration();
 
         configure(clientConfiguration, sinkConfiguration);
 
-        return loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
+        return loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration);
     }
 
     /// <summary>
@@ -64,14 +70,12 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="loggerConfiguration">The logger sink configuration.</param>
     /// <param name="clientConfiguration"><see cref="RabbitMQClientConfiguration"/>.</param>
     /// <param name="sinkConfiguration"><see cref="RabbitMQSinkConfiguration"/>.</param>
-    /// <param name="failureSinkConfiguration">Delegate to setup failure sink configuration.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
         this LoggerSinkConfiguration loggerConfiguration,
         RabbitMQClientConfiguration clientConfiguration,
-        RabbitMQSinkConfiguration sinkConfiguration,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null) =>
-        loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration, failureSinkConfiguration);
+        RabbitMQSinkConfiguration sinkConfiguration) =>
+        loggerConfiguration.RegisterSink(clientConfiguration, sinkConfiguration);
 
     /// <summary>
     /// Adds a sink that lets you push log messages to RabbitMQ.
@@ -101,8 +105,6 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="channelCount">Number of channels held in the pool. Channels are opened eagerly at startup.</param>
     /// <param name="warmUpMaxRetries">Maximum consecutive warm-up failures before the pool transitions to a broken state and <c>GetAsync</c> fails fast. Set to <c>null</c> for unlimited retries (pre-9.0 behaviour).</param>
     /// <param name="levelSwitch">The minimal log event level switch.</param>
-    /// <param name="emitEventFailure">The handling of event failure.</param>
-    /// <param name="failureSinkConfiguration">The failure sink configuration.</param>
     /// <param name="sendMessageEvents">Contains events for sending messages.</param>
     /// <returns>The logger configuration.</returns>
     public static LoggerConfiguration RabbitMQ(
@@ -131,8 +133,6 @@ public static class LoggerConfigurationRabbitMQExtensions
         int channelCount = RabbitMQClient.DEFAULT_CHANNEL_COUNT,
         int? warmUpMaxRetries = 10,
         LogEventLevel levelSwitch = LogEventLevel.Verbose,
-        EmitEventFailureHandling emitEventFailure = EmitEventFailureHandling.WriteToSelfLog,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null,
         ISendMessageEvents? sendMessageEvents = null)
     {
         var (client, sink) = BuildWriteToConfigurations(
@@ -160,10 +160,9 @@ public static class LoggerConfigurationRabbitMQExtensions
             channelCount: channelCount,
             warmUpMaxRetries: warmUpMaxRetries,
             levelSwitch: levelSwitch,
-            emitEventFailure: emitEventFailure,
             sendMessageEvents: sendMessageEvents);
 
-        return loggerConfiguration.RegisterSink(client, sink, failureSinkConfiguration);
+        return loggerConfiguration.RegisterSink(client, sink);
     }
 
     /// <summary>
@@ -278,8 +277,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     private static LoggerConfiguration RegisterSink(
         this LoggerSinkConfiguration loggerSinkConfiguration,
         RabbitMQClientConfiguration clientConfiguration,
-        RabbitMQSinkConfiguration sinkConfiguration,
-        Action<LoggerSinkConfiguration>? failureSinkConfiguration = null)
+        RabbitMQSinkConfiguration sinkConfiguration)
     {
         if (loggerSinkConfiguration == null)
         {
@@ -301,15 +299,9 @@ public static class LoggerConfigurationRabbitMQExtensions
         clientConfiguration.Validate();
         sinkConfiguration.Validate();
 
-        if (failureSinkConfiguration == null)
-        {
-            var periodicBatchingSink = GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration);
+        var periodicBatchingSink = GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration);
 
-            return loggerSinkConfiguration.Sink(periodicBatchingSink, sinkConfiguration.RestrictedToMinimumLevel);
-        }
-
-        var wrapper = LoggerSinkConfiguration.Wrap(sink => GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration, sink), failureSinkConfiguration);
-        return loggerSinkConfiguration.Sink(wrapper, sinkConfiguration.RestrictedToMinimumLevel);
+        return loggerSinkConfiguration.Sink(periodicBatchingSink, sinkConfiguration.RestrictedToMinimumLevel);
     }
 
     private static LoggerConfiguration RegisterAuditSink(
@@ -325,7 +317,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         clientConfiguration.Validate();
         sinkConfiguration.Validate();
 
-        return loggerAuditSinkConfiguration.Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration, null), sinkConfiguration.RestrictedToMinimumLevel);
+        return loggerAuditSinkConfiguration.Sink(new RabbitMQSink(clientConfiguration, sinkConfiguration), sinkConfiguration.RestrictedToMinimumLevel);
     }
 
     /// <summary>
@@ -420,7 +412,6 @@ public static class LoggerConfigurationRabbitMQExtensions
         int channelCount,
         int? warmUpMaxRetries,
         LogEventLevel levelSwitch,
-        EmitEventFailureHandling emitEventFailure,
         ISendMessageEvents? sendMessageEvents)
     {
         var clientConfiguration = BuildClientConfiguration(
@@ -453,7 +444,6 @@ public static class LoggerConfigurationRabbitMQExtensions
             BatchPostingLimit = batchPostingLimit,
             BufferingTimeLimit = bufferingTimeLimit,
             QueueLimit = queueLimit,
-            EmitEventFailure = emitEventFailure,
             RestrictedToMinimumLevel = levelSwitch,
         };
 
@@ -469,7 +459,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// Maps the <c>AuditTo.RabbitMQ(...)</c> flat-parameter overload into its
     /// <see cref="RabbitMQClientConfiguration"/> and <see cref="RabbitMQSinkConfiguration"/>.
     /// The audit overload exposes fewer knobs than <see cref="BuildWriteToConfigurations"/> —
-    /// no batching or failure-sink parameters — because audit sinks emit synchronously.
+    /// no batching parameters — because audit sinks emit synchronously.
     /// </summary>
     internal static (RabbitMQClientConfiguration Client, RabbitMQSinkConfiguration Sink) BuildAuditToConfigurations(
         string[] hostnames,
@@ -532,10 +522,9 @@ public static class LoggerConfigurationRabbitMQExtensions
 
     private static ILogEventSink GetPeriodicBatchingSink(
         RabbitMQClientConfiguration clientConfiguration,
-        RabbitMQSinkConfiguration sinkConfiguration,
-        ILogEventSink? failureSink = null)
+        RabbitMQSinkConfiguration sinkConfiguration)
     {
-        var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration, failureSink);
+        var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration);
         var options = new BatchingOptions
         {
             BatchSizeLimit = sinkConfiguration.BatchPostingLimit,

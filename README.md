@@ -187,7 +187,7 @@ Keys are case-insensitive.
 ### Connection
 
 | Option | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `hostnames` | `string[]` | _required_ | One or more broker hostnames. See [Multi-host configuration](#multi-host-configuration). |
 | `username` | `string` | _required_ | Authentication user. |
 | `password` | `string` | _required_ | Authentication password. |
@@ -199,7 +199,7 @@ Keys are case-insensitive.
 ### Exchange and routing
 
 | Option | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `exchange` | `string` | `""` | Target exchange name. |
 | `exchangeType` | `string` | `"fanout"` | Exchange type (`direct`, `fanout`, `topic`, `headers`). |
 | `deliveryMode` | `RabbitMQDeliveryMode` | `NonDurable` | Persistence of published messages. |
@@ -209,7 +209,7 @@ Keys are case-insensitive.
 ### TLS / SSL
 
 | Option | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `sslEnabled` | `bool` | `false` | Enable TLS for broker connections. |
 | `sslServerName` | `string?` | first hostname | Server name used for certificate validation. |
 | `sslVersion` | `SslProtocols` | `None` | TLS protocol version. |
@@ -219,9 +219,9 @@ Keys are case-insensitive.
 ### Channel pool
 
 | Option | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `channelCount` | `int` | `64` | Number of channels held in the pool. Channels are opened eagerly in the background at startup; broken channels are replaced automatically. When all channels are in use, additional publish calls await until one is returned. |
-| `warmUpMaxRetries` | `int?` | `10` | Maximum consecutive warm-up failures before the pool enters a broken state. While broken, `GetAsync` throws `InvalidOperationException` immediately so publish failures surface to the `BatchingSink` failure listener (or `WriteTo.Fallback(...)` chain) instead of blocking waiters. A 60 s cooldown elapses between exhaustion and the next probe attempt; probe success transitions the pool back to warming. Set to `null` for unlimited retries (pre-9.0 behaviour). The exponential backoff schedule between attempts (500 ms → 30 s cap) is not configurable. |
+| `warmUpMaxRetries` | `int?` | `10` | Maximum consecutive warm-up failures before the pool enters a broken state. While broken, `GetAsync` throws `InvalidOperationException` immediately so publish failures surface to the `BatchingSink` failure listener (or `WriteTo.FallbackChain(...)` wrapper) instead of blocking waiters. A 60 s cooldown elapses between exhaustion and the next probe attempt; probe success transitions the pool back to warming. Set to `null` for unlimited retries (pre-9.0 behaviour). The exponential backoff schedule between attempts (500 ms → 30 s cap) is not configurable. |
 
 > **Deprecated:** `maxChannels` (parameter) and `MaxChannels` (property) are kept as
 > `[Obsolete]` shims that forward to `channelCount` / `ChannelCount`. They will be removed in
@@ -233,40 +233,31 @@ These options apply to `WriteTo.RabbitMQ` only. Audit sinks write each event syn
 and ignore them.
 
 | Option | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `batchPostingLimit` | `int` | `50` | Maximum events written per batch. |
 | `bufferingTimeLimit` | `TimeSpan` | `2s` | Flush interval for partial batches. |
 | `queueLimit` | `int?` | `null` | Maximum buffered events. `null` = unbounded. |
 
-### Failure handling
+### Other options
 
 | Option | Type | Default | Description |
-|---|---|---|---|
-| `emitEventFailure` | `EmitEventFailureHandling` | `WriteToSelfLog` | Combination of `Ignore`, `WriteToSelfLog`, `WriteToFailureSink`, `ThrowException`. See behaviour table below. |
-| `failureSinkConfiguration` | `Action<LoggerSinkConfiguration>?` | `null` | Legacy sink(s) that receive events when the primary sink fails. Used together with `WriteToFailureSink`. Prefer `WriteTo.Fallback(...)` for new code. |
+| --- | --- | --- | --- |
 | `formatter` | `ITextFormatter?` | `CompactJsonFormatter` | Formatter used to render the event into the message body. |
 | `levelSwitch` | `LogEventLevel` | `Verbose` | Minimum level for events emitted by the sink. |
 | `sendMessageEvents` | `ISendMessageEvents?` | `null` | Hooks for customising message properties and routing keys (see below). |
 
-`WriteTo.RabbitMQ` runs inside Serilog's `BatchingSink`. When a batch fails, the sink's behaviour depends on `emitEventFailure`:
+### Failure handling
 
-| Flags | Behaviour |
-|---|---|
-| `Ignore` | Rethrow. BatchingSink's failure listener observes the exception (defaults to `SelfLog`). |
-| `WriteToSelfLog` (default) | Log to `SelfLog`, then rethrow. |
-| `ThrowException` | Rethrow (same as `Ignore`; kept for clarity). |
-| `WriteToFailureSink` | Route events to the legacy failure sink; do **not** rethrow. |
-| `WriteToFailureSink \| WriteToSelfLog` | Log and route to failure sink; do not rethrow. |
-| `WriteToFailureSink \| ThrowException` | Route to failure sink **and** rethrow. |
-
-#### Recommended: `WriteTo.Fallback(...)` (Serilog 4.1+)
-
-For new code, use Serilog's native fallback chain instead of `failureSinkConfiguration`:
+`WriteTo.RabbitMQ` runs inside Serilog's `BatchingSink`. Publish failures always
+propagate so `BatchingSink`'s `ILoggingFailureListener` can observe them; the
+exception is also written to `Serilog.Debugging.SelfLog`. Compose with Serilog
+core's `WriteTo.FallbackChain(...)` to route failed batches to one or more
+fallback sinks:
 
 ```csharp
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Fallback(
-        primary => primary.RabbitMQ((client, sink) =>
+    .WriteTo.FallbackChain(
+        primary  => primary.RabbitMQ((client, sink) =>
         {
             client.Hostnames = ["localhost"];
             client.Username  = "guest";
@@ -277,26 +268,22 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 ```
 
-Leave `emitEventFailure` at its default — the fallback chain relies on the sink rethrowing.
+`FallbackChain` accepts two or more configure callbacks: the first is the
+primary, every subsequent callback receives the original batch when the
+preceding sink in the chain throws. For listener-based reporting (no
+fallback sink, just notify a custom `ILoggingFailureListener`), use
+`WriteTo.Fallible(configureSink, listener)` instead.
 
-#### Legacy: `failureSinkConfiguration`
+The same composition works in `appsettings.json` by wrapping the `RabbitMQ`
+block in a `FallbackChain` entry — the JSON binding ships with prerelease
+`Serilog.Settings.Configuration`.
 
-```csharp
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.RabbitMQ(
-        configure: (client, sink) =>
-        {
-            client.Hostnames = ["localhost"];
-            client.Username  = "guest";
-            client.Password  = "guest";
-            client.Exchange  = "logs";
-
-            sink.EmitEventFailure = EmitEventFailureHandling.WriteToSelfLog
-                                  | EmitEventFailureHandling.WriteToFailureSink;
-        },
-        failureSinkConfiguration: failure => failure.Console())
-    .CreateLogger();
-```
+> **Gotcha:** Do **not** set `RestrictedToMinimumLevel` on the wrapped RabbitMQ
+> sink configuration when using `FallbackChain`. Serilog wraps the sink in an
+> internal `RestrictedSink` that does not implement `ISetLoggingFailureListener`,
+> which silently breaks the listener-propagation chain — failed batches get
+> dropped instead of routed to the fallback. Apply level filtering at the logger
+> level (`MinimumLevel.Information()` etc.) instead.
 
 ## Audit sink
 
@@ -373,8 +360,8 @@ turn until one succeeds.
 Three runnable sample projects live under [`samples/`](samples/):
 
 | Sample | Configuration style | Target |
-|---|---|---|
-| [`NetFromCodeSample`](samples/NetFromCodeSample/) | Pure code, includes audit sink and failure sink | `net10.0` |
+| --- | --- | --- |
+| [`NetFromCodeSample`](samples/NetFromCodeSample/) | Pure code, includes audit sink | `net10.0` |
 | [`NetAppsettingsJsonSample`](samples/NetAppsettingsJsonSample/) | `appsettings.json` via `Serilog.Settings.Configuration`, includes a custom `ISendMessageEvents` | `net10.0` |
 | [`NetFrameworkAppSettingsConfigSample`](samples/NetFrameworkAppSettingsConfigSample/) | `App.config` via `Serilog.Settings.AppSettings` | `net48` |
 
@@ -384,7 +371,7 @@ and integration tests.
 ## Compatibility matrix
 
 | Serilog.Sinks.RabbitMQ | .NETStandard | .NETFramework | Serilog | RabbitMQ.Client |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 2.0.0 | 1.6.0 | 4.5.1 | 2.3.0 | 4.* |
 | 3.0.0 | 1.6.1 | 4.5.1 | 2.8.0 | 5.* |
 | 6.0.0 | 2.0.0 | 4.7.2 | 2.8.0 | 6.* |
@@ -403,16 +390,19 @@ and integration tests.
   in the background at startup. When all channels are in use, additional publish calls
   await until one is returned (previous behaviour grew the pool on demand). Broken channels
   are replaced automatically in the background.
-- **Failure handling aligns with Serilog's `BatchingSink`.** `EmitBatchAsync` now rethrows
-  by default so the BatchingSink's failure listener observes the error (it writes to
-  `SelfLog` unless a listener is configured). Previously, failures were swallowed when
-  `WriteToFailureSink` was not set. If you relied on the old silent behaviour, set
-  `emitEventFailure` to `WriteToFailureSink` with a `failureSinkConfiguration`, or wire a
-  `WriteTo.Fallback(...)` chain. `AuditTo.RabbitMQ` also notifies any configured
-  `ILoggingFailureListener` before rethrowing.
-- **`WriteTo.Fallback(...)` is now the recommended pattern.** Serilog 4.1's native fallback
-  chain is preferred over `failureSinkConfiguration`. See the [Failure handling](#failure-handling)
-  section.
+- **In-sink failure sink and `EmitEventFailureHandling` removed.** Publish failures now
+  always propagate so Serilog's `BatchingSink` listener can route the original batch
+  through Serilog core's `WriteTo.FallbackChain(...)` (or `WriteTo.Fallible(...)` for
+  listener-based reporting). Diagnostics are written to `SelfLog` on every failure (no
+  opt-in flag required). The `EmitEventFailureHandling` enum, the
+  `RabbitMQSinkConfiguration.EmitEventFailure` property, the `failureSinkConfiguration`
+  extension parameter, and the flat-overload `emitEventFailure` parameter are gone.
+  `AuditTo.RabbitMQ` notifies any configured `ILoggingFailureListener` before rethrowing.
+- **`RabbitMQSink` implements `ISetLoggingFailureListener`.** Direct-construct users
+  and the audit path (`AuditTo.RabbitMQ`) can now hook a `Serilog.Core.ILoggingFailureListener`
+  on the sink itself via `SetFailureListener(...)`. The batched pipeline (`WriteTo.RabbitMQ`)
+  still routes failures via `BatchingSink`'s listener — Serilog does not forward
+  `SetFailureListener` to inner sinks by design.
 - **`Validate()` on configuration objects.** `RabbitMQClientConfiguration` and
   `RabbitMQSinkConfiguration` now expose public `Validate()` methods and are invoked during
   sink construction. Misconfiguration (missing hostnames, invalid port, zero batch limit,
@@ -427,14 +417,162 @@ and integration tests.
 - **Bounded warm-up retry with circuit-breaker recovery.** `RabbitMQChannelPool` now backs
   off exponentially (500 ms → 30 s cap) and gives up after `WarmUpMaxRetries` consecutive
   failures (default `10`). A broken pool fails `GetAsync` fast so events surface to Serilog's
-  `BatchingSink` failure listener (or `WriteTo.Fallback(...)`) instead of blocking waiters.
+  `BatchingSink` failure listener (or `WriteTo.FallbackChain(...)`) instead of blocking waiters.
   Self-heals via a half-open probe after a 60 s cooldown. Set
   `RabbitMQClientConfiguration.WarmUpMaxRetries = null` for unlimited retries — matches pre-9.0
-  behaviour, but prefer `WriteTo.Fallback(...)` for resilience instead.
+  behaviour, but prefer `WriteTo.FallbackChain(...)` for resilience instead.
 - **`Microsoft.Extensions.ObjectPool` dependency removed.** No action needed unless your
   application referenced it transitively through this package.
 - **Target frameworks:** `net6.0` and `net9.0` were removed. Supported targets are
   `netstandard2.0`, `net8.0`, and `net10.0`.
+
+### Migrating from `failureSinkConfiguration` to `WriteTo.FallbackChain(...)`
+
+`WriteTo.FallbackChain(...)` ships in **Serilog core** itself (no extra package);
+the JSON binding ships with prerelease `Serilog.Settings.Configuration`. The wrapper
+observes the publish exception that the RabbitMQ sink now propagates and re-emits the
+**entire failed batch** to the next sink in the chain (the legacy
+`failureSinkConfiguration` only ever saw one event at a time).
+
+A companion method, `WriteTo.Fallible(configureSink, listener)`, wraps a single sink
+with a custom `ILoggingFailureListener` instead of routing to another sink — useful
+when you want to count, alert on, or instrument failures rather than buffer them.
+
+#### Code: delegate-style configuration
+
+Before (8.x):
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.RabbitMQ(
+        configure: (client, sink) =>
+        {
+            client.Hostnames = ["broker"];
+            client.Username  = "guest";
+            client.Password  = "guest";
+            client.Exchange  = "logs";
+            sink.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink
+                                  | EmitEventFailureHandling.WriteToSelfLog;
+        },
+        failureSinkConfiguration: failure => failure.File("./log/failure.txt"))
+    .CreateLogger();
+```
+
+After (9.0.0+):
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.FallbackChain(
+        primary  => primary.RabbitMQ((client, sink) =>
+        {
+            client.Hostnames = ["broker"];
+            client.Username  = "guest";
+            client.Password  = "guest";
+            client.Exchange  = "logs";
+        }),
+        fallback => fallback.File("./log/failure.txt"))
+    .CreateLogger();
+```
+
+Drop `EmitEventFailure` entirely — the sink always rethrows now, which is what triggers
+the fallback. The exception is also written to `Serilog.Debugging.SelfLog`, so an
+explicit `WriteToSelfLog` flag is no longer needed.
+
+#### Code: multiple fallbacks
+
+`FallbackChain` accepts two or more configure callbacks. Each subsequent sink only
+receives the batch when the preceding sink in the chain throws:
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.FallbackChain(
+        primary  => primary.RabbitMQ((client, sink) => { /* ... */ }),
+        fallback => fallback.Http("https://log-relay.internal/ingest"),
+        fallback => fallback.File("./log/failure.txt"))
+    .CreateLogger();
+```
+
+#### Code: `Fallible` for listener-based reporting
+
+Use `Fallible` when you do not want a fallback sink but do want to be notified of
+failures (metrics, alerting, custom logic):
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Fallible(
+        configureSink: s => s.RabbitMQ((client, sink) => { /* ... */ }),
+        failureListener: new MyMetricsListener())
+    .CreateLogger();
+```
+
+#### `appsettings.json`
+
+Before:
+
+```json
+"WriteTo": [
+  {
+    "Name": "RabbitMQ",
+    "Args": {
+      "clientConfiguration": { "hostnames": ["broker"], "username": "guest", "password": "guest", "exchange": "logs" },
+      "sinkConfiguration":   { "emitEventFailure": "WriteToFailureSink,WriteToSelfLog" },
+      "failureSinkConfiguration": [
+        { "Name": "File", "Args": { "path": "./log/failure.txt" } }
+      ]
+    }
+  }
+]
+```
+
+After (requires prerelease `Serilog.Settings.Configuration` for `FallbackChain` binding):
+
+```json
+"WriteTo": [
+  {
+    "Name": "FallbackChain",
+    "Args": {
+      "configureSink":     { "Name": "RabbitMQ", "Args": { "clientConfiguration": { "hostnames": ["broker"], "username": "guest", "password": "guest", "exchange": "logs" } } },
+      "configureFallback": { "Name": "File",     "Args": { "path": "./log/failure.txt" } }
+    }
+  }
+]
+```
+
+Remove `emitEventFailure` and `failureSinkConfiguration` keys from the `RabbitMQ`
+block. The `Using` array does **not** need a `Serilog.Sinks.Fallback` entry —
+`FallbackChain` is in `Serilog` itself.
+
+#### Audit sink (`AuditTo.RabbitMQ`)
+
+There is **no** `AuditTo.FallbackChain` / `AuditTo.Fallible` overload — these wrappers
+live on `LoggerSinkConfiguration` only, not on `LoggerAuditSinkConfiguration`. The
+audit path keeps its existing throw-on-failure semantics; handle failures one of two
+ways:
+
+1. **`try/catch`** around the call site:
+
+   ```csharp
+   try
+   {
+       Log.Information("audit event {@Event}", payload);
+   }
+   catch (Exception ex)
+   {
+       fallbackLogger.Error(ex, "audit publish failed");
+   }
+   ```
+
+2. **`ILoggingFailureListener`** on a directly-constructed `RabbitMQSink`:
+
+   ```csharp
+   var sink = new RabbitMQSink(clientConfig, sinkConfig);
+   sink.SetFailureListener(new MyMetricsListener());
+   Log.Logger = new LoggerConfiguration()
+       .AuditTo.Sink(sink)
+       .CreateLogger();
+   ```
+
+   The listener is notified before the rethrow propagates to the caller.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full release notes.
 

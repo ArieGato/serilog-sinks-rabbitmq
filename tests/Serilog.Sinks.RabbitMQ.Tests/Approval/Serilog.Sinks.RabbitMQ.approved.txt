@@ -3,9 +3,9 @@ namespace Serilog
     public static class LoggerConfigurationRabbitMQExtensions
     {
         public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, System.Action<Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration> configure) { }
+        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, System.Action<Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration> configure) { }
         public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration clientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration sinkConfiguration) { }
-        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, System.Action<Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration> configure, System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null) { }
-        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration clientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration sinkConfiguration, System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null) { }
+        public static Serilog.LoggerConfiguration RabbitMQ(this Serilog.Configuration.LoggerSinkConfiguration loggerConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQClientConfiguration clientConfiguration, Serilog.Sinks.RabbitMQ.RabbitMQSinkConfiguration sinkConfiguration) { }
         public static Serilog.LoggerConfiguration RabbitMQ(
                     this Serilog.Configuration.LoggerAuditSinkConfiguration loggerAuditSinkConfiguration,
                     string[] hostnames,
@@ -56,21 +56,11 @@ namespace Serilog
                     int channelCount = 64,
                     int? warmUpMaxRetries = 10,
                     Serilog.Events.LogEventLevel levelSwitch = 0,
-                    Serilog.Sinks.RabbitMQ.EmitEventFailureHandling emitEventFailure = 1,
-                    System.Action<Serilog.Configuration.LoggerSinkConfiguration>? failureSinkConfiguration = null,
                     Serilog.Sinks.RabbitMQ.ISendMessageEvents? sendMessageEvents = null) { }
     }
 }
 namespace Serilog.Sinks.RabbitMQ
 {
-    [System.Flags]
-    public enum EmitEventFailureHandling
-    {
-        Ignore = 0,
-        WriteToSelfLog = 1,
-        WriteToFailureSink = 2,
-        ThrowException = 4,
-    }
     public interface ISendMessageEvents
     {
         string OnGetRoutingKey(Serilog.Events.LogEvent logEvent, string defaultRoutingKey);
@@ -118,7 +108,6 @@ namespace Serilog.Sinks.RabbitMQ
         public RabbitMQSinkConfiguration() { }
         public int BatchPostingLimit { get; set; }
         public System.TimeSpan BufferingTimeLimit { get; set; }
-        public Serilog.Sinks.RabbitMQ.EmitEventFailureHandling EmitEventFailure { get; set; }
         public int? QueueLimit { get; set; }
         public Serilog.Events.LogEventLevel RestrictedToMinimumLevel { get; set; }
         public Serilog.Formatting.ITextFormatter TextFormatter { get; set; }

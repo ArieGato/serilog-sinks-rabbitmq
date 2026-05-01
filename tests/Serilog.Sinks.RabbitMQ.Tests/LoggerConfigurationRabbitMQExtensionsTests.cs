@@ -115,21 +115,6 @@ public class LoggerConfigurationRabbitMQExtensionsTests
     }
 
     [Fact]
-    public void WriteTo_RabbitMQ_WithFailureSinkConfiguration_Builds()
-    {
-        // Exercises the `failureSinkConfiguration != null` branch in RegisterSink —
-        // the wrapper sink path that routes failed events through the failure sink.
-        using var logger = new LoggerConfiguration()
-            .WriteTo.RabbitMQ(
-                ValidClientConfiguration(),
-                ValidSinkConfiguration(),
-                failureSinkConfiguration: fb => fb.Sink(Substitute.For<Core.ILogEventSink>()))
-            .CreateLogger();
-
-        logger.ShouldNotBeNull();
-    }
-
-    [Fact]
     public void WriteTo_RabbitMQ_WithQueueLimit_Builds()
     {
         // Exercises the `sinkConfiguration.QueueLimit.HasValue` branch in
@@ -255,7 +240,6 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             channelCount: 7,
             warmUpMaxRetries: 5,
             levelSwitch: LogEventLevel.Warning,
-            emitEventFailure: EmitEventFailureHandling.ThrowException,
             sendMessageEvents: sendMessageEvents);
 
         client.Hostnames.ShouldBe(["host-a", "host-b"]);
@@ -286,7 +270,6 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         sink.QueueLimit.ShouldBe(500);
         sink.TextFormatter.ShouldBeSameAs(formatter);
         sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Warning);
-        sink.EmitEventFailure.ShouldBe(EmitEventFailureHandling.ThrowException);
     }
 
     [Fact]
@@ -323,7 +306,6 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             channelCount: 64,
             warmUpMaxRetries: null,
             levelSwitch: LogEventLevel.Verbose,
-            emitEventFailure: EmitEventFailureHandling.WriteToSelfLog,
             sendMessageEvents: null);
 
         // Null-coalescing on the client side.
@@ -346,7 +328,6 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         sink.QueueLimit.ShouldBeNull();
         sink.TextFormatter.ShouldBeOfType<CompactJsonFormatter>();
         sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Verbose);
-        sink.EmitEventFailure.ShouldBe(EmitEventFailureHandling.WriteToSelfLog);
     }
 
     [Fact]
@@ -380,7 +361,6 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             channelCount: 64,
             warmUpMaxRetries: 10,
             levelSwitch: LogEventLevel.Verbose,
-            emitEventFailure: EmitEventFailureHandling.WriteToSelfLog,
             sendMessageEvents: null);
 
         client.SslOption.ShouldBeNull();

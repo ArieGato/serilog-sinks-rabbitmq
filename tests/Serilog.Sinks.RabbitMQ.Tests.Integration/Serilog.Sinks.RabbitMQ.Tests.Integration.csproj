@@ -11,11 +11,16 @@
     <PackageReference Include="Serilog.Settings.AppSettings" />
     <PackageReference Include="Serilog.Settings.Configuration" />
     <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <PackageReference Include="coverlet.msbuild" PrivateAssets="all" />
     <PackageReference Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' != 'net48' ">
+    <PackageReference Include="Testcontainers.RabbitMq" />
   </ItemGroup>
 
   <ItemGroup>

@@ -54,11 +54,6 @@ public class RabbitMQSinkConfiguration
     public LogEventLevel RestrictedToMinimumLevel { get; set; } = LogEventLevel.Verbose;
 
     /// <summary>
-    /// Specifies how failed emits should be handled.
-    /// </summary>
-    public EmitEventFailureHandling EmitEventFailure { get; set; }
-
-    /// <summary>
     /// Validate this configuration. Throws if any required value is missing or out of range.
     /// Idempotent and safe to call multiple times.
     /// </summary>
