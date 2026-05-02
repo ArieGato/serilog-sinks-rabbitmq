@@ -11,6 +11,16 @@
     <Authors>Steffen Lyng, Jared Nance, Tsvetelin Tsonev, Jeow Li Huan, Andre Rocha, Shaparam, Meli0r, Johannes Egger, Dag H. Baardsen, Aaron Powell, Thomas Ardal, Juris Gekiss, Arjan Vermunt, Ivan Maximov</Authors>
   </PropertyGroup>
 
+  <!--
+    FEATURE_ASYNCDISPOSABLE: gate for the public IAsyncDisposable surface on RabbitMQSink.
+    Mirrors the pattern used in Serilog itself — the type is in-box on net6.0+, so we
+    expose it on the .NET 8/10 TFMs only and leave the netstandard2.0 build sync-dispose
+    only to avoid taking on a Microsoft.Bcl.AsyncInterfaces polyfill in the public API.
+  -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net10.0'">
+    <DefineConstants>$(DefineConstants);FEATURE_ASYNCDISPOSABLE</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="RabbitMQ.Client" />

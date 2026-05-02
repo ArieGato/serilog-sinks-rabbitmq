@@ -487,6 +487,126 @@ public class RabbitMQSinkTests
         Should.Throw<InvalidOperationException>(() => sut.Emit(LogEventBuilder.Create().Build()));
     }
 
+#if NET8_0_OR_GREATER
+    [Fact]
+    public async Task DisposeAsync_DisposesRabbitMQClient()
+    {
+        // The async-dispose path is preferred over Dispose() inside async pipelines:
+        // BatchingSink forwards DisposeAsync to its target sink when the sink implements
+        // IAsyncDisposable. Our DisposeAsync awaits IRabbitMQClient.DisposeAsync directly
+        // — no AsyncHelpers.RunSync bridge — so this assertion is the single behavioural
+        // difference vs Dispose().
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await sut.DisposeAsync();
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_IsIdempotent()
+    {
+        // Double-DisposeAsync must not throw and must hit the underlying client once —
+        // matches the Dispose() guard via _disposedValue.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await sut.DisposeAsync();
+        await sut.DisposeAsync();
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_DoesNotThrow_WhenClientDisposeAsyncThrows()
+    {
+        // Symmetric with Dispose_ShouldNotThrowException_WhenRabbitMQClientDisposeThrowsException:
+        // disposal exceptions are routed to SelfLog and Trace and swallowed.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.When(x => x.DisposeAsync())
+            .Do(_ => throw new Exception("async-boom"));
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await Should.NotThrowAsync(() => sut.DisposeAsync().AsTask());
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WritesToTraceError_WhenClientDisposeAsyncThrows()
+    {
+        // Mirror of Dispose_WritesToTraceError_WhenRabbitMQClientDisposeThrowsException.
+        // Both Dispose paths must surface disposal failures via Trace so callers without
+        // a SelfLog listener still see the diagnostic.
+        using var listener = new StringBuilderTraceListener();
+        System.Diagnostics.Trace.Listeners.Add(listener);
+        try
+        {
+            var textFormatter = Substitute.For<ITextFormatter>();
+            var messageEvents = Substitute.For<ISendMessageEvents>();
+            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+            rabbitMQClient.When(x => x.DisposeAsync())
+                .Do(_ => throw new Exception("async-trace-boom"));
+
+            var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+            await sut.DisposeAsync();
+
+            listener.Output.ShouldContain("async-trace-boom");
+            listener.Output.ShouldContain("RabbitMQClient");
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+        }
+    }
+
+    [Fact]
+    public async Task DisposeAsync_AfterDispose_DoesNotInvokeClient()
+    {
+        // Cross-path idempotency: Dispose() flips _disposedValue, so a follow-up
+        // DisposeAsync() must short-circuit. Pins the contract that the two methods
+        // share the same disposal state and either entry point closes the door.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        sut.Dispose();
+        await sut.DisposeAsync();
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Dispose_AfterDisposeAsync_DoesNotInvokeClient()
+    {
+        // Reverse of DisposeAsync_AfterDispose_DoesNotInvokeClient. Whichever path
+        // closes the door first, the second path must observe _disposedValue and exit
+        // without re-running the underlying client disposal.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await sut.DisposeAsync();
+        sut.Dispose();
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+#endif
+
     [Fact]
     public void Emit_Audit_SwallowsListenerException_AndStillRethrowsOriginal()
     {

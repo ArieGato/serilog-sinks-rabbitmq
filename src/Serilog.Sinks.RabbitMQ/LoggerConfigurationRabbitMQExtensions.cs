@@ -16,7 +16,6 @@ using System.Net.Security;
 using System.Security.Authentication;
 using RabbitMQ.Client;
 using Serilog.Configuration;
-using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Sinks.RabbitMQ;
@@ -45,6 +44,13 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// Default value for the time to wait between checking for event batches.
     /// </summary>
     internal static readonly TimeSpan DEFAULT_BUFFERING_TIME_LIMIT = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Default value for the retry time limit. Mirrors Serilog's own <c>BatchingOptions.RetryTimeLimit</c>
+    /// default of 10 minutes; failed batches retry with exponential back-off until this elapses,
+    /// then the original batch is handed to the registered <c>ILoggingFailureListener</c>.
+    /// </summary>
+    internal static readonly TimeSpan DEFAULT_RETRY_TIME_LIMIT = TimeSpan.FromMinutes(10);
 
     /// <summary>
     /// Adds a sink that lets you push log messages to RabbitMQ.
@@ -100,6 +106,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="batchPostingLimit">The maximum number of events to include in a single batch.</param>
     /// <param name="bufferingTimeLimit">The time to wait between checking for event batches.</param>
     /// <param name="queueLimit">The batch internal queue limit.</param>
+    /// <param name="retryTimeLimit">Maximum time a failed batch is retried before it is forwarded to the registered <c>ILoggingFailureListener</c> (e.g. <c>WriteTo.FallbackChain(...)</c>). Pass <c>default</c> to use the library default of 10 minutes; <see cref="TimeSpan.Zero"/> disables retries.</param>
     /// <param name="formatter">The text formatter.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="channelCount">Number of channels held in the pool. Channels are opened eagerly at startup.</param>
@@ -128,6 +135,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         int batchPostingLimit = DEFAULT_BATCH_POSTING_LIMIT,
         TimeSpan bufferingTimeLimit = default,
         int? queueLimit = null,
+        TimeSpan retryTimeLimit = default,
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int channelCount = RabbitMQClient.DEFAULT_CHANNEL_COUNT,
@@ -155,6 +163,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             batchPostingLimit: batchPostingLimit,
             bufferingTimeLimit: bufferingTimeLimit,
             queueLimit: queueLimit,
+            retryTimeLimit: retryTimeLimit,
             formatter: formatter,
             autoCreateExchange: autoCreateExchange,
             channelCount: channelCount,
@@ -296,12 +305,33 @@ public static class LoggerConfigurationRabbitMQExtensions
             ? DEFAULT_BUFFERING_TIME_LIMIT
             : sinkConfiguration.BufferingTimeLimit;
 
+        sinkConfiguration.RetryTimeLimit = sinkConfiguration.RetryTimeLimit == default
+            ? DEFAULT_RETRY_TIME_LIMIT
+            : sinkConfiguration.RetryTimeLimit;
+
         clientConfiguration.Validate();
         sinkConfiguration.Validate();
 
-        var periodicBatchingSink = GetPeriodicBatchingSink(clientConfiguration, sinkConfiguration);
+        // Use Serilog's direct IBatchedLogEventSink overload so the BatchingSink wrap and the
+        // RestrictedToMinimumLevel filter are applied in a single registration. The earlier
+        // CreateSink(lc => lc.Sink(rabbitMQSink, options)) indirection produced the same
+        // RestrictedSink → BatchingSink → RabbitMQSink chain but at the cost of an extra
+        // wrapping step.
+        var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration);
+        var options = new BatchingOptions
+        {
+            BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
+            BufferingTimeLimit = sinkConfiguration.BufferingTimeLimit,
+            RetryTimeLimit = sinkConfiguration.RetryTimeLimit,
+            EagerlyEmitFirstEvent = true,
+        };
 
-        return loggerSinkConfiguration.Sink(periodicBatchingSink, sinkConfiguration.RestrictedToMinimumLevel);
+        if (sinkConfiguration.QueueLimit.HasValue)
+        {
+            options.QueueLimit = sinkConfiguration.QueueLimit.Value;
+        }
+
+        return loggerSinkConfiguration.Sink(rabbitMQSink, options, sinkConfiguration.RestrictedToMinimumLevel);
     }
 
     private static LoggerConfiguration RegisterAuditSink(
@@ -386,7 +416,14 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// Maps the <c>WriteTo.RabbitMQ(...)</c> flat-parameter overload into its
     /// <see cref="RabbitMQClientConfiguration"/> and <see cref="RabbitMQSinkConfiguration"/>.
     /// The public overload delegates here, then hands the results to <c>RegisterSink</c>.
+    /// The <c>retryTimeLimit</c> argument is a pass-through for
+    /// <see cref="RabbitMQSinkConfiguration.RetryTimeLimit"/>; <c>default</c> means "use the
+    /// library default" and is resolved in <c>RegisterSink</c>.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "StyleCop.CSharp.DocumentationRules",
+        "SA1611:Element parameters should be documented",
+        Justification = "Internal pass-through helper. Per-parameter docs live on the public flat overload.")]
     internal static (RabbitMQClientConfiguration Client, RabbitMQSinkConfiguration Sink) BuildWriteToConfigurations(
         string[] hostnames,
         string username,
@@ -407,6 +444,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         int batchPostingLimit,
         TimeSpan bufferingTimeLimit,
         int? queueLimit,
+        TimeSpan retryTimeLimit,
         ITextFormatter? formatter,
         bool autoCreateExchange,
         int channelCount,
@@ -436,14 +474,15 @@ public static class LoggerConfigurationRabbitMQExtensions
             warmUpMaxRetries: warmUpMaxRetries,
             sendMessageEvents: sendMessageEvents);
 
-        // Default substitution for BatchPostingLimit / BufferingTimeLimit lives in
-        // RegisterSink so that the delegate, direct-config, and flat-overload paths
-        // all share one defaulting site. Pass the caller's values through verbatim here.
+        // Default substitution for BatchPostingLimit / BufferingTimeLimit / RetryTimeLimit lives
+        // in RegisterSink so that the delegate, direct-config, and flat-overload paths all share
+        // one defaulting site. Pass the caller's values through verbatim here.
         var sinkConfiguration = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = batchPostingLimit,
             BufferingTimeLimit = bufferingTimeLimit,
             QueueLimit = queueLimit,
+            RetryTimeLimit = retryTimeLimit,
             RestrictedToMinimumLevel = levelSwitch,
         };
 
@@ -518,25 +557,5 @@ public static class LoggerConfigurationRabbitMQExtensions
         }
 
         return (clientConfiguration, sinkConfiguration);
-    }
-
-    private static ILogEventSink GetPeriodicBatchingSink(
-        RabbitMQClientConfiguration clientConfiguration,
-        RabbitMQSinkConfiguration sinkConfiguration)
-    {
-        var rabbitMQSink = new RabbitMQSink(clientConfiguration, sinkConfiguration);
-        var options = new BatchingOptions
-        {
-            BatchSizeLimit = sinkConfiguration.BatchPostingLimit,
-            BufferingTimeLimit = sinkConfiguration.BufferingTimeLimit,
-            EagerlyEmitFirstEvent = true,
-        };
-
-        if (sinkConfiguration.QueueLimit.HasValue)
-        {
-            options.QueueLimit = sinkConfiguration.QueueLimit.Value;
-        }
-
-        return LoggerSinkConfiguration.CreateSink(lc => lc.Sink(rabbitMQSink, options));
     }
 }

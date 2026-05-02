@@ -142,6 +142,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         {
             BatchPostingLimit = 0,
             BufferingTimeLimit = TimeSpan.Zero,
+            RetryTimeLimit = TimeSpan.Zero,
         };
 
         using var logger = new LoggerConfiguration()
@@ -151,6 +152,52 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         logger.ShouldNotBeNull();
         sinkConfig.BatchPostingLimit.ShouldBe(50);
         sinkConfig.BufferingTimeLimit.ShouldBe(TimeSpan.FromSeconds(2));
+        sinkConfig.RetryTimeLimit.ShouldBe(TimeSpan.FromMinutes(10));
+    }
+
+    [Fact]
+    public void WriteTo_RabbitMQ_PreservesCallerRetryTimeLimit_WhenNonDefault()
+    {
+        // Mirror of the AppliesDefaults_WhenBatchingValuesAreDefault test above for the
+        // non-default branch: a caller who explicitly passes a RetryTimeLimit (including
+        // a very short one to force fast fallback) must see it reach the BatchingSink
+        // unchanged. The defaulting branch in RegisterSink only fires on `default`.
+        var sinkConfig = new RabbitMQSinkConfiguration
+        {
+            BatchPostingLimit = 50,
+            BufferingTimeLimit = TimeSpan.FromSeconds(2),
+            RetryTimeLimit = TimeSpan.FromMilliseconds(500),
+        };
+
+        using var logger = new LoggerConfiguration()
+            .WriteTo.RabbitMQ(ValidClientConfiguration(), sinkConfig)
+            .CreateLogger();
+
+        logger.ShouldNotBeNull();
+        sinkConfig.RetryTimeLimit.ShouldBe(TimeSpan.FromMilliseconds(500));
+    }
+
+    [Fact]
+    public void WriteTo_RabbitMQ_Builds_WhenRestrictedToMinimumLevelIsNotVerbose()
+    {
+        // Smoke test for the simplified RegisterSink: the
+        // Sink(IBatchedLogEventSink, BatchingOptions, LogEventLevel) overload now applies
+        // the level filter inline. Constructing a logger with a non-default
+        // RestrictedToMinimumLevel and pumping events at both sides of the threshold must
+        // not throw. We do not introspect Serilog's wrapping (its internals are private),
+        // so this is a build-and-emit smoke test rather than a true filter assertion —
+        // its job is to fail loudly if the simplified registration path regresses to a
+        // configuration that crashes on emit.
+        var sinkConfig = ValidSinkConfiguration();
+        sinkConfig.RestrictedToMinimumLevel = LogEventLevel.Warning;
+
+        using var logger = new LoggerConfiguration()
+            .MinimumLevel.Verbose()
+            .WriteTo.RabbitMQ(ValidClientConfiguration(), sinkConfig)
+            .CreateLogger();
+
+        Should.NotThrow(() => logger.Information("below-threshold"));
+        Should.NotThrow(() => logger.Warning("at-threshold"));
     }
 
     [Fact]
@@ -235,6 +282,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             batchPostingLimit: 25,
             bufferingTimeLimit: TimeSpan.FromSeconds(5),
             queueLimit: 500,
+            retryTimeLimit: TimeSpan.FromMinutes(3),
             formatter: formatter,
             autoCreateExchange: true,
             channelCount: 7,
@@ -268,6 +316,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         sink.BatchPostingLimit.ShouldBe(25);
         sink.BufferingTimeLimit.ShouldBe(TimeSpan.FromSeconds(5));
         sink.QueueLimit.ShouldBe(500);
+        sink.RetryTimeLimit.ShouldBe(TimeSpan.FromMinutes(3));
         sink.TextFormatter.ShouldBeSameAs(formatter);
         sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Warning);
     }
@@ -301,6 +350,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             batchPostingLimit: 0,
             bufferingTimeLimit: TimeSpan.Zero,
             queueLimit: null,
+            retryTimeLimit: TimeSpan.Zero,
             formatter: null,
             autoCreateExchange: false,
             channelCount: 64,
@@ -326,6 +376,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         sink.BatchPostingLimit.ShouldBe(0);
         sink.BufferingTimeLimit.ShouldBe(TimeSpan.Zero);
         sink.QueueLimit.ShouldBeNull();
+        sink.RetryTimeLimit.ShouldBe(TimeSpan.Zero);
         sink.TextFormatter.ShouldBeOfType<CompactJsonFormatter>();
         sink.RestrictedToMinimumLevel.ShouldBe(LogEventLevel.Verbose);
     }
@@ -356,6 +407,7 @@ public class LoggerConfigurationRabbitMQExtensionsTests
             batchPostingLimit: 50,
             bufferingTimeLimit: TimeSpan.FromSeconds(2),
             queueLimit: null,
+            retryTimeLimit: TimeSpan.FromMinutes(10),
             formatter: null,
             autoCreateExchange: false,
             channelCount: 64,

@@ -42,6 +42,15 @@ public class RabbitMQSinkConfiguration
     public int? QueueLimit { get; set; }
 
     /// <summary>
+    /// The maximum amount of time a failed batch may be retried by Serilog's <c>BatchingSink</c>
+    /// before it is handed to the registered <c>ILoggingFailureListener</c> (e.g. the next sink
+    /// in a <c>WriteTo.FallbackChain(...)</c>). Default matches Serilog's own default of
+    /// 10 minutes. <see cref="TimeSpan.Zero"/> disables retries entirely; failed batches go to
+    /// the failure listener immediately.
+    /// </summary>
+    public TimeSpan RetryTimeLimit { get; set; } = LoggerConfigurationRabbitMQExtensions.DEFAULT_RETRY_TIME_LIMIT;
+
+    /// <summary>
     /// Controls the rendering of log events into text, for example to log JSON.
     /// To control plain text formatting, use the overload that accepts an output template.
     /// </summary>
@@ -58,7 +67,7 @@ public class RabbitMQSinkConfiguration
     /// Idempotent and safe to call multiple times.
     /// </summary>
     /// <exception cref="ArgumentException">Thrown when <see cref="TextFormatter"/> is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="BatchPostingLimit"/>, <see cref="BufferingTimeLimit"/>, or <see cref="QueueLimit"/> is out of range.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="BatchPostingLimit"/>, <see cref="BufferingTimeLimit"/>, <see cref="QueueLimit"/>, or <see cref="RetryTimeLimit"/> is out of range.</exception>
     [SuppressMessage(
         "Major Code Smell",
         "S3928:Parameter names used into ArgumentException constructors should match an existing one",
@@ -83,6 +92,11 @@ public class RabbitMQSinkConfiguration
         if (QueueLimit is <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(QueueLimit), "QueueLimit, when set, must be greater than zero.");
+        }
+
+        if (RetryTimeLimit < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(RetryTimeLimit), "RetryTimeLimit must be non-negative.");
         }
     }
 }

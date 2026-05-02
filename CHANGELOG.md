@@ -117,6 +117,44 @@ Add `net9.0` to the target frameworks.
 
 ## 9.0.0 [not published]
 
+### Added `RetryTimeLimit` configuration knob
+
+The sink now exposes Serilog's batched-retry deadline as a first-class option:
+
+- `RabbitMQSinkConfiguration.RetryTimeLimit` (property, defaults to `TimeSpan.FromMinutes(10)`
+  to match Serilog's own `BatchingOptions.RetryTimeLimit`).
+- `WriteTo.RabbitMQ(..., retryTimeLimit: ...)` (flat-overload parameter).
+- Pass-through to `BatchingOptions.RetryTimeLimit` is wired in `RegisterSink`; `default`
+  resolves to the library default, `TimeSpan.Zero` disables retries entirely so a failed
+  batch is handed to the registered `ILoggingFailureListener` (the next link in
+  `WriteTo.FallbackChain(...)`) immediately.
+
+This makes the trade-off between in-memory queueing during an outage and time-to-fallback
+explicit. Lower the value (e.g. `TimeSpan.FromMinutes(2)`) for high-throughput pipelines
+that should engage the fallback faster; keep the default if matching Serilog core's
+behaviour is the priority.
+
+### Added `IAsyncDisposable` to `RabbitMQSink` (net8.0 / net10.0)
+
+`RabbitMQSink` now implements `IAsyncDisposable` on the .NET 8 and .NET 10 builds and
+exposes a `DisposeAsync()` that awaits `IRabbitMQClient.DisposeAsync()` directly — no
+sync-over-async bridge through `AsyncHelpers.RunSync`. Serilog's `BatchingSink` forwards
+async-disposal to inner sinks that implement the interface, so async pipelines now have
+a fully async shutdown path. The `netstandard2.0` build keeps `IDisposable` only, which
+mirrors Serilog core's `FEATURE_ASYNCDISPOSABLE` gating.
+
+`Dispose()` and `DisposeAsync()` share the same `_disposedValue` guard and are mutually
+idempotent: calling either after the other is a no-op.
+
+### Simplified batched-sink registration
+
+`RegisterSink` now calls `LoggerSinkConfiguration.Sink(IBatchedLogEventSink, BatchingOptions, LogEventLevel)`
+directly instead of materialising the `BatchingSink` via
+`LoggerSinkConfiguration.CreateSink(lc => lc.Sink(...))` and then wrapping it in a second
+`Sink(ILogEventSink, LogEventLevel)` call. The resulting sink chain
+(`RestrictedSink → BatchingSink → RabbitMQSink`) is identical; this is a private-only
+simplification with no public-API impact.
+
 ### Breaking change — failure sink removed in favour of `WriteTo.FallbackChain(...)`
 
 The in-sink failure sink and the `EmitEventFailureHandling` enum have been

@@ -34,7 +34,11 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <see cref="ILoggingFailureListener"/> registered via <see cref="SetFailureListener"/>
 /// is notified before the rethrow.
 /// </remarks>
+#if FEATURE_ASYNCDISPOSABLE
+public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLoggingFailureListener, IDisposable, IAsyncDisposable
+#else
 public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLoggingFailureListener, IDisposable
+#endif
 {
     private static readonly RecyclableMemoryStreamManager _manager = new();
     private static readonly Encoding _utf8NoBOM = new UTF8Encoding(false);
@@ -175,6 +179,32 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
 
         _disposedValue = true;
     }
+
+#if FEATURE_ASYNCDISPOSABLE
+    /// <inheritdoc cref="IAsyncDisposable.DisposeAsync"/>
+    /// <remarks>
+    /// Preferred over <see cref="Dispose"/> in async contexts: avoids the sync-over-async
+    /// bridge in <see cref="AsyncHelpers.RunSync(System.Func{System.Threading.Tasks.Task})"/>.
+    /// Idempotent; subsequent calls are no-ops.
+    /// </remarks>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposedValue)
+            return;
+
+        try
+        {
+            await _client.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            SelfLog.WriteLine("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
+            System.Diagnostics.Trace.TraceError("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
+        }
+
+        _disposedValue = true;
+    }
+#endif
 
     /// <summary>
     /// Emits a log event to RabbitMQ.
