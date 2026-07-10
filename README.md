@@ -276,8 +276,9 @@ fallback sink, just notify a custom `ILoggingFailureListener`), use
 `WriteTo.Fallible(configureSink, listener)` instead.
 
 The same composition works in `appsettings.json` by wrapping the `RabbitMQ`
-block in a `FallbackChain` entry — the JSON binding ships with prerelease
-`Serilog.Settings.Configuration`.
+block in a `FallbackChain` entry — the JSON binding ships in
+`Serilog.Settings.Configuration` **10.0.1+**
+([serilog/serilog-settings-configuration#474](https://github.com/serilog/serilog-settings-configuration/pull/474)).
 
 > **Requires Serilog ≥ 4.4.0.** Setting `RestrictedToMinimumLevel` on the wrapped
 > RabbitMQ sink config composes correctly with `FallbackChain`. Serilog wraps the
@@ -438,7 +439,7 @@ and integration tests.
 ### Migrating from `failureSinkConfiguration` to `WriteTo.FallbackChain(...)`
 
 `WriteTo.FallbackChain(...)` ships in **Serilog core** itself (no extra package);
-the JSON binding ships with prerelease `Serilog.Settings.Configuration`. The wrapper
+the JSON binding ships in `Serilog.Settings.Configuration` **10.0.1+**. The wrapper
 observes the publish exception that the RabbitMQ sink now propagates and re-emits the
 **entire failed batch** to the next sink in the chain (the legacy
 `failureSinkConfiguration` only ever saw one event at a time).
@@ -533,7 +534,7 @@ Before:
 ]
 ```
 
-After (requires prerelease `Serilog.Settings.Configuration` for `FallbackChain` binding):
+After (requires `Serilog.Settings.Configuration` 10.0.1+ for `FallbackChain` binding):
 
 ```json
 "WriteTo": [
