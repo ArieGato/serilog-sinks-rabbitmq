@@ -285,14 +285,13 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public async Task EmitBatchAsync_ShouldRethrowOriginalException_WhenWriteToSelfLogAndThrowExceptionAreSetOnPartialBatch()
+    public async Task EmitBatchAsync_ShouldRethrowOriginalException_AndWriteToSelfLog_OnPartialBatchFailure()
     {
-        // No failure sink configured: WriteToSelfLog + ThrowException is the diagnostic-
-        // only-then-rethrow path. On a partial-batch failure the slicing computed inside
-        // EmitBatchAsync is not consumed by anything (no failure sink to receive it),
-        // and the rethrown exception must be the ORIGINAL instance — preserved via
-        // `throw;` so the stack walks back to the failing PublishAsync. SelfLog should
-        // record one diagnostic line containing the exception text.
+        // Publish failures always propagate so BatchingSink (and any wrapping
+        // WriteTo.Fallback / FallbackChain) can route the original batch through
+        // its ILoggingFailureListener. The rethrown exception must be the ORIGINAL
+        // instance — preserved via `throw;` so the stack walks back to the failing
+        // PublishAsync. SelfLog records one diagnostic line containing the exception text.
         using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
 
         var textFormatter = Substitute.For<ITextFormatter>();
@@ -313,12 +312,7 @@ public class RabbitMQSinkTests
                 return Task.CompletedTask;
             });
 
-        var sut = new RabbitMQSink(
-            rabbitMQClient,
-            textFormatter,
-            messageEvents,
-            EmitEventFailureHandling.WriteToSelfLog | EmitEventFailureHandling.ThrowException,
-            failureSink: null);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
         var logEvent1 = LogEventBuilder.Create().Build();
         var logEvent2 = LogEventBuilder.Create().Build();
@@ -340,408 +334,68 @@ public class RabbitMQSinkTests
     }
 
     [Fact]
-    public async Task EmitBatchAsync_ShouldOnlyForwardUnpublishedTailToFailureSink_WhenPublishFailsMidBatch()
+    public async Task EmitBatchAsync_ShouldRethrowAndWriteSelfLog_WhenAllPublishesFail()
     {
-        // Partial-batch correctness: events that already published to the broker must
-        // NOT be re-emitted to the failure sink, otherwise downstream systems without
-        // MessageId-based idempotency would see duplicates (issue: P1 #6 architect
-        // review). Only the failing event and the events after it are un-published
-        // from the broker's perspective.
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-
-        // Succeed twice, then throw on the third PublishAsync.
-        var publishCalls = 0;
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
-            .Returns(_ =>
-            {
-                int call = Interlocked.Increment(ref publishCalls);
-                if (call >= 3)
-                {
-                    throw new InvalidOperationException("broker-failure");
-                }
-
-                return Task.CompletedTask;
-            });
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
-
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var logEvent2 = LogEventBuilder.Create().Build();
-        var logEvent3 = LogEventBuilder.Create().Build();
-        var logEvent4 = LogEventBuilder.Create().Build();
-        var logEvent5 = LogEventBuilder.Create().Build();
-
-        // Act
-        await sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
-
-        // Assert — events 1 and 2 published successfully and must NOT be forwarded.
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
-
-        // Events 3, 4, 5 were never published from the broker's perspective and
-        // must all be forwarded for the failure sink to surface durably.
-        failureSink.Received(1).Emit(Arg.Is(logEvent3));
-        failureSink.Received(1).Emit(Arg.Is(logEvent4));
-        failureSink.Received(1).Emit(Arg.Is(logEvent5));
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldForwardOnlyLastEvent_WhenOnlyLastPublishFails()
-    {
-        // Boundary case for the partial-batch slicing: the failing event is the
-        // very last one, so the un-published tail contains exactly one element.
-        // Proves the slice is `[failingIndex..]` and not `[failingIndex+1..]`
-        // (off-by-one in the other direction would silently drop the failing event).
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-
-        var publishCalls = 0;
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
-            .Returns(_ =>
-            {
-                int call = Interlocked.Increment(ref publishCalls);
-                if (call == 5)
-                {
-                    throw new InvalidOperationException("broker-failure-on-last");
-                }
-
-                return Task.CompletedTask;
-            });
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
-
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var logEvent2 = LogEventBuilder.Create().Build();
-        var logEvent3 = LogEventBuilder.Create().Build();
-        var logEvent4 = LogEventBuilder.Create().Build();
-        var logEvent5 = LogEventBuilder.Create().Build();
-
-        // Act
-        await sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
-
-        // Assert — only the last (failing) event is forwarded.
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent3));
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent4));
-        failureSink.Received(1).Emit(Arg.Is(logEvent5));
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldForwardTailAndRethrow_WhenWriteToFailureSinkAndThrowExceptionAreSet()
-    {
-        // The "route to failure sink AND still throw" combination
-        // (WriteToFailureSink | ThrowException) must observe BOTH semantics on the
-        // same partial-batch slice: the un-published tail goes to the failure sink
-        // AND the original exception propagates so a Fallback wrapper / BatchingSink
-        // listener also sees the failure.
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-
-        var publishCalls = 0;
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
-            .Returns(_ =>
-            {
-                int call = Interlocked.Increment(ref publishCalls);
-                if (call >= 3)
-                {
-                    throw new InvalidOperationException("broker-failure");
-                }
-
-                return Task.CompletedTask;
-            });
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(
-            rabbitMQClient,
-            textFormatter,
-            messageEvents,
-            EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.ThrowException,
-            failureSink);
-
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var logEvent2 = LogEventBuilder.Create().Build();
-        var logEvent3 = LogEventBuilder.Create().Build();
-        var logEvent4 = LogEventBuilder.Create().Build();
-        var logEvent5 = LogEventBuilder.Create().Build();
-
-        // Act
-        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
-
-        // Assert — exception still propagates for downstream listeners.
-        var thrown = await Should.ThrowAsync<InvalidOperationException>(act);
-        thrown.Message.ShouldBe("broker-failure");
-
-        // Slicing applies independently of rethrow: only events 3-5 forwarded.
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
-        failureSink.Received(1).Emit(Arg.Is(logEvent3));
-        failureSink.Received(1).Emit(Arg.Is(logEvent4));
-        failureSink.Received(1).Emit(Arg.Is(logEvent5));
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldWriteSelfLogAndForwardTail_WhenWriteToSelfLogAndWriteToFailureSinkAreSet()
-    {
-        // WriteToSelfLog | WriteToFailureSink — the diagnostic flag on top of the
-        // failure-sink routing. Confirms both the SelfLog write and the partial-tail
-        // slicing coexist; without the ThrowException flag the legacy catch-and-route
-        // path applies and no exception escapes.
+        // Whole-batch failure: every PublishAsync throws. The first failure aborts
+        // the loop, the exception propagates to the BatchingSink listener, and
+        // SelfLog gets the diagnostic line.
         using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
 
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-
-        var publishCalls = 0;
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
-            .Returns(_ =>
-            {
-                int call = Interlocked.Increment(ref publishCalls);
-                if (call >= 3)
-                {
-                    throw new InvalidOperationException("broker-failure");
-                }
-
-                return Task.CompletedTask;
-            });
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(
-            rabbitMQClient,
-            textFormatter,
-            messageEvents,
-            EmitEventFailureHandling.WriteToSelfLog | EmitEventFailureHandling.WriteToFailureSink,
-            failureSink);
-
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var logEvent2 = LogEventBuilder.Create().Build();
-        var logEvent3 = LogEventBuilder.Create().Build();
-        var logEvent4 = LogEventBuilder.Create().Build();
-        var logEvent5 = LogEventBuilder.Create().Build();
-
-        // Act
-        await sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
-
-        // Assert — SelfLog received the exception summary.
-        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
-        selfLogStringBuilder.ToString().ShouldContain("broker-failure");
-
-        // And only events 3-5 forwarded.
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent1));
-        failureSink.DidNotReceive().Emit(Arg.Is(logEvent2));
-        failureSink.Received(1).Emit(Arg.Is(logEvent3));
-        failureSink.Received(1).Emit(Arg.Is(logEvent4));
-        failureSink.Received(1).Emit(Arg.Is(logEvent5));
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldWriteAllEventsToFailureSink_WhenPublishThrowsException()
-    {
-        // Arrange
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
-            .Do(_ => throw new Exception("some-message"));
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
-
-        // Act
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var logEvent2 = LogEventBuilder.Create().Build();
-        await sut.EmitBatchAsync([logEvent1, logEvent2]);
-
-        // Assert
-        failureSink.Received(1).Emit(Arg.Is(logEvent1));
-        failureSink.Received(1).Emit(Arg.Is(logEvent2));
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldWriteExceptionToSelfLogAndRethrow_WhenPublishThrowsException()
-    {
-        // Arrange — WriteToSelfLog logs to SelfLog first, then rethrows so BatchingSink
-        // (or any Fallback wrapper) can route the failure via its own listener plumbing.
-        // Previously the flag also caused silent swallow; that default no longer applies.
-        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
-
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
-            .Do(_ => throw new Exception("some-message"));
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToSelfLog, failureSink);
-
-        // Act
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var logEvent2 = LogEventBuilder.Create().Build();
-        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2]);
-
-        // Assert
-        var thrown = await Should.ThrowAsync<Exception>(act);
-        thrown.Message.ShouldBe("some-message");
-        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
-        failureSink.Received(0).Emit(Arg.Any<LogEvent>());
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldWriteExceptionsToSelfLog_WhenFailureSinkThrowsException()
-    {
-        // Arrange
-        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
-
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
-            .Do(_ => throw new Exception("some-message"));
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        failureSink.When(x => x.Emit(Arg.Any<LogEvent>()))
-            .Do(_ => throw new Exception("failure-sink-message"));
-
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
-
-        // Act
-        var logEvent1 = LogEventBuilder.Create().Build();
-        await sut.EmitBatchAsync([logEvent1]);
-
-        // Assert
-        selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
-        selfLogStringBuilder.ToString().ShouldContain("some-message");
-        selfLogStringBuilder.ToString().ShouldContain("failure-sink-message");
-        failureSink.Received(1).Emit(Arg.Is(logEvent1));
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldThrowException_WhenPublishThrowsException()
-    {
-        // Arrange
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
-            .Do(_ => throw new Exception("some-message"));
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.ThrowException, failureSink);
-
-        // Act
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var logEvent2 = LogEventBuilder.Create().Build();
-        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2]);
-
-        // Assert
-        var ex = await Should.ThrowAsync<Exception>(act);
-        ex.Message.ShouldBe("some-message");
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldNotThrow_WhenWriteToFailureSinkIsConfigured()
-    {
-        // After the 9.0 alignment with Serilog's BatchingSink model, WriteToFailureSink is
-        // the only flag combination that suppresses the exception. Everything else (default
-        // Ignore, WriteToSelfLog alone, ThrowException) rethrows so BatchingSink can route
-        // through its listener plumbing.
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>()))
-            .Do(_ => throw new Exception("some-message"));
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.WriteToFailureSink, failureSink);
-
-        var logEvent1 = LogEventBuilder.Create().Build();
-        var act = () => sut.EmitBatchAsync([logEvent1]);
-
-        await Should.NotThrowAsync(act);
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldRethrow_WhenHandlingIsIgnoreAndPublishFails()
-    {
-        // Default handling (Ignore) now propagates publish failures so BatchingSink sees
-        // them. This is the behaviour change that makes WriteTo.Fallback(...) work for
-        // the batched pipeline.
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
         rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
             .Do(_ => throw new InvalidOperationException("publish-fail"));
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents, EmitEventFailureHandling.Ignore);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
-        var logEvent = LogEventBuilder.Create().Build();
-        var act = () => sut.EmitBatchAsync([logEvent]);
+        var logEvent1 = LogEventBuilder.Create().Build();
+        var logEvent2 = LogEventBuilder.Create().Build();
+        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2]);
 
         var thrown = await Should.ThrowAsync<InvalidOperationException>(act);
         thrown.Message.ShouldBe("publish-fail");
-    }
-
-    [Fact]
-    public async Task EmitBatchAsync_ShouldLogToSelfLogAndEmitToFailureSinkWithoutRethrowing_WhenWriteToFailureSinkAndWriteToSelfLogAreCombined()
-    {
-        // Pins the WriteToFailureSink | WriteToSelfLog row of the behaviour matrix: both
-        // the SelfLog entry and the per-event emit to the failure sink run, and the
-        // exception is swallowed (WriteToFailureSink suppresses the rethrow).
-        using var selfLog = new SelfLogScope(out var selfLogStringBuilder);
-
-        var textFormatter = Substitute.For<ITextFormatter>();
-        var messageEvents = Substitute.For<ISendMessageEvents>();
-        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
-            .Do(_ => throw new InvalidOperationException("publish-fail"));
-
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(
-            rabbitMQClient,
-            textFormatter,
-            messageEvents,
-            EmitEventFailureHandling.WriteToSelfLog | EmitEventFailureHandling.WriteToFailureSink,
-            failureSink);
-
-        var logEvent = LogEventBuilder.Create().Build();
-        var act = () => sut.EmitBatchAsync([logEvent]);
-
-        await Should.NotThrowAsync(act);
         selfLogStringBuilder.Length.ShouldBeGreaterThan(0);
-        failureSink.Received(1).Emit(logEvent);
+        selfLogStringBuilder.ToString().ShouldContain("publish-fail");
     }
 
     [Fact]
-    public async Task EmitBatchAsync_ShouldRouteToFailureSinkAndStillRethrow_WhenWriteToFailureSinkIsCombinedWithThrowException()
+    public async Task EmitBatchAsync_ShouldStopOnFirstFailure_AndNotPublishLaterEventsInBatch()
     {
-        // The combination "route events to my failure sink AND still throw" — covers users
-        // who want legacy routing AND want BatchingSink's listener to fire too.
+        // Loop ordering: when PublishAsync throws on event N, events N+1..M must
+        // NOT be sent to the broker. Confirms we do not silently continue past the
+        // failure (which would publish out-of-order with the BatchingSink retry
+        // surface and could double-publish on a Fallback re-emit).
         var textFormatter = Substitute.For<ITextFormatter>();
         var messageEvents = Substitute.For<ISendMessageEvents>();
+
+        var publishCalls = 0;
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
-        rabbitMQClient.When(x => x.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>()))
-            .Do(_ => throw new InvalidOperationException("publish-fail"));
+        rabbitMQClient.PublishAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<BasicProperties>(), Arg.Any<string?>())
+            .Returns(_ =>
+            {
+                int call = Interlocked.Increment(ref publishCalls);
+                if (call == 3)
+                {
+                    throw new InvalidOperationException("broker-failure");
+                }
 
-        var failureSink = Substitute.For<ILogEventSink>();
-        var sut = new RabbitMQSink(
-            rabbitMQClient,
-            textFormatter,
-            messageEvents,
-            EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.ThrowException,
-            failureSink);
+                return Task.CompletedTask;
+            });
 
-        var logEvent = LogEventBuilder.Create().Build();
-        var act = () => sut.EmitBatchAsync([logEvent]);
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
+        var logEvent1 = LogEventBuilder.Create().Build();
+        var logEvent2 = LogEventBuilder.Create().Build();
+        var logEvent3 = LogEventBuilder.Create().Build();
+        var logEvent4 = LogEventBuilder.Create().Build();
+        var logEvent5 = LogEventBuilder.Create().Build();
+
+        var act = () => sut.EmitBatchAsync([logEvent1, logEvent2, logEvent3, logEvent4, logEvent5]);
         await Should.ThrowAsync<InvalidOperationException>(act);
-        failureSink.Received(1).Emit(logEvent);
+
+        // 1, 2 succeeded; 3 threw; 4, 5 must not have been attempted.
+        publishCalls.ShouldBe(3);
     }
 
     [Fact]
@@ -832,6 +486,133 @@ public class RabbitMQSinkTests
 
         Should.Throw<InvalidOperationException>(() => sut.Emit(LogEventBuilder.Create().Build()));
     }
+
+#if NET8_0_OR_GREATER
+    [Fact]
+    public async Task DisposeAsync_DisposesRabbitMQClient()
+    {
+        // The async-dispose path is preferred over Dispose() inside async pipelines:
+        // BatchingSink forwards DisposeAsync to its target sink when the sink implements
+        // IAsyncDisposable. Our DisposeAsync awaits IRabbitMQClient.DisposeAsync directly
+        // — no AsyncHelpers.RunSync bridge — so this assertion is the single behavioural
+        // difference vs Dispose().
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await sut.DisposeAsync();
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_IsIdempotent()
+    {
+        // Double-DisposeAsync must not throw and must hit the underlying client once —
+        // matches the Dispose() guard via _disposedValue.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await sut.DisposeAsync();
+        await sut.DisposeAsync();
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_DoesNotThrow_WhenClientDisposeAsyncThrows()
+    {
+        // Symmetric with Dispose_ShouldNotThrowException_WhenRabbitMQClientDisposeThrowsException:
+        // disposal exceptions are routed to SelfLog and Trace and swallowed.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+        rabbitMQClient.When(x => x.DisposeAsync())
+            .Do(_ => throw new Exception("async-boom"));
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await Should.NotThrowAsync(() => sut.DisposeAsync().AsTask());
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WritesToTraceError_WhenClientDisposeAsyncThrows()
+    {
+        // Mirror of Dispose_WritesToTraceError_WhenRabbitMQClientDisposeThrowsException.
+        // Both Dispose paths must surface disposal failures via Trace so callers without
+        // a SelfLog listener still see the diagnostic.
+        using var listener = new StringBuilderTraceListener();
+        System.Diagnostics.Trace.Listeners.Add(listener);
+        try
+        {
+            var textFormatter = Substitute.For<ITextFormatter>();
+            var messageEvents = Substitute.For<ISendMessageEvents>();
+            var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+            rabbitMQClient.When(x => x.DisposeAsync())
+                .Do(_ => throw new Exception("async-trace-boom"));
+
+            var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+            await sut.DisposeAsync();
+
+            listener.Output.ShouldContain("async-trace-boom");
+            listener.Output.ShouldContain("RabbitMQClient");
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(listener);
+        }
+    }
+
+    [Fact]
+    public async Task DisposeAsync_AfterDispose_DoesNotInvokeClient()
+    {
+        // Cross-path idempotency: Dispose() flips _disposedValue, so a follow-up
+        // DisposeAsync() must short-circuit. Pins the contract that the two methods
+        // share the same disposal state and either entry point closes the door.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        // try/finally guarantees the second disposal path runs even if the first throws,
+        // so the sink is always disposed (satisfies cs/dispose-not-called-on-throw).
+        try
+        {
+            sut.Dispose();
+        }
+        finally
+        {
+            await sut.DisposeAsync();
+        }
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Dispose_AfterDisposeAsync_DoesNotInvokeClient()
+    {
+        // Reverse of DisposeAsync_AfterDispose_DoesNotInvokeClient. Whichever path
+        // closes the door first, the second path must observe _disposedValue and exit
+        // without re-running the underlying client disposal.
+        var textFormatter = Substitute.For<ITextFormatter>();
+        var messageEvents = Substitute.For<ISendMessageEvents>();
+        var rabbitMQClient = Substitute.For<IRabbitMQClient>();
+
+        using var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+
+        await sut.DisposeAsync();
+
+        await rabbitMQClient.Received(1).DisposeAsync();
+    }
+#endif
 
     [Fact]
     public void Emit_Audit_SwallowsListenerException_AndStillRethrowsOriginal()

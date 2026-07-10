@@ -19,12 +19,13 @@ using Serilog.Sinks.RabbitMQ;
 
 SelfLog.Enable(Console.Error);
 
+// To get an on-failure fallback (previously `failureSinkConfiguration`), wrap
+// this sink with WriteTo.FallbackChain(...) from Serilog core.
 Log.Logger = new LoggerConfiguration()
     .WriteTo.RabbitMQ(
         (clientConfiguration, sinkConfiguration) =>
         {
             sinkConfiguration.BatchPostingLimit = 100;
-            sinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink | EmitEventFailureHandling.WriteToSelfLog;
             sinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
             sinkConfiguration.BufferingTimeLimit = TimeSpan.FromSeconds(2);
             sinkConfiguration.TextFormatter = new Serilog.Formatting.Json.JsonFormatter();
@@ -36,8 +37,7 @@ Log.Logger = new LoggerConfiguration()
             clientConfiguration.Hostnames = ["localhost"];
             clientConfiguration.Password = "serilog";
             clientConfiguration.Username = "serilog";
-        },
-        failureSinkConfiguration => failureSinkConfiguration.File("./log/log.txt", LogEventLevel.Information))
+        })
     .AuditTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
         {
             sinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;

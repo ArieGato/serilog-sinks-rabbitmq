@@ -156,15 +156,13 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             BatchPostingLimit = 100,
             BufferingTimeLimit = TimeSpan.FromSeconds(3),
             QueueLimit = 1000,
-            EmitEventFailure = EmitEventFailureHandling.ThrowException,
             TextFormatter = new JsonFormatter(),
             RestrictedToMinimumLevel = LogEventLevel.Information,
         };
 
         var logger = loggerConfiguration.WriteTo.RabbitMQ(
                 rabbitMQClientConfiguration,
-                rabbitMQSinkConfiguration,
-                configuration => configuration.Console())
+                rabbitMQSinkConfiguration)
             .CreateLogger();
 
         // should not throw
@@ -278,10 +276,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
                     rabbitMQSinkConfiguration.BatchPostingLimit = 50;
                     rabbitMQSinkConfiguration.BufferingTimeLimit = TimeSpan.FromSeconds(5);
                     rabbitMQSinkConfiguration.RestrictedToMinimumLevel = LogEventLevel.Information;
-                    rabbitMQSinkConfiguration.EmitEventFailure = EmitEventFailureHandling.WriteToFailureSink |
-                                                                 EmitEventFailureHandling.ThrowException;
-                },
-                failureSinkConfiguration => failureSinkConfiguration.Console())
+                })
             .CreateLogger();
 
         // Actually log something to trigger the exchange creation

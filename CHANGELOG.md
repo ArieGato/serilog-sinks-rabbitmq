@@ -42,7 +42,7 @@ to emit an event, it will write to the Console sink.
 
 The SSL support has been improved. Now all properties are used when creating the connection.
 
-### Breaking changes
+### Breaking changes (7.0.0)
 
 - Renamed `LoggerConfigurationRabbitMqExtension` to `LoggerConfigurationRabbitMQExtensions`.
 - Renamed `hostname` to `hostnames` in configuration.
@@ -106,7 +106,7 @@ public string OnGetRoutingKey(LogEvent logEvent, string defaultRoutingKey)
 
 Add `net9.0` to the target frameworks.
 
-### Breaking changes
+### Breaking changes (8.0.0)
 
 - Upgrade RabbitMQ.Client to `7.0.0`.
 - Upgrade Serilog to `4.2.0`.
@@ -116,6 +116,72 @@ Add `net9.0` to the target frameworks.
 - Removed `.net7.0` target framework
 
 ## 9.0.0 [not published]
+
+### Added `RetryTimeLimit` configuration knob
+
+The sink now exposes Serilog's batched-retry deadline as a first-class option:
+
+- `RabbitMQSinkConfiguration.RetryTimeLimit` (property, defaults to `TimeSpan.FromMinutes(10)`
+  to match Serilog's own `BatchingOptions.RetryTimeLimit`).
+- `WriteTo.RabbitMQ(..., retryTimeLimit: ...)` (flat-overload parameter, `TimeSpan?`;
+  leave `null` — the default — to use the library default of 10 minutes).
+- Passed through to `BatchingOptions.RetryTimeLimit`. `TimeSpan.Zero` disables retries
+  entirely so a failed batch is handed to the registered `ILoggingFailureListener` (the next
+  link in `WriteTo.FallbackChain(...)`) immediately. `Zero` is honored on every path — the
+  property, the direct-config overload, and the flat overload — so the fast-fallback trade-off
+  is always reachable.
+
+This makes the trade-off between in-memory queueing during an outage and time-to-fallback
+explicit. Lower the value (e.g. `TimeSpan.FromMinutes(2)`) for high-throughput pipelines
+that should engage the fallback faster; keep the default if matching Serilog core's
+behaviour is the priority.
+
+### Added `IAsyncDisposable` to `RabbitMQSink` (net8.0 / net10.0)
+
+`RabbitMQSink` now implements `IAsyncDisposable` on the .NET 8 and .NET 10 builds and
+exposes a `DisposeAsync()` that awaits `IRabbitMQClient.DisposeAsync()` directly — no
+sync-over-async bridge through `AsyncHelpers.RunSync`. Serilog's `BatchingSink` forwards
+async-disposal to inner sinks that implement the interface, so async pipelines now have
+a fully async shutdown path. The `netstandard2.0` build keeps `IDisposable` only, which
+mirrors Serilog core's `FEATURE_ASYNCDISPOSABLE` gating.
+
+`Dispose()` and `DisposeAsync()` share the same `_disposedValue` guard and are mutually
+idempotent: calling either after the other is a no-op.
+
+### Simplified batched-sink registration
+
+`RegisterSink` now calls `LoggerSinkConfiguration.Sink(IBatchedLogEventSink, BatchingOptions, LogEventLevel)`
+directly instead of materialising the `BatchingSink` via
+`LoggerSinkConfiguration.CreateSink(lc => lc.Sink(...))` and then wrapping it in a second
+`Sink(ILogEventSink, LogEventLevel)` call. The resulting sink chain
+(`RestrictedSink → BatchingSink → RabbitMQSink`) is identical; this is a private-only
+simplification with no public-API impact.
+
+### Breaking change — failure sink removed in favour of `WriteTo.FallbackChain(...)`
+
+The in-sink failure sink and the `EmitEventFailureHandling` enum have been
+removed. Publish failures now always propagate so Serilog's `BatchingSink` can
+route the original batch to its `ILoggingFailureListener` — this is what enables
+`WriteTo.FallbackChain(...)` / `WriteTo.Fallible(...)` to compose with the
+RabbitMQ sink. Diagnostics are written to `Serilog.Debugging.SelfLog` on every
+failure (no opt-in flag required).
+
+Removed public surface:
+
+- `Serilog.Sinks.RabbitMQ.EmitEventFailureHandling` (enum)
+- `RabbitMQSinkConfiguration.EmitEventFailure` (property)
+- `WriteTo.RabbitMQ(..., Action<LoggerSinkConfiguration>? failureSinkConfiguration)` overloads
+- The flat-overload `emitEventFailure` and `failureSinkConfiguration` parameters
+
+Migration: replace `failureSinkConfiguration` with Serilog core's
+`WriteTo.FallbackChain(...)` (or `WriteTo.Fallible(...)` for listener-based
+reporting). For appsettings.json, remove the `emitEventFailure` and
+`failureSinkConfiguration` keys and wrap the `RabbitMQ` block in `FallbackChain`
+(the JSON binding ships with prerelease `Serilog.Settings.Configuration`). The
+audit path (`AuditTo.RabbitMQ`) keeps its existing throw-on-failure semantics —
+there is no `AuditTo.FallbackChain`/`AuditTo.Fallible` overload; wrap audit calls
+in `try/catch` or register an `ILoggingFailureListener` via the new
+`RabbitMQSink.SetFailureListener(...)` hook on a directly-constructed sink.
 
 ### Cleanup follow-ups from PR #310 architect review
 
@@ -183,23 +249,6 @@ paths (CAS-lost, probe-already-in-flight, or probe-failed). The interpolated
 message previously read `"Channel pool exhausted after  consecutive warm-up
 failures..."` (empty number). The probe-path message is now distinct and the
 counted-retries variant is only emitted when a numeric retry budget exists.
-
-### Fixed partial-batch duplication when forwarding to the in-sink failure sink
-
-When a publish failed mid-batch (e.g. event 30 of 50 throws) the sink previously
-forwarded the entire batch to the configured `failureSinkConfiguration` failure
-sink — including the events that had already published successfully to the
-broker. Downstream consumers without `MessageId`-based idempotency would
-therefore see those leading events twice. `EmitBatchAsync` now tracks the index
-of the failing event and forwards only the un-published tail (failing event +
-remainder) to the in-sink failure sink.
-
-**Scope.** This narrowing applies only to the in-sink `failureSinkConfiguration`
-path. On the rethrow path, Serilog's `BatchingSink` hands its own copy of the
-original batch to its failure listener — so `WriteTo.Fallback(...)` wrappers
-still observe the full batch, not the tail. Surfacing the slice through
-`BatchingSink` would require an upstream contract change; tracked separately as
-[#318](https://github.com/ArieGato/serilog-sinks-rabbitmq/issues/318).
 
 ### Fixed channel-pool concurrency bugs in the warm-up / circuit-breaker path
 
@@ -274,35 +323,17 @@ the broker on each retry; repeated failures could accumulate up to the connectio
 
 ### Aligned failure handling with Serilog's `BatchingSink` model
 
-`RabbitMQSink.EmitBatchAsync` no longer silently swallows publish failures by default.
-Exceptions now propagate to Serilog's `BatchingSink`, whose listener plumbing
-observes the failure — this is what makes `WriteTo.Fallback(s => s.RabbitMQ(...), fallback: s => s.File(...))`
-route failed events to the fallback sink.
-
-The `EmitEventFailureHandling` flags still work and compose as follows:
-
-| Flags set                                | Behaviour                                                                 |
-|------------------------------------------|---------------------------------------------------------------------------|
-| *(default: `Ignore`)*                    | Rethrow. `BatchingSink` catches, notifies its listener. **(CHANGED — was silent swallow.)** |
-| `WriteToSelfLog`                         | Log to `SelfLog`, then rethrow. **(CHANGED — was log-and-swallow.)**      |
-| `WriteToFailureSink` *(legacy routing)*  | Emit events to the configured failure sink, **do not rethrow** (unchanged). |
-| `WriteToFailureSink | WriteToSelfLog`    | Log + emit, **do not rethrow** (unchanged).                               |
-| `ThrowException`                         | Rethrow (unchanged).                                                      |
-| `WriteToFailureSink | ThrowException`    | Emit events to the failure sink **and** rethrow (unchanged).              |
-
-**Behaviour change to flag:** users on the `Ignore` default who did not wire
-`failureSinkConfiguration` previously saw silent failures. Publish errors now
-surface via `BatchingSink`'s default listener (`SelfLog`), or via the listener set
-by a `WriteTo.Fallback(...)` wrapper. Consider this an observability upgrade —
-silent logging failures are almost always undesirable. To preserve the old
-silent behaviour you can set `emitEventFailure = WriteToFailureSink` and wire
-`failureSinkConfiguration` to a no-op sink.
+`RabbitMQSink.EmitBatchAsync` no longer silently swallows publish failures.
+Exceptions propagate to Serilog's `BatchingSink`, whose listener plumbing
+observes the failure — this is what makes
+`WriteTo.FallbackChain(s => s.RabbitMQ(...), s => s.File(...))` route
+failed events to the fallback sink. Each failure is also written to
+`Serilog.Debugging.SelfLog`.
 
 `RabbitMQSink` also now implements `ISetLoggingFailureListener` — this is only
 relevant for the audit path (`AuditTo.RabbitMQ(...)`) and direct-construct users.
 `BatchingSink` does not forward `SetFailureListener` to its inner sink by design,
-so the batched pipeline still routes via `BatchingSink`'s own listener as
-described above.
+so the batched pipeline still routes via `BatchingSink`'s own listener.
 
 ### Fixed SSL `ServerName` leaking across hostnames
 
@@ -359,7 +390,7 @@ The warm-up path now:
   `InvalidOperationException("Channel pool exhausted after N consecutive warm-up failures; broker is unreachable.")`.
   That propagates through `RabbitMQClient.PublishAsync` → `RabbitMQSink.EmitBatchAsync` →
   Serilog's `BatchingSink`, which invokes its failure listener. If you wrap the sink with
-  `WriteTo.Fallback(primary: s => s.RabbitMQ(...), fallback: s => s.File(...))`, failed
+  `WriteTo.FallbackChain(s => s.RabbitMQ(...), s => s.File(...))`, failed
   events automatically route to the fallback instead of piling up in the batching queue.
 - **Self-heals after a 60 s cooldown**: the first `GetAsync` after the cooldown elapses
   claims a probe slot via CAS, attempts one warm-up, and on success transitions the pool
@@ -396,7 +427,7 @@ The `maxChannels` parameter on `WriteTo.RabbitMQ(...)` and `AuditTo.RabbitMQ(...
 renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `maxChannels` to
 `channelCount`.
 
-### Breaking changes
+### Breaking changes (9.0.0)
 
 - Removed `net6.0` and `.net9.0` target framework
 - Removed dependency on `Microsoft.Extensions.ObjectPool`
@@ -407,9 +438,40 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
 - `RabbitMQClientConfiguration.ChannelCount` must be greater than zero; zero or
   negative values now throw `ArgumentOutOfRangeException` at configuration time
   (previously silently substituted with the default of 64)
-- `RabbitMQSink.EmitBatchAsync` propagates publish exceptions by default instead of
-  silently swallowing them. Use `EmitEventFailureHandling.WriteToFailureSink` to keep
-  legacy catch-and-route behaviour.
+- `RabbitMQClientConfiguration.Validate()` and `RabbitMQSinkConfiguration.Validate()` are
+  invoked during sink construction. Misconfiguration that was previously tolerated until
+  first publish (missing hostnames, blank credentials, etc.) now throws at startup.
+- `RabbitMQSink.EmitBatchAsync` propagates publish exceptions so Serilog's
+  `BatchingSink` listener observes them — required for `WriteTo.FallbackChain(...)` /
+  `WriteTo.Fallible(...)` composition.
+- The in-sink failure sink and `EmitEventFailureHandling` enum have been removed:
+  `RabbitMQSinkConfiguration.EmitEventFailure`, the `failureSinkConfiguration`
+  extension parameter, and the flat-overload `emitEventFailure` parameter are gone.
+  Replace with Serilog core's `WriteTo.FallbackChain(...)` (or
+  `WriteTo.Fallible(...)` for listener-based reporting).
 - Warm-up now stops after `WarmUpMaxRetries` consecutive failures (default `10`) and a
   broken pool fails `GetAsync` fast instead of blocking waiters. Set
   `WarmUpMaxRetries = null` to opt back into unlimited retries.
+- Minimum Serilog version raised to `4.4.0` (from `4.3.x`). 4.4.0 routes optional
+  sink interfaces — including `ISetLoggingFailureListener` — through an
+  `OptionalInterfaceForwardingSink` for restricted sinks
+  ([serilog/serilog#2234](https://github.com/serilog/serilog/pull/2234)), so
+  `RestrictedToMinimumLevel` composes correctly with `WriteTo.FallbackChain(...)`.
+  Earlier versions silently dropped failed batches when a restriction was set on
+  the wrapped sink.
+
+### New public surface (9.0.0)
+
+- `RabbitMQClientConfiguration.ChannelCount` (replaces `MaxChannels`)
+- `RabbitMQClientConfiguration.WarmUpMaxRetries`
+- `RabbitMQClientConfiguration.Validate()`
+- `RabbitMQSinkConfiguration.Validate()`
+- `RabbitMQSink.SetFailureListener(ILoggingFailureListener)` — `RabbitMQSink` now
+  implements `Serilog.Core.ISetLoggingFailureListener`. Relevant for the audit path
+  (`AuditTo.RabbitMQ`) and direct-construct users; the batched pipeline still routes
+  via `BatchingSink`'s own listener (Serilog does not forward `SetFailureListener`
+  to inner sinks).
+- `WriteTo.RabbitMQ(client, sink)` and `WriteTo.RabbitMQ(configure)` overloads (the
+  failure-sink-free counterparts to the removed `failureSinkConfiguration` overloads).
+- `warmUpMaxRetries` parameter on the `WriteTo.RabbitMQ` / `AuditTo.RabbitMQ` flat
+  overloads.

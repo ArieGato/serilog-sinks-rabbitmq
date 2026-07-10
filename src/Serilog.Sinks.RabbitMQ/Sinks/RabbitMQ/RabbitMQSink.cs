@@ -25,15 +25,26 @@ namespace Serilog.Sinks.RabbitMQ;
 /// <summary>
 /// Serilog RabbitMQ Sink - lets you log to RabbitMQ using Serilog.
 /// </summary>
+/// <remarks>
+/// Publish failures always propagate. For the batched pipeline (<c>WriteTo.RabbitMQ(...)</c>)
+/// the surrounding <c>BatchingSink</c> observes the exception and forwards the original batch
+/// to its <see cref="ILoggingFailureListener"/> — this is what enables composition with
+/// <c>WriteTo.FallbackChain(...)</c> / <c>WriteTo.Fallible(...)</c>. For the audit path
+/// (<c>AuditTo.RabbitMQ(...)</c>) the exception surfaces to the caller; an
+/// <see cref="ILoggingFailureListener"/> registered via <see cref="SetFailureListener"/>
+/// is notified before the rethrow.
+/// </remarks>
+#if FEATURE_ASYNCDISPOSABLE
+public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLoggingFailureListener, IDisposable, IAsyncDisposable
+#else
 public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLoggingFailureListener, IDisposable
+#endif
 {
     private static readonly RecyclableMemoryStreamManager _manager = new();
     private static readonly Encoding _utf8NoBOM = new UTF8Encoding(false);
 
     private readonly ITextFormatter _formatter;
     private readonly IRabbitMQClient _client;
-    private readonly ILogEventSink? _failureSink;
-    private readonly EmitEventFailureHandling _emitEventFailureHandling;
     private readonly ISendMessageEvents _sendMessageEvents;
     private readonly bool _persistent;
     private readonly string _routingKey;
@@ -45,19 +56,15 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
     /// </summary>
     /// <param name="rabbitMQClientConfiguration">The RabbitMQ client configuration.</param>
     /// <param name="rabbitMQSinkConfiguration">The sink configuration.</param>
-    /// <param name="failureSink">Optional sink that receives events when emission fails.</param>
     internal RabbitMQSink(
         RabbitMQClientConfiguration rabbitMQClientConfiguration,
-        RabbitMQSinkConfiguration rabbitMQSinkConfiguration,
-        ILogEventSink? failureSink)
+        RabbitMQSinkConfiguration rabbitMQSinkConfiguration)
     {
         _formatter = rabbitMQSinkConfiguration.TextFormatter;
         _client = new RabbitMQClient(rabbitMQClientConfiguration);
-        _emitEventFailureHandling = rabbitMQSinkConfiguration.EmitEventFailure;
         _sendMessageEvents = rabbitMQClientConfiguration.SendMessageEvents ??
                              new SendMessageEvents();
 
-        _failureSink = failureSink;
         _persistent = rabbitMQClientConfiguration.DeliveryMode == RabbitMQDeliveryMode.Durable;
         _routingKey = rabbitMQClientConfiguration.RoutingKey;
     }
@@ -68,24 +75,18 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
     /// <param name="client">The RabbitMQ client used to publish events.</param>
     /// <param name="textFormatter">The text formatter used to render log events.</param>
     /// <param name="sendMessageEvents">Hooks for customising message properties and routing key.</param>
-    /// <param name="emitEventFailureHandling">How to handle failures when emitting events.</param>
-    /// <param name="failureSink">Optional sink that receives events when emission fails.</param>
     /// <param name="persistent">Whether messages should be marked persistent.</param>
     /// <param name="routingKey">The default routing key.</param>
     internal RabbitMQSink(
         IRabbitMQClient client,
         ITextFormatter textFormatter,
         ISendMessageEvents sendMessageEvents,
-        EmitEventFailureHandling emitEventFailureHandling = EmitEventFailureHandling.Ignore,
-        ILogEventSink? failureSink = null,
         bool persistent = false,
         string routingKey = "")
     {
         _client = client;
         _formatter = textFormatter;
-        _emitEventFailureHandling = emitEventFailureHandling;
         _sendMessageEvents = sendMessageEvents;
-        _failureSink = failureSink;
         _persistent = persistent;
         _routingKey = routingKey;
     }
@@ -128,41 +129,25 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
     /// <inheritdoc cref="IBatchedLogEventSink.EmitBatchAsync" />
     public async Task EmitBatchAsync(IReadOnlyCollection<LogEvent> batch)
     {
-        // make sure we have an array to avoid multiple enumeration
+        // Publish each event in order. On failure we let the exception propagate so
+        // the surrounding BatchingSink can hand the original batch to its
+        // ILoggingFailureListener — that listener is what WriteTo.FallbackChain
+        // and WriteTo.Fallible hook into. Events that already published before the
+        // failure remain on the broker; the failing event and the rest of the batch
+        // are re-emitted by the fallback chain (downstream sinks should be idempotent
+        // on MessageId if duplicates matter).
         var logEvents = batch as LogEvent[] ?? batch.ToArray();
-
-        // Track the index we are about to publish so the catch can forward only the
-        // un-published tail to the in-sink failure sink. Forwarding the entire batch
-        // would duplicate every event that already published successfully (the broker
-        // accepted them, then a later event in the same batch failed) — downstream
-        // systems without idempotency on MessageId would see those duplicates.
-        //
-        // Important scope: this slicing only reaches the configured `failureSinkConfiguration`
-        // sink (consumed inside HandleException). On the rethrow path Serilog's BatchingSink
-        // hands its OWN copy of the original batch to its failure listener, so wrappers like
-        // `WriteTo.Fallback(...)` still observe all M events, not the tail. Surfacing the
-        // slice through BatchingSink would require an upstream contract change — see #318.
-        int published = 0;
         try
         {
-            for (; published < logEvents.Length; published++)
+            foreach (var logEvent in logEvents)
             {
-                await EmitAsync(logEvents[published]).ConfigureAwait(false);
+                await EmitAsync(logEvent).ConfigureAwait(false);
             }
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            // logEvents[published] is the failing event; the slice [published..] is
-            // failing-plus-remainder, all of which are unpublished from the broker's
-            // perspective. logEvents[..published] succeeded and must not be re-emitted.
-            var unpublished = published == 0
-                ? logEvents
-                : logEvents.AsSpan(published).ToArray();
-
-            if (!HandleException(exception, unpublished))
-            {
-                throw;
-            }
+            SelfLog.WriteLine("Caught exception while performing bulk operation to RabbitMQ: {0}", ex);
+            throw;
         }
     }
 
@@ -192,14 +177,34 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
             System.Diagnostics.Trace.TraceError("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
         }
 
-        // Dispose the failure sink if it's disposable.
-        if (_failureSink is IDisposable disposableFailureSink)
+        _disposedValue = true;
+    }
+
+#if FEATURE_ASYNCDISPOSABLE
+    /// <inheritdoc cref="IAsyncDisposable.DisposeAsync"/>
+    /// <remarks>
+    /// Preferred over <see cref="Dispose"/> in async contexts: avoids the sync-over-async
+    /// bridge in <see cref="AsyncHelpers.RunSync(System.Func{System.Threading.Tasks.Task})"/>.
+    /// Idempotent; subsequent calls are no-ops.
+    /// </remarks>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposedValue)
+            return;
+
+        try
         {
-            disposableFailureSink.Dispose();
+            await _client.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            SelfLog.WriteLine("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
+            System.Diagnostics.Trace.TraceError("Exception occurred while disposing RabbitMQClient {0}", exception.Message);
         }
 
         _disposedValue = true;
     }
+#endif
 
     /// <summary>
     /// Emits a log event to RabbitMQ.
@@ -217,71 +222,6 @@ public sealed class RabbitMQSink : IBatchedLogEventSink, ILogEventSink, ISetLogg
 
         string routingKey = _sendMessageEvents.OnGetRoutingKey(logEvent, _routingKey);
         return _client.PublishAsync(new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length), basicProperties, routingKey);
-    }
-
-    /// <summary>
-    /// Handles the exceptions from <see cref="EmitBatchAsync"/>. Routes the failure to
-    /// SelfLog and/or the in-sink <c>failureSinkConfiguration</c> failure sink according
-    /// to <see cref="EmitEventFailureHandling"/>, and decides whether to swallow or
-    /// rethrow.
-    /// </summary>
-    /// <param name="ex">The exception thrown by <see cref="EmitAsync"/>.</param>
-    /// <param name="unpublishedEvents">
-    /// The failing event followed by every event in the batch that came after it — the
-    /// suffix that the broker did not accept. Events that already published successfully
-    /// in the same batch are not in this slice and must not be re-emitted to the
-    /// in-sink failure sink.
-    /// </param>
-    /// <returns>
-    /// <see langword="true"/> when the exception has been fully handled and must not be
-    /// rethrown (legacy catch-and-route via <see cref="EmitEventFailureHandling.WriteToFailureSink"/>
-    /// without <see cref="EmitEventFailureHandling.ThrowException"/>). <see langword="false"/>
-    /// when the caller should rethrow.
-    ///
-    /// On rethrow Serilog's <see cref="IBatchedLogEventSink"/> pipeline (typically
-    /// <c>BatchingSink</c>) observes the failure and routes it through its own listener
-    /// machinery — this is how <c>WriteTo.Fallback(...)</c> composes. Note that the
-    /// listener receives the ORIGINAL batch <c>BatchingSink</c> passed in, not the
-    /// <paramref name="unpublishedEvents"/> slice; the slicing only narrows what reaches
-    /// the in-sink failure sink. See issue #318.
-    /// </returns>
-    private bool HandleException(Exception ex, LogEvent[] unpublishedEvents)
-    {
-        if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToSelfLog))
-        {
-            // RabbitMQ returns an error, output the error to the SelfLog
-            SelfLog.WriteLine("Caught exception while performing bulk operation to RabbitMQ: {0}", ex);
-        }
-
-        if (_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink) && _failureSink != null)
-        {
-            // Send the un-published tail to the failure sink. Events that already
-            // published successfully in this batch are NOT in unpublishedEvents — they
-            // were sliced out in EmitBatchAsync's catch and must not be re-emitted.
-            try
-            {
-                foreach (var e in unpublishedEvents)
-                {
-                    _failureSink.Emit(e);
-                }
-            }
-            catch (Exception exSink)
-            {
-                // No exception is thrown to the caller
-                SelfLog.WriteLine("Caught exception while emitting to failure sink {0}: {1}", _failureSink, exSink.Message);
-                SelfLog.WriteLine("Failure sink exception: {0}", exSink);
-                SelfLog.WriteLine("Original exception: {0}", ex);
-            }
-        }
-
-        // Rethrow unless the user has opted into the legacy catch-and-route path
-        // (WriteToFailureSink) without also forcing ThrowException. Default — and every
-        // combination that does not set WriteToFailureSink — propagates the exception so
-        // BatchingSink's listener plumbing observes it. WriteToFailureSink + ThrowException
-        // is the explicit "route to failure sink AND still throw" combination.
-        bool legacyCatchOnly = _emitEventFailureHandling.HasFlag(EmitEventFailureHandling.WriteToFailureSink)
-                            && !_emitEventFailureHandling.HasFlag(EmitEventFailureHandling.ThrowException);
-        return legacyCatchOnly;
     }
 
     /// <summary>

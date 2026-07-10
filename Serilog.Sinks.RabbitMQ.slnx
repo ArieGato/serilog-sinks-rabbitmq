@@ -58,6 +58,7 @@
     <File Path="docker/rabbitmq/ssl-plain/rabbitmq.conf" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/LoadTestSample/LoadTestSample.csproj" />
     <Project Path="samples/NetAppsettingsJsonSample/NetAppsettingsJsonSample.csproj" />
     <Project Path="samples/NetFrameworkAppSettingsConfigSample/NetFrameworkAppSettingsConfigSample.csproj" />
     <Project Path="samples/NetFromCodeSample/NetFromCodeSample.csproj" />
