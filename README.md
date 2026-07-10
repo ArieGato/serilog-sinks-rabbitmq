@@ -237,7 +237,7 @@ and ignore them.
 | `batchPostingLimit` | `int` | `50` | Maximum events written per batch. |
 | `bufferingTimeLimit` | `TimeSpan` | `2s` | Flush interval for partial batches. |
 | `queueLimit` | `int?` | `null` | Maximum buffered events. `null` = unbounded. |
-| `retryTimeLimit` | `TimeSpan` | `10m` | How long a failed batch is retried (with exponential back-off) before it is handed to the registered `ILoggingFailureListener` — i.e. the next link in `WriteTo.FallbackChain(...)`. `TimeSpan.Zero` disables retries; failed batches go to the fallback immediately. Lower the value for high-throughput pipelines that should engage the fallback faster than the 10 minute default; raise it for noisy networks where short blips should not produce fallback writes. |
+| `retryTimeLimit` | `TimeSpan?` | `null` → `10m` | How long a failed batch is retried (with exponential back-off) before it is handed to the registered `ILoggingFailureListener` — i.e. the next link in `WriteTo.FallbackChain(...)`. Leave `null` for the 10 minute default. `TimeSpan.Zero` disables retries; failed batches go to the fallback immediately. Lower the value for high-throughput pipelines that should engage the fallback faster than the 10 minute default; raise it for noisy networks where short blips should not produce fallback writes. |
 
 ### Other options
 

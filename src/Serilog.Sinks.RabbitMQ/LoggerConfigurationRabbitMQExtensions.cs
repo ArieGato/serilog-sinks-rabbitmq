@@ -106,7 +106,7 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <param name="batchPostingLimit">The maximum number of events to include in a single batch.</param>
     /// <param name="bufferingTimeLimit">The time to wait between checking for event batches.</param>
     /// <param name="queueLimit">The batch internal queue limit.</param>
-    /// <param name="retryTimeLimit">Maximum time a failed batch is retried before it is forwarded to the registered <c>ILoggingFailureListener</c> (e.g. <c>WriteTo.FallbackChain(...)</c>). Pass <c>default</c> to use the library default of 10 minutes; <see cref="TimeSpan.Zero"/> disables retries.</param>
+    /// <param name="retryTimeLimit">Maximum time a failed batch is retried before it is forwarded to the registered <c>ILoggingFailureListener</c> (e.g. <c>WriteTo.FallbackChain(...)</c>). Leave <c>null</c> (the default) to use the library default of 10 minutes; pass <see cref="TimeSpan.Zero"/> to disable retries so a failed batch is forwarded immediately.</param>
     /// <param name="formatter">The text formatter.</param>
     /// <param name="autoCreateExchange">Indicates whether to automatically create the exchange.</param>
     /// <param name="channelCount">Number of channels held in the pool. Channels are opened eagerly at startup.</param>
@@ -135,7 +135,7 @@ public static class LoggerConfigurationRabbitMQExtensions
         int batchPostingLimit = DEFAULT_BATCH_POSTING_LIMIT,
         TimeSpan bufferingTimeLimit = default,
         int? queueLimit = null,
-        TimeSpan retryTimeLimit = default,
+        TimeSpan? retryTimeLimit = null,
         ITextFormatter? formatter = null,
         bool autoCreateExchange = false,
         int channelCount = RabbitMQClient.DEFAULT_CHANNEL_COUNT,
@@ -163,7 +163,7 @@ public static class LoggerConfigurationRabbitMQExtensions
             batchPostingLimit: batchPostingLimit,
             bufferingTimeLimit: bufferingTimeLimit,
             queueLimit: queueLimit,
-            retryTimeLimit: retryTimeLimit,
+            retryTimeLimit: retryTimeLimit ?? DEFAULT_RETRY_TIME_LIMIT,
             formatter: formatter,
             autoCreateExchange: autoCreateExchange,
             channelCount: channelCount,
@@ -305,10 +305,10 @@ public static class LoggerConfigurationRabbitMQExtensions
             ? DEFAULT_BUFFERING_TIME_LIMIT
             : sinkConfiguration.BufferingTimeLimit;
 
-        sinkConfiguration.RetryTimeLimit = sinkConfiguration.RetryTimeLimit == default
-            ? DEFAULT_RETRY_TIME_LIMIT
-            : sinkConfiguration.RetryTimeLimit;
-
+        // RetryTimeLimit is intentionally NOT defaulted here: the property initializes to
+        // DEFAULT_RETRY_TIME_LIMIT at construction, and the flat overload resolves its
+        // nullable parameter before this point. Treating TimeSpan.Zero as "unset" would make
+        // the documented "Zero disables retries" contract unreachable, so Zero is honored.
         clientConfiguration.Validate();
         sinkConfiguration.Validate();
 
@@ -417,8 +417,9 @@ public static class LoggerConfigurationRabbitMQExtensions
     /// <see cref="RabbitMQClientConfiguration"/> and <see cref="RabbitMQSinkConfiguration"/>.
     /// The public overload delegates here, then hands the results to <c>RegisterSink</c>.
     /// The <c>retryTimeLimit</c> argument is a pass-through for
-    /// <see cref="RabbitMQSinkConfiguration.RetryTimeLimit"/>; <c>default</c> means "use the
-    /// library default" and is resolved in <c>RegisterSink</c>.
+    /// <see cref="RabbitMQSinkConfiguration.RetryTimeLimit"/>; the public overload has already
+    /// resolved its nullable parameter (<c>null</c> → library default) before calling here, so
+    /// the value is mapped verbatim — <see cref="TimeSpan.Zero"/> is preserved to disable retries.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "StyleCop.CSharp.DocumentationRules",
@@ -474,9 +475,10 @@ public static class LoggerConfigurationRabbitMQExtensions
             warmUpMaxRetries: warmUpMaxRetries,
             sendMessageEvents: sendMessageEvents);
 
-        // Default substitution for BatchPostingLimit / BufferingTimeLimit / RetryTimeLimit lives
-        // in RegisterSink so that the delegate, direct-config, and flat-overload paths all share
-        // one defaulting site. Pass the caller's values through verbatim here.
+        // Default substitution for BatchPostingLimit / BufferingTimeLimit lives in RegisterSink
+        // so that the delegate, direct-config, and flat-overload paths all share one defaulting
+        // site. RetryTimeLimit is already resolved by the public overload (null → default) and
+        // is passed through verbatim so TimeSpan.Zero survives as "disable retries".
         var sinkConfiguration = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = batchPostingLimit,

@@ -123,11 +123,13 @@ The sink now exposes Serilog's batched-retry deadline as a first-class option:
 
 - `RabbitMQSinkConfiguration.RetryTimeLimit` (property, defaults to `TimeSpan.FromMinutes(10)`
   to match Serilog's own `BatchingOptions.RetryTimeLimit`).
-- `WriteTo.RabbitMQ(..., retryTimeLimit: ...)` (flat-overload parameter).
-- Pass-through to `BatchingOptions.RetryTimeLimit` is wired in `RegisterSink`; `default`
-  resolves to the library default, `TimeSpan.Zero` disables retries entirely so a failed
-  batch is handed to the registered `ILoggingFailureListener` (the next link in
-  `WriteTo.FallbackChain(...)`) immediately.
+- `WriteTo.RabbitMQ(..., retryTimeLimit: ...)` (flat-overload parameter, `TimeSpan?`;
+  leave `null` — the default — to use the library default of 10 minutes).
+- Passed through to `BatchingOptions.RetryTimeLimit`. `TimeSpan.Zero` disables retries
+  entirely so a failed batch is handed to the registered `ILoggingFailureListener` (the next
+  link in `WriteTo.FallbackChain(...)`) immediately. `Zero` is honored on every path — the
+  property, the direct-config overload, and the flat overload — so the fast-fallback trade-off
+  is always reachable.
 
 This makes the trade-off between in-memory queueing during an outage and time-to-fallback
 explicit. Lower the value (e.g. `TimeSpan.FromMinutes(2)`) for high-throughput pipelines

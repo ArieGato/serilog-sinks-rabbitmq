@@ -138,11 +138,14 @@ public class LoggerConfigurationRabbitMQExtensionsTests
         // constructs a config and leaves the batch values at their CLR defaults gets the
         // library defaults. Asserting the mutation on the caller's sinkConfig is a real
         // behavioural check (unlike the coverage-only flat-overload tests above).
+        //
+        // RetryTimeLimit is deliberately left unset: unlike the batch values, it is NOT
+        // clobbered in RegisterSink (TimeSpan.Zero is a meaningful "disable retries" value),
+        // so it keeps the property-initializer default of 10 minutes.
         var sinkConfig = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = 0,
             BufferingTimeLimit = TimeSpan.Zero,
-            RetryTimeLimit = TimeSpan.Zero,
         };
 
         using var logger = new LoggerConfiguration()
@@ -156,12 +159,30 @@ public class LoggerConfigurationRabbitMQExtensionsTests
     }
 
     [Fact]
+    public void WriteTo_RabbitMQ_HonorsRetryTimeLimitZero_ToDisableRetries()
+    {
+        // Regression guard: TimeSpan.Zero must survive RegisterSink so the documented
+        // "Zero disables retries → immediate fallback" contract is reachable. Previously
+        // RegisterSink treated Zero as the "unset" sentinel and clobbered it to 10 minutes.
+        var sinkConfig = new RabbitMQSinkConfiguration
+        {
+            RetryTimeLimit = TimeSpan.Zero,
+        };
+
+        using var logger = new LoggerConfiguration()
+            .WriteTo.RabbitMQ(ValidClientConfiguration(), sinkConfig)
+            .CreateLogger();
+
+        logger.ShouldNotBeNull();
+        sinkConfig.RetryTimeLimit.ShouldBe(TimeSpan.Zero);
+    }
+
+    [Fact]
     public void WriteTo_RabbitMQ_PreservesCallerRetryTimeLimit_WhenNonDefault()
     {
-        // Mirror of the AppliesDefaults_WhenBatchingValuesAreDefault test above for the
-        // non-default branch: a caller who explicitly passes a RetryTimeLimit (including
-        // a very short one to force fast fallback) must see it reach the BatchingSink
-        // unchanged. The defaulting branch in RegisterSink only fires on `default`.
+        // A caller who explicitly passes a RetryTimeLimit (including a very short one to
+        // force fast fallback) must see it reach the BatchingSink unchanged. RegisterSink
+        // does not touch RetryTimeLimit, so any caller value passes through verbatim.
         var sinkConfig = new RabbitMQSinkConfiguration
         {
             BatchPostingLimit = 50,

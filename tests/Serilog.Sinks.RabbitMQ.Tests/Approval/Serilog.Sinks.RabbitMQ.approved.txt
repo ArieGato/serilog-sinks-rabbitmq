@@ -51,7 +51,7 @@ namespace Serilog
                     int batchPostingLimit = 50,
                     System.TimeSpan bufferingTimeLimit = default,
                     int? queueLimit = default,
-                    System.TimeSpan retryTimeLimit = default,
+                    System.TimeSpan? retryTimeLimit = default,
                     Serilog.Formatting.ITextFormatter? formatter = null,
                     bool autoCreateExchange = false,
                     int channelCount = 64,
