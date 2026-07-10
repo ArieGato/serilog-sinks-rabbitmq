@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using System.Diagnostics;
-using System.IO;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using Serilog;
