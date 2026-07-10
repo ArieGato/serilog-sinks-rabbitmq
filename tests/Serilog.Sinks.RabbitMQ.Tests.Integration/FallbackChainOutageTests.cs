@@ -54,7 +54,7 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
     public async Task BrokerOutage_RoutesPostFailureBatchesToFallbackFile(bool restrictMinimumLevel)
     {
         // Path.GetFileName keeps the second segment provably relative (clears cs/path-combine).
-        var fallbackPath = Path.Combine(Path.GetTempPath(), Path.GetFileName($"fallback-{Guid.NewGuid():N}.txt"));
+        var fallbackPath = Path.Join(Path.GetTempPath(), Path.GetFileName($"fallback-{Guid.NewGuid():N}.txt"));
         var selfLog = new StringBuilder();
         SelfLog.Enable(s => selfLog.AppendLine(s));
         try
