@@ -606,18 +606,9 @@ public class RabbitMQSinkTests
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = Substitute.For<IRabbitMQClient>();
 
-        var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
+        using var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
-        // try/finally guarantees the second disposal path runs even if the first throws,
-        // so the sink is always disposed (satisfies cs/dispose-not-called-on-throw).
-        try
-        {
-            await sut.DisposeAsync();
-        }
-        finally
-        {
-            sut.Dispose();
-        }
+        await sut.DisposeAsync();
 
         await rabbitMQClient.Received(1).DisposeAsync();
     }
