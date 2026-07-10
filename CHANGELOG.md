@@ -115,7 +115,7 @@ Add `net9.0` to the target frameworks.
 - Removed `RoutingFunc`
 - Removed `.net7.0` target framework
 
-## 9.0.0 [not published]
+## 9.0.0
 
 ### Added `RetryTimeLimit` configuration knob
 
