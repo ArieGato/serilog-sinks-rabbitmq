@@ -582,8 +582,16 @@ public class RabbitMQSinkTests
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
-        sut.Dispose();
-        await sut.DisposeAsync();
+        // try/finally guarantees the second disposal path runs even if the first throws,
+        // so the sink is always disposed (satisfies cs/dispose-not-called-on-throw).
+        try
+        {
+            sut.Dispose();
+        }
+        finally
+        {
+            await sut.DisposeAsync();
+        }
 
         await rabbitMQClient.Received(1).DisposeAsync();
     }
@@ -600,8 +608,16 @@ public class RabbitMQSinkTests
 
         var sut = new RabbitMQSink(rabbitMQClient, textFormatter, messageEvents);
 
-        await sut.DisposeAsync();
-        sut.Dispose();
+        // try/finally guarantees the second disposal path runs even if the first throws,
+        // so the sink is always disposed (satisfies cs/dispose-not-called-on-throw).
+        try
+        {
+            await sut.DisposeAsync();
+        }
+        finally
+        {
+            sut.Dispose();
+        }
 
         await rabbitMQClient.Received(1).DisposeAsync();
     }
