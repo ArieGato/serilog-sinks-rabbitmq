@@ -228,7 +228,7 @@ async Task MonitorQueueDepthAsync(CancellationToken ct)
         {
             return;
         }
-        catch (Exception ex)
+        catch (RabbitMQ.Client.Exceptions.RabbitMQClientException ex)
         {
             Console.WriteLine($"{second,4}  {prodNow,8:N0}      ?    {prodNow - prevProduced,7:N0}     ?    (broker unreachable: {ex.GetType().Name})");
             prevProduced = prodNow;
