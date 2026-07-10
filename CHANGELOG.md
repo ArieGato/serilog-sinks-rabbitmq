@@ -450,6 +450,13 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
 - Warm-up now stops after `WarmUpMaxRetries` consecutive failures (default `10`) and a
   broken pool fails `GetAsync` fast instead of blocking waiters. Set
   `WarmUpMaxRetries = null` to opt back into unlimited retries.
+- Minimum Serilog version raised to `4.4.0` (from `4.3.x`). 4.4.0 routes optional
+  sink interfaces — including `ISetLoggingFailureListener` — through an
+  `OptionalInterfaceForwardingSink` for restricted sinks
+  ([serilog/serilog#2234](https://github.com/serilog/serilog/pull/2234)), so
+  `RestrictedToMinimumLevel` composes correctly with `WriteTo.FallbackChain(...)`.
+  Earlier versions silently dropped failed batches when a restriction was set on
+  the wrapped sink.
 
 ### New public surface (9.0.0)
 

@@ -15,6 +15,7 @@
 #if !NETFRAMEWORK
 
 using Serilog.Debugging;
+using Serilog.Events;
 using Testcontainers.RabbitMq;
 using Xunit.Abstractions;
 
@@ -47,8 +48,10 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
 
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();
 
-    [Fact]
-    public async Task BrokerOutage_RoutesPostFailureBatchesToFallbackFile()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BrokerOutage_RoutesPostFailureBatchesToFallbackFile(bool restrictMinimumLevel)
     {
         var fallbackPath = Path.Combine(Path.GetTempPath(), $"fallback-{Guid.NewGuid():N}.txt");
         var selfLog = new StringBuilder();
@@ -59,10 +62,13 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
             // transitions to Broken on the first sustained warm-up failure (instead of the
             // default 10-retry exponential backoff that would stretch the test out beyond
             // the CI timeout).
-            // Note: do NOT set RestrictedToMinimumLevel on the primary sink config —
-            // Serilog wraps the sink in a RestrictedSink which does not forward
-            // ISetLoggingFailureListener, breaking the FallbackChain wiring.
-            // Apply level filtering at the logger level instead.
+            // When restrictMinimumLevel is set, Serilog wraps the sink in an internal
+            // RestrictedSink. Since Serilog 4.4.0 that wrapper forwards optional
+            // interfaces — including ISetLoggingFailureListener — through an
+            // OptionalInterfaceForwardingSink (serilog/serilog#2234), so the
+            // FallbackChain listener chain survives the restriction and failed
+            // batches still reach the fallback. This case pins that fix; earlier
+            // Serilog versions dropped them silently.
             using var logger = new LoggerConfiguration()
                 .MinimumLevel.Information()
                 .WriteTo.FallbackChain(
@@ -79,6 +85,10 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
                         c.WarmUpMaxRetries = 1;
                         s.BatchPostingLimit = 5;
                         s.BufferingTimeLimit = TimeSpan.FromMilliseconds(200);
+                        if (restrictMinimumLevel)
+                        {
+                            s.RestrictedToMinimumLevel = LogEventLevel.Information;
+                        }
                     }),
                     fallback => fallback.File(fallbackPath))
                 .CreateLogger();

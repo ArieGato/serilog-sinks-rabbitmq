@@ -279,12 +279,15 @@ The same composition works in `appsettings.json` by wrapping the `RabbitMQ`
 block in a `FallbackChain` entry — the JSON binding ships with prerelease
 `Serilog.Settings.Configuration`.
 
-> **Gotcha:** Do **not** set `RestrictedToMinimumLevel` on the wrapped RabbitMQ
-> sink configuration when using `FallbackChain`. Serilog wraps the sink in an
-> internal `RestrictedSink` that does not implement `ISetLoggingFailureListener`,
-> which silently breaks the listener-propagation chain — failed batches get
-> dropped instead of routed to the fallback. Apply level filtering at the logger
-> level (`MinimumLevel.Information()` etc.) instead.
+> **Requires Serilog ≥ 4.4.0.** Setting `RestrictedToMinimumLevel` on the wrapped
+> RabbitMQ sink config composes correctly with `FallbackChain`. Serilog wraps the
+> sink in an internal `RestrictedSink`, which since 4.4.0 forwards optional
+> interfaces — including `ISetLoggingFailureListener` — through an
+> `OptionalInterfaceForwardingSink`
+> ([serilog/serilog#2234](https://github.com/serilog/serilog/pull/2234)), so the
+> listener-propagation chain stays intact and failed batches still reach the
+> fallback. Earlier Serilog versions dropped them silently; 9.0.0 depends on 4.4.0,
+> so this works out of the box.
 
 ## Audit sink
 
@@ -378,7 +381,7 @@ and integration tests.
 | 6.0.0 | 2.0.0 | 4.7.2 | 2.8.0 | 6.* |
 | 7.0.0 | 2.0.0 | — | 3.1.1 | 6.8.* |
 | 8.0.0 | 2.0.0 | — | 4.2.0 | 7.0 |
-| 9.0.0 | 2.0.0 | — | 4.3.x | 7.2.x |
+| 9.0.0 | 2.0.0 | — | 4.4.x | 7.2.x |
 
 ## Migrating to 9.0.0
 
@@ -424,6 +427,11 @@ and integration tests.
   behaviour, but prefer `WriteTo.FallbackChain(...)` for resilience instead.
 - **`Microsoft.Extensions.ObjectPool` dependency removed.** No action needed unless your
   application referenced it transitively through this package.
+- **Serilog 4.4.0 required.** The minimum Serilog version is now `4.4.0` (up from
+  `4.3.x`). 4.4.0 forwards optional sink interfaces — including
+  `ISetLoggingFailureListener` — through restricted sinks
+  ([serilog/serilog#2234](https://github.com/serilog/serilog/pull/2234)), so
+  `RestrictedToMinimumLevel` composes correctly with `WriteTo.FallbackChain(...)`.
 - **Target frameworks:** `net6.0` and `net9.0` were removed. Supported targets are
   `netstandard2.0`, `net8.0`, and `net10.0`.
 
