@@ -13,7 +13,9 @@
 // limitations under the License.
 
 using System.Diagnostics;
+using System.IO;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 using Serilog;
 using Serilog.Debugging;
 using Serilog.Sinks.RabbitMQ;
@@ -113,9 +115,24 @@ try
 {
     landed = await CountQueueAsync().ConfigureAwait(false);
 }
-catch (Exception ex)
+catch (OperationCanceledException)
 {
-    Console.WriteLine($"Could not count broker queue (queue may have been lost on broker restart): {ex.GetType().Name}: {ex.Message}");
+    Console.WriteLine("Could not count broker queue because the operation was canceled.");
+    landed = 0;
+}
+catch (BrokerUnreachableException ex)
+{
+    Console.WriteLine($"Could not count broker queue (broker unreachable): {ex.GetType().Name}: {ex.Message}");
+    landed = 0;
+}
+catch (AlreadyClosedException ex)
+{
+    Console.WriteLine($"Could not count broker queue (connection/channel closed): {ex.GetType().Name}: {ex.Message}");
+    landed = 0;
+}
+catch (IOException ex)
+{
+    Console.WriteLine($"Could not count broker queue (I/O error): {ex.GetType().Name}: {ex.Message}");
     landed = 0;
 }
 
