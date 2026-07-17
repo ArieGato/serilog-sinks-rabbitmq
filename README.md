@@ -6,7 +6,7 @@
 [![Nuget](https://img.shields.io/nuget/v/Serilog.Sinks.RabbitMQ)](https://www.nuget.org/packages/Serilog.Sinks.RabbitMQ)
 
 [![GitHub Release Date](https://img.shields.io/github/release-date/ArieGato/serilog-sinks-rabbitmq?label=released)](https://github.com/ArieGato/serilog-sinks-rabbitmq/releases)
-[![GitHub commits since latest release (by date)](https://img.shields.io/github/commits-since/ArieGato/serilog-sinks-rabbitmq/latest?label=new+commits)](https://github.com/ArieGato/serilog-sinks-rabbitmq/commits/master)
+[![GitHub commits since latest release (by date)](https://img.shields.io/github/commits-since/ArieGato/serilog-sinks-rabbitmq/latest?label=new+commits&cacheSeconds=1800)](https://github.com/ArieGato/serilog-sinks-rabbitmq/commits/master)
 ![Size](https://img.shields.io/github/repo-size/ArieGato/serilog-sinks-rabbitmq)
 
 [![GitHub contributors](https://img.shields.io/github/contributors/ArieGato/serilog-sinks-rabbitmq)](https://github.com/ArieGato/serilog-sinks-rabbitmq/graphs/contributors)
