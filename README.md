@@ -18,6 +18,7 @@
 [![Publish preview to GitHub registry](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-prerelease.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-prerelease.yml)
 [![Publish release to Nuget registry](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-release.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/publish-release.yml)
 [![CodeQL analysis](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/codeql-analysis.yml)
+[![Trivy security scan](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/trivy.yml/badge.svg)](https://github.com/ArieGato/serilog-sinks-rabbitmq/actions/workflows/trivy.yml)
 
 > A [Serilog](https://serilog.net/) sink that publishes log events to RabbitMQ via the
 > official [RabbitMQ.Client](https://www.nuget.org/packages/RabbitMQ.Client) library.
