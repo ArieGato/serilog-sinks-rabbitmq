@@ -65,7 +65,10 @@ jobs:
           skip-dirs: docker/rabbitmq,**/obj
 
       - name: Upload results to GitHub Security tab
-        if: always()
+        # Only upload when Trivy actually produced a SARIF. If Trivy errored
+        # before writing it (e.g. DB download failure), skip rather than fail
+        # with a confusing 'file not found' that hides the real scan error.
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif

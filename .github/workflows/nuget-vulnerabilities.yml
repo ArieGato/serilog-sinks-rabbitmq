@@ -46,7 +46,9 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           title="Vulnerable NuGet packages detected"
-          report="$(cat vuln-report.txt || echo '(report unavailable)')"
+          # Cap the embedded report so the issue body stays under GitHub's
+          # 65,536-character limit (leaving room for the surrounding text).
+          report="$(head -c 60000 vuln-report.txt 2>/dev/null || echo '(report unavailable)')"
           body="$(cat <<EOF
           The nightly NuGet vulnerability scan failed on $(date -u '+%Y-%m-%d %H:%M UTC').
 
@@ -58,7 +60,9 @@ jobs:
           EOF
           )"
 
-          existing="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          # Exact-title match: gh's --search does token matching, which could
+          # resolve to an unrelated issue sharing these words, so filter in jq.
+          existing="$(gh issue list --state open --search "$title in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
           if [ -n "$existing" ]; then
             echo "Updating existing issue #$existing"
             gh issue comment "$existing" --body "$body"
