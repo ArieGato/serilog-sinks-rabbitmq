@@ -41,6 +41,13 @@ dotnet test tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.cspr
 
 Two RabbitMQ brokers come up via [docker-compose.yml](docker-compose.yml): `rabbitmq-plain` on 5672/6672 and `rabbitmq-cert` on 5671. Test fixtures wait for `rabbitmqctl status`.
 
+```bash
+# Vulnerable-package scan (direct + transitive). `dotnet list package --vulnerable`
+# exits 0 even when it finds CVEs, so the wrapper parses the output and fails.
+# This is a CI gate (tests.yml) AND runs nightly (nuget-vulnerabilities.yml).
+dotnet restore && bash scripts/check-vulnerable-packages.sh
+```
+
 `net48` tests are intentionally skipped on Linux CI — `coverlet.msbuild` 10.x emits IL Mono can't load. Windows CI still validates net48. Locally, run net48 only on Windows or via `--framework net8.0|net10.0`.
 
 ## Pre-commit checklist
@@ -105,3 +112,7 @@ Almost everything except `RabbitMQSink`, `RabbitMQClientConfiguration`, `RabbitM
 - Three runnable end-to-end samples live under [samples/](samples/): code-only (`NetFromCodeSample`), `appsettings.json` (`NetAppsettingsJsonSample`, includes a custom `ISendMessageEvents`), and `App.config` for .NET Framework (`NetFrameworkAppSettingsConfigSample`). The two non-Framework samples talk to the docker-compose broker.
 - TLS / SSL test certificates and how they were generated: [docker/rabbitmq/README.md](docker/rabbitmq/README.md). Self-signed, **not for production**.
 - Release notes and migration guidance live in [CHANGELOG.md](CHANGELOG.md) and [README.md](README.md#migrating-to-900) — both should be updated for any breaking change.
+- Dependency vulnerabilities are scanned three ways:
+  - [scripts/check-vulnerable-packages.sh](scripts/check-vulnerable-packages.sh) (`dotnet list package --vulnerable`) — the **hard gate**: a PR/push step in [tests.yml](.github/workflows/tests.yml) and a nightly cron in [nuget-vulnerabilities.yml](.github/workflows/nuget-vulnerabilities.yml) that opens/updates a GitHub Issue (needs `issues: write`).
+  - [trivy.yml](.github/workflows/trivy.yml) — Trivy `fs` scan (vuln + misconfig + secret) on PR/push/nightly, **report-only**, uploads SARIF to the Security tab (needs `security-events: write`). `docker/rabbitmq` is skipped because it holds self-signed test keys. Trivy reads `*.deps.json`, so the workflow builds first (CPM has no lockfiles).
+  - [renovate.json](renovate.json) — Renovate (Mend GitHub App must be installed on the repo) raises update + vulnerability-fix PRs. It **replaced Dependabot** (nuget + github-actions); do not re-add `.github/dependabot.yml` or you'll get duplicate PRs.

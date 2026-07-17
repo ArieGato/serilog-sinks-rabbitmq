@@ -1,0 +1,68 @@
+name: NuGet vulnerability scan
+
+# Nightly scan for newly-disclosed CVEs in our NuGet dependencies. The same
+# check runs on every PR/push via tests.yml, but vulnerabilities can be
+# disclosed after a change merges, so we re-scan the default branch nightly and
+# open a GitHub Issue when something turns up.
+
+on:
+  schedule:
+    # 03:00 UTC every day
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Check for vulnerable NuGet packages
+        run: bash scripts/check-vulnerable-packages.sh | tee vuln-report.txt
+
+      - name: Open or update alert issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Vulnerable NuGet packages detected"
+          report="$(cat vuln-report.txt || echo '(report unavailable)')"
+          body="$(cat <<EOF
+          The nightly NuGet vulnerability scan failed on $(date -u '+%Y-%m-%d %H:%M UTC').
+
+          Run: $RUN_URL
+
+          \`\`\`
+          $report
+          \`\`\`
+          EOF
+          )"
+
+          existing="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Updating existing issue #$existing"
+            gh issue comment "$existing" --body "$body"
+          else
+            echo "Creating new issue"
+            gh issue create --title "$title" --body "$body"
+          fi
