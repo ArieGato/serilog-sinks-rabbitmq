@@ -66,7 +66,7 @@ public class RabbitMQChannelTests
         await sut.BasicPublishAsync(address, new BasicProperties(), body);
 
         // Assert
-        var actual = Arg.Is<BasicProperties>(p => p.AppId == basicProperties.AppId);
+        var actual = Arg.Is<BasicProperties>(p => p!.AppId == basicProperties.AppId);
         await channel.Received(1).BasicPublishAsync(address, actual, body);
     }
 }

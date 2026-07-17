@@ -1,0 +1,74 @@
+name: Trivy security scan
+
+# Aqua Trivy scans in one pass:
+#   - vuln:     known CVEs in resolved NuGet deps (via built *.deps.json, since
+#               the repo uses central package management without lockfiles)
+#   - misconfig: Dockerfiles / compose / workflow YAML misconfigurations
+#   - secret:   accidentally committed credentials
+#
+# Results are uploaded as SARIF to the GitHub Security tab (code scanning), so
+# this is report-only and does NOT fail the build. The fast dotnet-list gate in
+# tests.yml remains the hard PR gate for .NET CVEs. Running nightly as well
+# catches CVEs disclosed after a change merges.
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+  schedule:
+    # 03:30 UTC every day (staggered after the dotnet-list nightly at 03:00)
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Trivy's .NET vuln scanner reads resolved dependencies from *.deps.json,
+      # which only exist after a build. CPM keeps versions out of the csprojs, so
+      # scanning the source alone would miss them.
+      - name: Build (produces *.deps.json for dependency scanning)
+        run: dotnet build -c Release
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: '0'
+          # docker/rabbitmq holds self-signed TEST certs and private keys — not
+          # real secrets. **/obj is intermediate build noise.
+          skip-dirs: docker/rabbitmq,**/obj
+
+      - name: Upload results to GitHub Security tab
+        # Only upload when Trivy actually produced a SARIF. If Trivy errored
+        # before writing it (e.g. DB download failure), skip rather than fail
+        # with a confusing 'file not found' that hides the real scan error.
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif

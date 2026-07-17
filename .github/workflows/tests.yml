@@ -50,6 +50,10 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
+      - name: Check for vulnerable NuGet packages
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: bash scripts/check-vulnerable-packages.sh
+
       - name: Check formatting
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: dotnet format --no-restore --verify-no-changes --severity warn || (echo "Run 'dotnet format' to fix issues" && exit 1)

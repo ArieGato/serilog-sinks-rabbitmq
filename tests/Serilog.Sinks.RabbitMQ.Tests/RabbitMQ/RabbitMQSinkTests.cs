@@ -36,7 +36,13 @@ public class RabbitMQSinkTests
         var textFormatter = Substitute.For<ITextFormatter>();
         textFormatter
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
-            .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
+            .Do(x =>
+            {
+                if (x.Arg<TextWriter>() is { } writer && x.Arg<LogEvent>() is { } evt)
+                {
+                    writer.Write(evt.MessageTemplate.Text);
+                }
+            });
 
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = new StubClient();
@@ -62,7 +68,13 @@ public class RabbitMQSinkTests
         var textFormatter = Substitute.For<ITextFormatter>();
         textFormatter
             .When(x => x.Format(Arg.Any<LogEvent>(), Arg.Any<TextWriter>()))
-            .Do(x => x.Arg<TextWriter>().Write(x.Arg<LogEvent>().MessageTemplate.Text));
+            .Do(x =>
+            {
+                if (x.Arg<TextWriter>() is { } writer && x.Arg<LogEvent>() is { } evt)
+                {
+                    writer.Write(evt.MessageTemplate.Text);
+                }
+            });
 
         var messageEvents = Substitute.For<ISendMessageEvents>();
         var rabbitMQClient = new StubClient();
@@ -474,7 +486,7 @@ public class RabbitMQSinkTests
             sut,
             LoggingFailureKind.Permanent,
             Arg.Any<string>(),
-            Arg.Is<IReadOnlyCollection<LogEvent>>(e => e.Count == 1 && e.Single() == logEvent),
+            Arg.Is<IReadOnlyCollection<LogEvent>>(e => e!.Count == 1 && e.Single() == logEvent),
             Arg.Is<Exception>(e => e is InvalidOperationException && e.Message == "publish-fail"));
     }
 
