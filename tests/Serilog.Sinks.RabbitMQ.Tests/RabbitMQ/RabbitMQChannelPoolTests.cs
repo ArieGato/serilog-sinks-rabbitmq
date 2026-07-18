@@ -105,7 +105,7 @@ public class RabbitMQChannelPoolTests
         await WaitForAsync(() => Volatile.Read(ref created) == 2);
 
         // Act
-        var channel = await pool.GetAsync();
+        var channel = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         // Assert
         channel.ShouldNotBeNull();
@@ -121,11 +121,11 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        var first = await pool.GetAsync();
+        var first = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         // Act
-        var pending = pool.GetAsync().AsTask();
-        await Task.Delay(50);
+        var pending = pool.GetAsync(TestContext.Current.CancellationToken).AsTask();
+        await Task.Delay(50, TestContext.Current.CancellationToken);
         pending.IsCompleted.ShouldBeFalse();
 
         await pool.ReturnAsync(first);
@@ -149,7 +149,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        _ = await pool.GetAsync();
+        _ = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         var brokenChannel = Substitute.For<IRabbitMQChannel>();
         brokenChannel.IsOpen.Returns(false);
@@ -184,7 +184,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        _ = await pool.GetAsync();
+        _ = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         var brokenChannel = Substitute.For<IRabbitMQChannel>();
         brokenChannel.IsOpen.Returns(false);
@@ -208,7 +208,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        _ = await pool.GetAsync();
+        _ = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         using var cts = new CancellationTokenSource();
 
@@ -259,7 +259,7 @@ public class RabbitMQChannelPoolTests
 
         // Rent the warmed-up channel first so the substituted throwing channel can be
         // returned without overflowing the pool's SemaphoreSlim (capped at ChannelCount).
-        _ = await pool.GetAsync();
+        _ = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         var throwingChannel = Substitute.For<IRabbitMQChannel>();
         throwingChannel.IsOpen.Returns(true);
@@ -304,7 +304,7 @@ public class RabbitMQChannelPoolTests
             }
         });
 
-        _ = await pool.GetAsync();
+        _ = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         var brokenChannel = Substitute.For<IRabbitMQChannel>();
         brokenChannel.IsOpen.Returns(false);
@@ -410,7 +410,7 @@ public class RabbitMQChannelPoolTests
         // release the gate, otherwise the flag will already be set by the first warmup
         // and the race will not fire (false green). 500 ms is generous for slow CI
         // workers; this happens on every run so the cost is bounded.
-        await Task.Delay(500);
+        await Task.Delay(500, TestContext.Current.CancellationToken);
 
         gate.SetResult(true);
 
@@ -488,7 +488,7 @@ public class RabbitMQChannelPoolTests
         await WaitForAsync(() => failedChannel.ReceivedCalls()
             .Any(call => call.GetMethodInfo().Name == nameof(IChannel.CloseAsync)));
 
-        await failedChannel.Received().CloseAsync();
+        await failedChannel.Received().CloseAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -618,13 +618,13 @@ public class RabbitMQChannelPoolTests
         // Dispose the pool: _shutdownCts cancels the warm-up's token. The declare call
         // becomes cancelled (TrySetCanceled propagates via the task), the catch fires,
         // and the channel must be closed.
-        declareGate.TrySetCanceled();
+        declareGate.TrySetCanceled(TestContext.Current.CancellationToken);
         await pool.DisposeAsync();
 
         await WaitForAsync(() => blockedChannel.ReceivedCalls()
             .Any(call => call.GetMethodInfo().Name == nameof(IChannel.CloseAsync)));
 
-        await blockedChannel.Received().CloseAsync();
+        await blockedChannel.Received().CloseAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -643,7 +643,7 @@ public class RabbitMQChannelPoolTests
 
         await pool.DisposeAsync();
 
-        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -661,7 +661,7 @@ public class RabbitMQChannelPoolTests
 
         // Drain+return the warmed channel to guarantee the pool is at capacity before
         // we test the surplus path. Just waiting on ReceivedCalls races with the write.
-        var warmed = await pool.GetAsync();
+        var warmed = await pool.GetAsync(TestContext.Current.CancellationToken);
         await pool.ReturnAsync(warmed);
 
         var surplusChannel = Substitute.For<IRabbitMQChannel>();
@@ -685,7 +685,7 @@ public class RabbitMQChannelPoolTests
 
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
 
-        var warmed = await pool.GetAsync();
+        var warmed = await pool.GetAsync(TestContext.Current.CancellationToken);
         await pool.ReturnAsync(warmed);
 
         var surplusChannel = Substitute.For<IRabbitMQChannel>();
@@ -792,7 +792,7 @@ public class RabbitMQChannelPoolTests
 
         // Act
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        var channel = await pool.GetAsync();
+        var channel = await pool.GetAsync(TestContext.Current.CancellationToken);
 
         // Assert
         channel.ShouldNotBeNull();
@@ -818,7 +818,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // Act + Assert
         await Should.NotThrowAsync(async () => await pool.DisposeAsync());
@@ -836,7 +836,7 @@ public class RabbitMQChannelPoolTests
         var configuration = new RabbitMQClientConfiguration { ChannelCount = 1 };
 
         var pool = new RabbitMQChannelPool(configuration, connectionFactory);
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // Act + Assert
         await Should.NotThrowAsync(async () => await pool.DisposeAsync());
@@ -897,7 +897,7 @@ public class RabbitMQChannelPoolTests
         declareGate.SetResult(true);
 
         // Task.WaitAsync(TimeSpan) is .NET 6+; use Task.WhenAny for net48 compatibility.
-        var completed = await Task.WhenAny(disposed.Task, Task.Delay(TimeSpan.FromSeconds(2)));
+        var completed = await Task.WhenAny(disposed.Task, Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken));
         completed.ShouldBeSameAs(disposed.Task, "warm-up did not reach the orphan-dispose path within the timeout");
         await disposed.Task;
 
@@ -978,7 +978,7 @@ public class RabbitMQChannelPoolTests
 
         await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
 
-        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync(TestContext.Current.CancellationToken));
         ex.Message.ShouldContain("exhausted");
         ex.Message.ShouldContain("2");
     }
@@ -1020,7 +1020,7 @@ public class RabbitMQChannelPoolTests
 
         // The probe succeeds, the caller falls through to ReadAsync, and the refill task
         // eventually takes state back to Open.
-        var channel = await pool.GetAsync();
+        var channel = await pool.GetAsync(TestContext.Current.CancellationToken);
         channel.ShouldNotBeNull();
 
         await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
@@ -1055,14 +1055,14 @@ public class RabbitMQChannelPoolTests
         ExpireCooldown(pool);
 
         // First post-cooldown call triggers the probe. Probe fails → back to Broken.
-        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync(TestContext.Current.CancellationToken));
         pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Broken);
 
         // Probe used exactly one attempt on top of the pre-cooldown budget.
         Volatile.Read(ref attempts).ShouldBe(attemptsAfterExhaustion + 1);
 
         // Second post-cooldown call finds a FRESH cooldown and throws without probing.
-        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync(TestContext.Current.CancellationToken));
         Volatile.Read(ref attempts).ShouldBe(attemptsAfterExhaustion + 1);
     }
 
@@ -1107,7 +1107,7 @@ public class RabbitMQChannelPoolTests
         {
             try
             {
-                return await pool.GetAsync();
+                return await pool.GetAsync(TestContext.Current.CancellationToken);
             }
             catch (InvalidOperationException)
             {
@@ -1169,7 +1169,7 @@ public class RabbitMQChannelPoolTests
         await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Broken);
         ExpireCooldown(pool);
 
-        var probeCall = pool.GetAsync().AsTask();
+        var probeCall = pool.GetAsync(TestContext.Current.CancellationToken).AsTask();
 
         // Wait until the probe has entered CreateChannelAsync (attempt 3).
         await WaitForAsync(() => Volatile.Read(ref attempts) >= 3);
@@ -1292,7 +1292,7 @@ public class RabbitMQChannelPoolTests
 
         // Park a caller on ReadAsync BEFORE the pool has had time to reach Broken.
         // Pool is Warming; pool is empty; caller blocks.
-        var waiter = pool.GetAsync().AsTask();
+        var waiter = pool.GetAsync(TestContext.Current.CancellationToken).AsTask();
         pool.CurrentState.ShouldNotBe(RabbitMQChannelPool.PoolState.Broken);
 
         // Wait for warm-up to exhaust — this fires SignalUnhealthy after flipping state.
@@ -1424,7 +1424,7 @@ public class RabbitMQChannelPoolTests
         await WaitForAsync(() => Volatile.Read(ref attempts) >= 1 + configuration.WarmUpMaxRetries!.Value);
 
         // Give the exhaustion block a beat to run its CAS pair + guarded SignalUnhealthy.
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // State must still be Probing (both CAS no-op'd) and the signal must NOT have fired.
         pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Probing);
@@ -1464,7 +1464,7 @@ public class RabbitMQChannelPoolTests
         await pool.ReturnAsync(brokenChannel);
 
         // Give the refill task time to have run if it were going to.
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Volatile.Read(ref attempts).ShouldBe(attemptsAfterExhaustion);
         pool.CurrentState.ShouldBe(RabbitMQChannelPool.PoolState.Broken);
@@ -1516,7 +1516,7 @@ public class RabbitMQChannelPoolTests
         await WaitForAsync(() => Volatile.Read(ref created) > createdBeforeReturn);
 
         // Allow the cohort-completion block (including the gated reset) to run.
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // The opportunistic refill must NOT have reset the counter.
         var failuresAfter = (int)(failuresField.GetValue(pool) ?? throw new InvalidOperationException("_consecutiveFailures value was null."));
@@ -1563,7 +1563,7 @@ public class RabbitMQChannelPoolTests
         await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
 
         // Drain the pool so GetAsync would normally park on ReadAsync.
-        await pool.GetAsync();
+        await pool.GetAsync(TestContext.Current.CancellationToken);
 
         // Complete the writer in place, without setting _disposed. GetAsync's fast
         // path sees _disposed == 0 and falls through to ReadAsync, which throws
@@ -1574,7 +1574,7 @@ public class RabbitMQChannelPoolTests
             ?? throw new InvalidOperationException("_channels value was null.");
         channels.Writer.TryComplete();
 
-        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync());
+        var ex = await Should.ThrowAsync<InvalidOperationException>(async () => await pool.GetAsync(TestContext.Current.CancellationToken));
         ex.Message.ShouldContain("disposed");
 
         // Pool field state is intentionally inconsistent post-test — no DisposeAsync
@@ -1595,11 +1595,11 @@ public class RabbitMQChannelPoolTests
         var pool = new RabbitMQChannelPool(configuration, connectionFactory);
 
         await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
-        await pool.GetAsync(); // drain
+        await pool.GetAsync(TestContext.Current.CancellationToken); // drain
 
         using var cts = new CancellationTokenSource();
         var parked = pool.GetAsync(cts.Token).AsTask();
-        await Task.Delay(50); // let parked call reach ReadAsync
+        await Task.Delay(50, TestContext.Current.CancellationToken); // let parked call reach ReadAsync
 
         // Flip _disposed without running the real DisposeAsync. The when-filter in
         // GetAsync's catch re-reads this field when the OCE fires, and must see it
@@ -1631,10 +1631,10 @@ public class RabbitMQChannelPoolTests
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
 
         await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
-        await pool.GetAsync(); // drain so GetAsync parks on ReadAsync
+        await pool.GetAsync(TestContext.Current.CancellationToken); // drain so GetAsync parks on ReadAsync
 
-        var parked = pool.GetAsync().AsTask();
-        await Task.Delay(50);
+        var parked = pool.GetAsync(TestContext.Current.CancellationToken).AsTask();
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // Cancel the unhealthy CTS WITHOUT transitioning state.
         var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -1694,7 +1694,7 @@ public class RabbitMQChannelPoolTests
         await using var pool = new RabbitMQChannelPool(configuration, connectionFactory);
 
         await WaitForAsync(() => pool.CurrentState == RabbitMQChannelPool.PoolState.Open);
-        await pool.GetAsync(); // drain so a follow-on GetAsync would park on ReadAsync
+        await pool.GetAsync(TestContext.Current.CancellationToken); // drain so a follow-on GetAsync would park on ReadAsync
 
         var ctsField = typeof(RabbitMQChannelPool).GetField("_unhealthySignalCts", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("_unhealthySignalCts field not found.");
@@ -1785,8 +1785,8 @@ public class RabbitMQChannelPoolTests
         // mirrors the production post-outage state where the pool is exhausted
         // before the breaker trips. Without draining, the probe's TryWrite fails
         // on a full queue and the success path is never reached.
-        await pool.GetAsync();
-        await pool.GetAsync();
+        await pool.GetAsync(TestContext.Current.CancellationToken);
+        await pool.GetAsync(TestContext.Current.CancellationToken);
 
         // Force the pool into Broken with cooldown elapsed, mirroring the post-outage
         // state that HandleBrokenStateAsync's success path acts on.
@@ -1796,7 +1796,7 @@ public class RabbitMQChannelPoolTests
         // Run the probe directly. It writes 1 channel and spawns refill in the
         // background; we don't drain afterwards, so refill faces a pool that
         // already has 1/_size occupied — the exact race the bug exposes.
-        await pool.TestingInvokeHandleBrokenStateAsync(RabbitMQChannelPool.PoolState.Broken, default);
+        await pool.TestingInvokeHandleBrokenStateAsync(RabbitMQChannelPool.PoolState.Broken, TestContext.Current.CancellationToken);
 
         // With the bug present this WaitForAsync times out: refill orphans the (_size)th
         // channel, returns false from WarmUpSingleAsync, and exits before reaching the
@@ -1830,12 +1830,12 @@ public class RabbitMQChannelPoolTests
 
         // Drain so probe writes into an empty queue — same approach as the
         // ChannelCount > 1 sibling test.
-        await pool.GetAsync();
+        await pool.GetAsync(TestContext.Current.CancellationToken);
 
         pool.TestingSetState(RabbitMQChannelPool.PoolState.Broken);
         ExpireCooldown(pool);
 
-        await pool.TestingInvokeHandleBrokenStateAsync(RabbitMQChannelPool.PoolState.Broken, default);
+        await pool.TestingInvokeHandleBrokenStateAsync(RabbitMQChannelPool.PoolState.Broken, TestContext.Current.CancellationToken);
 
         await WaitForAsync(
             () => pool.CurrentState == RabbitMQChannelPool.PoolState.Open,

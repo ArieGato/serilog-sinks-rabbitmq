@@ -38,7 +38,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Error_LogWithExceptionAndProperties_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         using var logger = new LoggerConfiguration()
             .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
@@ -57,7 +57,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         JObject? receivedMessage = null;
 
@@ -68,11 +68,11 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
             return Task.CompletedTask;
         };
 
-        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer, cancellationToken: TestContext.Current.CancellationToken);
         logger.Error(new DivideByZeroException(), messageTemplate, 1.0, 0.0);
 
         // Wait for consumer to receive the message.
-        await Task.Delay(1000);
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
 
         try
         {
@@ -89,7 +89,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
             Assert.Fail(e.Message + " " + receivedMessage);
         }
 
-        await channel.CloseAsync();
+        await channel.CloseAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>
@@ -99,7 +99,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Debug_ThroughReadConfiguration_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         var configuration = new ConfigurationBuilder()
             .AddJsonFile("appsettings.without.levelswitch.json", false, true)
@@ -111,7 +111,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "This is a debug log message";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         JObject? receivedMessage = null;
 
@@ -122,11 +122,11 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
             return Task.CompletedTask;
         };
 
-        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer, cancellationToken: TestContext.Current.CancellationToken);
         logger.Debug(messageTemplate);
 
         // Wait for consumer to receive the message.
-        await Task.Delay(1000);
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
 
         try
         {
@@ -139,7 +139,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
             Assert.Fail(e.Message + " " + receivedMessage);
         }
 
-        await channel.CloseAsync();
+        await channel.CloseAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -148,11 +148,11 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
         const string logParallelMessageExchange = "log-parallel-message-exchange";
         const string logParallelMessageQueue = "log-parallel-message-queue";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
-        await channel.ExchangeDeclareAsync(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true);
-        await channel.QueueDeclareAsync(logParallelMessageQueue, true, false, false);
-        await channel.QueueBindAsync(logParallelMessageQueue, logParallelMessageExchange, string.Empty);
+        await channel.ExchangeDeclareAsync(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true, cancellationToken: TestContext.Current.CancellationToken);
+        await channel.QueueDeclareAsync(logParallelMessageQueue, true, false, false, cancellationToken: TestContext.Current.CancellationToken);
+        await channel.QueueBindAsync(logParallelMessageQueue, logParallelMessageExchange, string.Empty, cancellationToken: TestContext.Current.CancellationToken);
 
         var config = new RabbitMQClientConfiguration
         {
@@ -195,18 +195,18 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
             }
         });
 
-        while (await channel.MessageCountAsync(logParallelMessageQueue) < 10000)
+        while (await channel.MessageCountAsync(logParallelMessageQueue, cancellationToken: TestContext.Current.CancellationToken) < 10000)
         {
             if (watch.ElapsedMilliseconds > 10000)
             {
                 Assert.Fail("Timeout waiting for messages to be published. Maybe messages are lost");
             }
 
-            await Task.Delay(200);
+            await Task.Delay(200, TestContext.Current.CancellationToken);
         }
 
         watch.Stop();
 
-        await channel.CloseAsync();
+        await channel.CloseAsync(TestContext.Current.CancellationToken);
     }
 }

@@ -285,7 +285,7 @@ public class RabbitMQConnectionFactoryTests
 
         await sut.CloseAsync();
 
-        await connection.Received(1).CloseAsync();
+        await connection.Received(1).CloseAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -330,7 +330,7 @@ public class RabbitMQConnectionFactoryTests
         // than the regression guard.
         await sut.CloseAsync();
         semaphore.CurrentCount.ShouldBe(1);
-        await connection.Received(2).CloseAsync();
+        await connection.Received(2).CloseAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -343,7 +343,7 @@ public class RabbitMQConnectionFactoryTests
 
         await sut.DisposeAsync();
 
-        await connection.Received(1).CloseAsync();
+        await connection.Received(1).CloseAsync(Arg.Any<CancellationToken>());
         connection.Received(1).Dispose();
     }
 

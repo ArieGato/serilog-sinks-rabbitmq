@@ -2,13 +2,14 @@
 
   <PropertyGroup>
     <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="PublicApiGenerator" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <PackageReference Include="coverlet.msbuild" PrivateAssets="all" />
     <PackageReference Include="Shouldly" />

@@ -34,11 +34,11 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Publish_SingleMessage_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         string message = Guid.NewGuid().ToString();
 
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         string? receivedMessage = null;
 
@@ -49,15 +49,15 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
             return Task.CompletedTask;
         };
 
-        await consumingChannel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        await consumingChannel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer, cancellationToken: TestContext.Current.CancellationToken);
         await _rabbitMQFixture.PublishAsync(message);
 
         // Wait for consumer to receive the message.
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         receivedMessage.ShouldBe(message);
 
-        await consumingChannel.CloseAsync();
+        await consumingChannel.CloseAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>
@@ -67,11 +67,11 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Publish_BulkMessages_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         string message = Guid.NewGuid().ToString();
 
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         string? receivedMessage = null;
 
@@ -83,7 +83,7 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
         };
 
         // start consuming queue
-        await consumingChannel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer);
+        await consumingChannel.BasicConsumeAsync(RabbitMQFixture.SerilogSinkQueueName, autoAck: true, consumer, cancellationToken: TestContext.Current.CancellationToken);
 
         for (int i = 0; i < 100; i++)
         {
@@ -91,11 +91,11 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
         }
 
         // Wait for consumer to receive the message.
-        await Task.Delay(1000);
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
 
         receivedMessage.ShouldBe(message);
 
-        await consumingChannel.CloseAsync();
+        await consumingChannel.CloseAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -117,20 +117,20 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
         await rabbitMQClient.PublishAsync("a message"u8.ToArray(), new BasicProperties());
 
         //// wait for message sent
-        // await Task.Delay(1000);
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        // await Task.Delay(1000, TestContext.Current.CancellationToken);
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         try
         {
             // should not throw
-            await consumingChannel.ExchangeDeclarePassiveAsync("auto-created-exchange-name");
+            await consumingChannel.ExchangeDeclarePassiveAsync("auto-created-exchange-name", cancellationToken: TestContext.Current.CancellationToken);
         }
         finally
         {
-            await consumingChannel.ExchangeDeleteAsync("auto-created-exchange-name");
+            await consumingChannel.ExchangeDeleteAsync("auto-created-exchange-name", cancellationToken: TestContext.Current.CancellationToken);
         }
 
-        await consumingChannel.CloseAsync();
+        await consumingChannel.CloseAsync(TestContext.Current.CancellationToken);
         await rabbitMQClient.CloseAsync();
     }
 
@@ -167,7 +167,7 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
         });
 
         // Add some delay to ensure all messages are published before the exchange is deleted
-        await Task.Delay(1000);
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
 
         await rabbitMQClient.CloseAsync();
     }

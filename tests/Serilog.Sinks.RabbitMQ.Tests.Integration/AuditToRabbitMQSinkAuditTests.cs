@@ -36,7 +36,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
     [Fact]
     public async Task Error_LogWithExceptionAndProperties_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         const string messageTemplate = "Audit entry with {value}";
 
@@ -58,7 +58,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
 
         logger.Information(messageTemplate, 1.0);
 
-        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         JObject? receivedMessage = null;
 
@@ -68,11 +68,11 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
             receivedMessage = JObject.Parse(Encoding.UTF8.GetString(eventArgs.Body.ToArray()));
             return Task.CompletedTask;
         };
-        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogAuditSinkQueueName, autoAck: true, consumer);
+        await channel.BasicConsumeAsync(RabbitMQFixture.SerilogAuditSinkQueueName, autoAck: true, consumer, cancellationToken: TestContext.Current.CancellationToken);
         logger.Information(messageTemplate, 1.0);
 
         // Wait for consumer to receive the message.
-        await Task.Delay(200);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
 
         receivedMessage.ShouldNotBeNull();
         receivedMessage["Level"].ShouldBe("Information");
@@ -80,7 +80,7 @@ public sealed class AuditToRabbitMQSinkAuditTests : IClassFixture<RabbitMQFixtur
         receivedMessage["Properties"].ShouldNotBeNull();
         ((double)receivedMessage["Properties"]!["value"]!).ShouldBe(1.0);
 
-        await channel.CloseAsync();
+        await channel.CloseAsync(TestContext.Current.CancellationToken);
         logger.Dispose();
     }
 }

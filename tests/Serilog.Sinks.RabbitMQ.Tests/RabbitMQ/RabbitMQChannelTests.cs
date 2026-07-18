@@ -30,7 +30,7 @@ public class RabbitMQChannelTests
         await sut.DisposeAsync();
 
         // Assert
-        await channel.Received(1).CloseAsync();
+        await channel.Received(1).CloseAsync(Arg.Any<CancellationToken>());
         channel.Received(1).Dispose();
     }
 
@@ -67,6 +67,6 @@ public class RabbitMQChannelTests
 
         // Assert
         var actual = Arg.Is<BasicProperties>(p => p!.AppId == basicProperties.AppId);
-        await channel.Received(1).BasicPublishAsync(address, actual, body);
+        await channel.Received(1).BasicPublishAsync(address, actual, body, Arg.Any<CancellationToken>());
     }
 }
