@@ -17,7 +17,6 @@
 using Serilog.Debugging;
 using Serilog.Events;
 using Testcontainers.RabbitMq;
-using Xunit.Abstractions;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
@@ -44,9 +43,9 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
         _output = output;
     }
 
-    public Task InitializeAsync() => _container.StartAsync();
+    public ValueTask InitializeAsync() => new(_container.StartAsync());
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public ValueTask DisposeAsync() => _container.DisposeAsync();
 
     [Theory]
     [InlineData(false)]
@@ -105,9 +104,9 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
 
             // Allow the warm-up batch to flush before killing the broker, so we know the
             // fallback file's contents come from POST-outage batches only.
-            await Task.Delay(750);
+            await Task.Delay(750, TestContext.Current.CancellationToken);
 
-            await _container.StopAsync();
+            await _container.StopAsync(TestContext.Current.CancellationToken);
 
             // Drive enough events that BatchPostingLimit (=5) triggers multiple batches.
             // Each batch's PublishAsync now fails (broker socket dead); EmitBatchAsync
@@ -127,13 +126,13 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
             logger.Dispose();
 
             // Allow the File sink to flush its writer before we read.
-            await Task.Delay(2000);
+            await Task.Delay(2000, TestContext.Current.CancellationToken);
 
             _output.WriteLine("SelfLog output:\n" + selfLog);
 
             System.IO.File.Exists(fallbackPath).ShouldBeTrue($"fallback file '{fallbackPath}' must exist after broker outage");
 
-            var lines = await System.IO.File.ReadAllLinesAsync(fallbackPath);
+            var lines = await System.IO.File.ReadAllLinesAsync(fallbackPath, TestContext.Current.CancellationToken);
             _output.WriteLine($"fallback file line count: {lines.Length}");
             foreach (var line in lines.Take(5))
             {

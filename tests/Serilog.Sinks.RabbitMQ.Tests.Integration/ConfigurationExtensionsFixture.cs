@@ -37,8 +37,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             .CreateLogger();
 
         await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
-        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
-        await cleanupChannel.CloseAsync();
+        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange", cancellationToken: TestContext.Current.CancellationToken);
+        await cleanupChannel.CloseAsync(TestContext.Current.CancellationToken);
 
         // should not throw
         logger.Dispose();
@@ -52,8 +52,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             .CreateLogger();
 
         await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
-        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange");
-        await cleanupChannel.CloseAsync();
+        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange", cancellationToken: TestContext.Current.CancellationToken);
+        await cleanupChannel.CloseAsync(TestContext.Current.CancellationToken);
 
         // should not throw
         logger.Dispose();
@@ -67,8 +67,8 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
             .CreateLogger();
 
         await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
-        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-audit-exchange");
-        await cleanupChannel.CloseAsync();
+        await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-audit-exchange", cancellationToken: TestContext.Current.CancellationToken);
+        await cleanupChannel.CloseAsync(TestContext.Current.CancellationToken);
 
         // should not throw
         logger.Dispose();
@@ -282,7 +282,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         // Actually log something to trigger the exchange creation
         logger.Information("Some text");
 
-        await Task.Delay(1000); // wait batch execution
+        await Task.Delay(1000, TestContext.Current.CancellationToken); // wait batch execution
 
         // should not throw
         logger.Dispose();

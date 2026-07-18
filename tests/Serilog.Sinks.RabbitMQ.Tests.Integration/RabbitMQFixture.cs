@@ -17,7 +17,7 @@ using System.Security.Authentication;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
-public class RabbitMQFixture : IDisposable
+public class RabbitMQFixture : IAsyncDisposable
 {
     public const string UserName = "serilog";
     public const string Password = "serilog";
@@ -107,7 +107,7 @@ public class RabbitMQFixture : IDisposable
         await Task.Delay(500);
     }
 
-    public void Dispose() => AsyncHelpers.RunSync(CleanupAsync);
+    public async ValueTask DisposeAsync() => await CleanupAsync();
 
     public async Task CleanupAsync()
     {
