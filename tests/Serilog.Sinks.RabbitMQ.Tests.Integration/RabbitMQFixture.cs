@@ -84,50 +84,50 @@ public class RabbitMQFixture : IAsyncDisposable
             },
         };
 
-    public async Task InitializeAsync(string? exchangeName = null)
+    public async Task InitializeAsync(string? exchangeName = null, CancellationToken cancellationToken = default)
     {
         // Initialize the exchanges and queues.
-        await using var channel = await GetConsumingChannelAsync();
+        await using var channel = await GetConsumingChannelAsync(cancellationToken);
 
-        await channel.ExchangeDeclareAsync(SerilogSinkExchange, SerilogSinkExchangeType, true);
-        await channel.QueueDeclareAsync(SerilogSinkQueueName, true, false, false);
-        await channel.QueueBindAsync(SerilogSinkQueueName, SerilogSinkExchange, string.Empty);
+        await channel.ExchangeDeclareAsync(SerilogSinkExchange, SerilogSinkExchangeType, true, cancellationToken: cancellationToken);
+        await channel.QueueDeclareAsync(SerilogSinkQueueName, true, false, false, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(SerilogSinkQueueName, SerilogSinkExchange, string.Empty, cancellationToken: cancellationToken);
 
-        await channel.ExchangeDeclareAsync(SerilogAuditSinkExchange, SerilogAuditSinkExchangeType, true);
-        await channel.QueueDeclareAsync(SerilogAuditSinkQueueName, true, false, false);
-        await channel.QueueBindAsync(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, string.Empty);
+        await channel.ExchangeDeclareAsync(SerilogAuditSinkExchange, SerilogAuditSinkExchangeType, true, cancellationToken: cancellationToken);
+        await channel.QueueDeclareAsync(SerilogAuditSinkQueueName, true, false, false, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(SerilogAuditSinkQueueName, SerilogAuditSinkExchange, string.Empty, cancellationToken: cancellationToken);
 
         if (!string.IsNullOrEmpty(exchangeName))
         {
-            await channel.ExchangeDeclareAsync(exchangeName!, SerilogSinkExchangeType, true);
+            await channel.ExchangeDeclareAsync(exchangeName!, SerilogSinkExchangeType, true, cancellationToken: cancellationToken);
         }
 
-        await channel.CloseAsync();
+        await channel.CloseAsync(cancellationToken);
 
-        await Task.Delay(500);
+        await Task.Delay(500, cancellationToken);
     }
 
-    public async ValueTask DisposeAsync() => await CleanupAsync();
+    public async ValueTask DisposeAsync() => await CleanupAsync(TestContext.Current.CancellationToken);
 
-    public async Task CleanupAsync()
+    public async Task CleanupAsync(CancellationToken cancellationToken = default)
     {
         // Always cleanup the exchanges and queues.
-        _consumingConnection ??= await _connectionFactory.CreateConnectionAsync();
+        _consumingConnection ??= await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var channel = await _consumingConnection.CreateChannelAsync();
+        var channel = await _consumingConnection.CreateChannelAsync(cancellationToken: cancellationToken);
 
-        await channel.QueueDeleteAsync(SerilogSinkQueueName);
-        await channel.ExchangeDeleteAsync(SerilogSinkExchange);
+        await channel.QueueDeleteAsync(SerilogSinkQueueName, cancellationToken: cancellationToken);
+        await channel.ExchangeDeleteAsync(SerilogSinkExchange, cancellationToken: cancellationToken);
 
-        await channel.QueueDeleteAsync(SerilogAuditSinkQueueName);
-        await channel.ExchangeDeleteAsync(SerilogAuditSinkExchange);
+        await channel.QueueDeleteAsync(SerilogAuditSinkQueueName, cancellationToken: cancellationToken);
+        await channel.ExchangeDeleteAsync(SerilogAuditSinkExchange, cancellationToken: cancellationToken);
 
-        await channel.CloseAsync();
+        await channel.CloseAsync(cancellationToken);
         channel.Dispose();
 
         if (_consumingConnection is not null)
         {
-            await _consumingConnection.CloseAsync();
+            await _consumingConnection.CloseAsync(cancellationToken);
         }
 
         _consumingConnection?.Dispose();
@@ -138,15 +138,15 @@ public class RabbitMQFixture : IAsyncDisposable
     public Task PublishAsync(string message) => _rabbitMQClient.PublishAsync(Encoding.UTF8.GetBytes(message), new BasicProperties());
 
     // The IChannel is not disposed automatically, so the calling member is responsible for disposing it.
-    public async Task<IChannel> GetConsumingChannelAsync()
+    public async Task<IChannel> GetConsumingChannelAsync(CancellationToken cancellationToken = default)
     {
         int counter = 0;
         while (true)
         {
             try
             {
-                _consumingConnection ??= await _connectionFactory.CreateConnectionAsync();
-                return await _consumingConnection.CreateChannelAsync();
+                _consumingConnection ??= await _connectionFactory.CreateConnectionAsync(cancellationToken);
+                return await _consumingConnection.CreateChannelAsync(cancellationToken: cancellationToken);
             }
             catch (BrokerUnreachableException)
             {
@@ -155,7 +155,7 @@ public class RabbitMQFixture : IAsyncDisposable
                     throw new Exception("Failed to connect to RabbitMQ.");
                 }
 
-                await Task.Delay(1000);
+                await Task.Delay(1000, cancellationToken);
             }
         }
     }

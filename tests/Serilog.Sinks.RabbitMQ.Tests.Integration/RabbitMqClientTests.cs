@@ -34,11 +34,11 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Publish_SingleMessage_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         string message = Guid.NewGuid().ToString();
 
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         string? receivedMessage = null;
 
@@ -67,11 +67,11 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Publish_BulkMessages_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         string message = Guid.NewGuid().ToString();
 
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         string? receivedMessage = null;
 
@@ -118,7 +118,7 @@ public sealed class RabbitMQClientTests : IClassFixture<RabbitMQFixture>
 
         //// wait for message sent
         // await Task.Delay(1000, TestContext.Current.CancellationToken);
-        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var consumingChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         try
         {

@@ -38,7 +38,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Error_LogWithExceptionAndProperties_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         using var logger = new LoggerConfiguration()
             .WriteTo.RabbitMQ((clientConfiguration, sinkConfiguration) =>
@@ -57,7 +57,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "Denominator cannot be zero in {numerator}/{denominator}";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         JObject? receivedMessage = null;
 
@@ -99,7 +99,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
     [Fact]
     public async Task Debug_ThroughReadConfiguration_ConsumerReceivesMessage()
     {
-        await _rabbitMQFixture.InitializeAsync();
+        await _rabbitMQFixture.InitializeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         var configuration = new ConfigurationBuilder()
             .AddJsonFile("appsettings.without.levelswitch.json", false, true)
@@ -111,7 +111,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
 
         const string messageTemplate = "This is a debug log message";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         JObject? receivedMessage = null;
 
@@ -148,7 +148,7 @@ public sealed class WriteToRabbitMQSinkTests : IClassFixture<RabbitMQFixture>
         const string logParallelMessageExchange = "log-parallel-message-exchange";
         const string logParallelMessageQueue = "log-parallel-message-queue";
 
-        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var channel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
 
         await channel.ExchangeDeclareAsync(logParallelMessageExchange, RabbitMQFixture.SerilogSinkExchangeType, true, cancellationToken: TestContext.Current.CancellationToken);
         await channel.QueueDeclareAsync(logParallelMessageQueue, true, false, false, cancellationToken: TestContext.Current.CancellationToken);

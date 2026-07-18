@@ -36,7 +36,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "W")
             .CreateLogger();
 
-        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
         await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange", cancellationToken: TestContext.Current.CancellationToken);
         await cleanupChannel.CloseAsync(TestContext.Current.CancellationToken);
 
@@ -51,7 +51,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "H")
             .CreateLogger();
 
-        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
         await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-exchange", cancellationToken: TestContext.Current.CancellationToken);
         await cleanupChannel.CloseAsync(TestContext.Current.CancellationToken);
 
@@ -66,7 +66,7 @@ public class ConfigurationExtensionsFixture : IClassFixture<RabbitMQFixture>
         var logger = loggerConfiguration.ReadFrom.AppSettings(settingPrefix: "A")
             .CreateLogger();
 
-        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync();
+        await using var cleanupChannel = await _rabbitMQFixture.GetConsumingChannelAsync(TestContext.Current.CancellationToken);
         await cleanupChannel.ExchangeDeleteAsync("serilog-settings-sink-audit-exchange", cancellationToken: TestContext.Current.CancellationToken);
         await cleanupChannel.CloseAsync(TestContext.Current.CancellationToken);
 
