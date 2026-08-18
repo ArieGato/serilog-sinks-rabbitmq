@@ -31,7 +31,9 @@ public sealed class FallbackChainOutageTests : IAsyncLifetime
     private const string Username = "guest";
     private const string Password = "guest";
 
-    private readonly RabbitMqContainer _container = new RabbitMqBuilder("rabbitmq:4.2.2")
+    // Keep this image tag in step with docker-compose.yml's brokers. The management
+    // plugin isn't needed here, so this uses the plain tag.
+    private readonly RabbitMqContainer _container = new RabbitMqBuilder("rabbitmq:4.3.4")
         .WithUsername(Username)
         .WithPassword(Password)
         .Build();

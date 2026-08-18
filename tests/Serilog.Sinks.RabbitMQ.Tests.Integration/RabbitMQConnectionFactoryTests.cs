@@ -17,6 +17,11 @@ using System.Security.Authentication;
 
 namespace Serilog.Sinks.RabbitMQ.Tests.Integration;
 
+// Joins the "Sequential" collection: these tests connect using RabbitMQFixture's shared
+// exchange (SerilogSinkExchange), which RabbitMQFixture.CleanupAsync deletes on dispose.
+// Left in its own collection, this class runs in parallel with the fixture-owning classes
+// and can observe the exchange mid-teardown.
+[Collection("Sequential")]
 public class RabbitMQConnectionFactoryTests
 {
     [Fact]
