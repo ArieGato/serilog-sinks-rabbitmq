@@ -475,3 +475,60 @@ renamed to `channelCount`. Update appsettings JSON / `App.config` keys from `max
   failure-sink-free counterparts to the removed `failureSinkConfiguration` overloads).
 - `warmUpMaxRetries` parameter on the `WriteTo.RabbitMQ` / `AuditTo.RabbitMQ` flat
   overloads.
+
+## Unreleased
+
+### Dependency updates
+
+Shipped package dependencies:
+
+- `RabbitMQ.Client` 7.2.1 → 7.2.2
+- `System.Threading.Channels` 10.0.10 → 10.0.11 (`netstandard2.0` build only)
+
+Build/test-only dependencies: `Microsoft.Extensions.Configuration.*` 10.0.11,
+`NSubstitute` 6.2.0, `Testcontainers.RabbitMq` 4.14.0, `System.Text.Json` 10.0.11,
+`actions/setup-dotnet` v6.
+
+`Testcontainers.RabbitMq` 4.14.0 is a security fix as well: 4.13.0 pulled in
+`SSH.NET` 2025.1.0, which carries the high-severity advisory
+[GHSA-q939-rpr3-3284](https://github.com/advisories/GHSA-q939-rpr3-3284). 4.14.0
+brings `SSH.NET` 2026.0.0 and the vulnerable-package gate passes again.
+
+### Test infrastructure — migrated from VSTest to Microsoft.Testing.Platform
+
+`xunit.v3` 4.0.0 no longer supports VSTest on the .NET 10 SDK, so the test projects
+now run on Microsoft.Testing.Platform (MTP). Contributor-facing only — no public API
+or runtime behaviour change.
+
+- [global.json](global.json) (new) opts `dotnet test` into MTP via
+  `"test": { "runner": "Microsoft.Testing.Platform" }`.
+- `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` package references are gone.
+- Coverage moved from `coverlet.msbuild` (opencover, `-p:CollectCoverage=true`) to
+  `Microsoft.Testing.Extensions.CodeCoverage` (cobertura,
+  `--coverage --coverage-output-format cobertura`). Codecov now consumes
+  `out/.coverage/*.cobertura.xml`.
+- `dotnet test --filter` no longer exists; use `--filter-query` (xunit query filter
+  language) or `--filter-class` / `--filter-method`.
+- `-p:TestTfmsInParallel=false` is a VSTest-era property that MTP ignores; CI now passes
+  `--max-parallel-test-modules 1` to keep test modules running one at a time.
+
+### Fixed a race in the integration test fixture
+
+`RabbitMQConnectionFactoryTests` connects using `RabbitMQFixture`'s shared
+`SerilogSinkExchange`, but was not part of the `"Sequential"` xunit collection that the
+four fixture-owning test classes share. It therefore ran in parallel with them while
+`RabbitMQFixture.CleanupAsync` deletes that exchange on dispose, so the exchange could be
+observed mid-teardown. The class now joins the `"Sequential"` collection.
+
+This is a pre-existing fragility unrelated to the MTP migration.
+
+### Test brokers
+
+- `docker-compose.yml` moves to `rabbitmq:4.3.4-management` (latest at time of writing).
+- `FallbackChainOutageTests`' Testcontainers broker was pinned to `rabbitmq:4.2.2` while
+  compose ran a 4.3.x image; it now tracks the same version (`rabbitmq:4.3.4`, plain tag —
+  the management plugin isn't needed there).
+- The compose healthcheck is now `rabbitmq-diagnostics -q check_running` with
+  `timeout: 10s` / `start_period: 15s`. The previous `rabbitmqctl status` check with
+  `timeout: 1s` never went healthy on the 4.3.x images — the Erlang CLI tools take
+  ~1–1.5s per invocation, so `docker compose up --wait` failed.
