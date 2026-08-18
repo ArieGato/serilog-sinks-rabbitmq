@@ -20,9 +20,12 @@ dotnet format --no-restore --verify-no-changes --severity warn
 # Unit tests only, single TFM (fastest dev loop)
 dotnet test tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.csproj --framework net10.0
 
-# Single test by name
+# Single test by name. Under Microsoft.Testing.Platform the VSTest `--filter` option is
+# gone: use `--filter-query` (xunit query filter language, /assembly/namespace/class/method)
+# or the simple filters `--filter-class` / `--filter-method`.
 dotnet test tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.csproj \
-  --framework net10.0 --filter FullyQualifiedName~RabbitMQChannelPoolTests.WarmUp_RetriesAfterTransientFailure
+  --framework net10.0 \
+  --filter-query '/*/*/RabbitMQChannelPoolTests/WarmUp_RetriesAfterTransientFailure'
 
 # Integration tests (need brokers — see below)
 docker compose up -d
@@ -33,13 +36,15 @@ dotnet test tests/Serilog.Sinks.RabbitMQ.Tests.Integration/Serilog.Sinks.RabbitM
 # so you don't record a commit that needs a follow-up coverage fix.
 dotnet test tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.csproj \
   --framework net10.0 -c Release \
-  -p:CollectCoverage=true -p:CoverletOutputFormat=opencover \
-  -p:CoverletOutput=./out/.coverage/
-# Inspect out/.coverage/coverage.net10.0.opencover.xml for any SequencePoint/BranchPoint
-# with vc="0" in methods you added or touched. Add tests until there are none.
+  --coverage --coverage-output-format cobertura --results-directory ./out/.coverage
+# Coverage comes from Microsoft.Testing.Extensions.CodeCoverage. Without an explicit
+# --coverage-output the file is named <guid>.cobertura.xml, so each test project gets its
+# own file (Codecov globs them). Inspect out/.coverage/*.cobertura.xml for any <line>
+# with hits="0" (or a partial condition-coverage) in methods you added or touched.
+# Add tests until there are none.
 ```
 
-Two RabbitMQ brokers come up via [docker-compose.yml](docker-compose.yml): `rabbitmq-plain` on 5672/6672 and `rabbitmq-cert` on 5671. Test fixtures wait for `rabbitmqctl status`.
+Two RabbitMQ brokers come up via [docker-compose.yml](docker-compose.yml): `rabbitmq-plain` on 5672/6672 and `rabbitmq-cert` on 5671. The compose healthcheck runs `rabbitmq-diagnostics -q check_running` with a 10s timeout — the Erlang CLI tools need ~1-1.5s per invocation, so the old `rabbitmqctl status` check with `timeout: 1s` failed permanently on the 4.3.x images.
 
 ```bash
 # Vulnerable-package scan (direct + transitive). `dotnet list package --vulnerable`
@@ -48,7 +53,7 @@ Two RabbitMQ brokers come up via [docker-compose.yml](docker-compose.yml): `rabb
 dotnet restore && bash scripts/check-vulnerable-packages.sh
 ```
 
-`net48` tests are intentionally skipped on Linux CI — `coverlet.msbuild` 10.x emits IL Mono can't load. Windows CI still validates net48. Locally, run net48 only on Windows or via `--framework net8.0|net10.0`.
+`net48` tests are intentionally skipped on Linux CI — Microsoft.Testing.Platform runs the net48 test executable through Mono, which isn't available on the runners (or locally). Windows CI still validates net48. Locally, run net48 only on Windows or use `--framework net8.0|net10.0`.
 
 ## Pre-commit checklist
 
@@ -57,7 +62,7 @@ Before `git commit`:
 1. `dotnet build -c Release --no-restore` on all TFMs (catches net48 API mismatches that only surface at build time).
 2. Full unit test suite on **net10.0 AND net8.0** (no `--filter`; parallel-class races sometimes only show up in the full run).
 3. `dotnet format --no-restore --verify-no-changes --severity warn` — CI gate.
-4. **Code coverage** on any method you added or modified in `src/` — see the coverlet command above. Zero uncovered lines/branches on new code.
+4. **Code coverage** on any method you added or modified in `src/` — see the `--coverage` command above. Zero uncovered lines/branches on new code.
 5. For integration-test-touching changes: run integration tests on net10.0 against the docker-compose brokers.
 6. **Update [CHANGELOG.md](CHANGELOG.md) and [README.md](README.md) whenever the change is user-visible** — new/changed/removed public API, behaviour changes, new configuration options, migration notes, or anything a consumer would need to read about before upgrading. Pure internals / test-only changes don't require updates, but default to updating when in doubt. For breaking changes, extend the `Migrating to X.Y.Z` section in README.
 
@@ -104,7 +109,7 @@ Almost everything except `RabbitMQSink`, `RabbitMQClientConfiguration`, `RabbitM
 - **StyleCop** runs with `documentInternalElements: false` (see [stylecop.json](stylecop.json)) — internal members do not need XML docs in general, but interface implementations exposed via `InternalsVisibleTo` are still flagged. Use `/// <inheritdoc />` rather than re-documenting the interface.
 - **CodeQL `cs/catch-of-all-exceptions`** is configured as `note` severity. The one accepted suppression is on `RabbitMQChannelPool.WarmUpAsync` — broad catch is intentional so transient broker errors don't take the sink down. New broad catches need a similar justification.
 - **Naming**: private fields use `_camelCase`; constants are `UPPER_CASE` (see [.editorconfig](.editorconfig)); async methods must end in `Async`.
-- **`coverlet.msbuild`** must stay on a version compatible with Mono if/when net48 testing returns to Linux. Currently pinned at 10.x and Linux net48 is excluded in [.github/workflows/tests.yml](.github/workflows/tests.yml).
+- **Test runner is Microsoft.Testing.Platform (MTP)**, not VSTest. xunit.v3 4.x dropped VSTest support on the .NET 10 SDK, so [global.json](global.json) opts in via `"test": { "runner": "Microsoft.Testing.Platform" }`. Consequences: no `Microsoft.NET.Test.Sdk` / `xunit.runner.visualstudio` package references, coverage comes from `Microsoft.Testing.Extensions.CodeCoverage` (cobertura) instead of `coverlet.msbuild` (opencover), and `dotnet test --filter` is replaced by `--filter-query` / `--filter-class` / `--filter-method`. Test projects stay `<OutputType>Exe</OutputType>`.
 - **Per CONTRIBUTING.md**: every PR must reference an issue and target `master`.
 
 ## Useful pointers

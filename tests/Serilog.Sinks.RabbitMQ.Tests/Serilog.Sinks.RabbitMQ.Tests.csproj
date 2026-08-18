@@ -8,10 +8,8 @@
   <ItemGroup>
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="PublicApiGenerator" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
-    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
-    <PackageReference Include="coverlet.msbuild" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="Shouldly" />
   </ItemGroup>
 

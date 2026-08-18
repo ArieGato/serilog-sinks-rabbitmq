@@ -3,5 +3,6 @@
 obj/
 bin/
 out/
+TestResults/
 *.user
 settings.local.json

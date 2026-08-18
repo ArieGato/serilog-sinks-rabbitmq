@@ -30,7 +30,7 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         shell: pwsh
         run: |
-          docker compose up --quiet-pull --wait --wait-timeout 30
+          docker compose up --quiet-pull --wait --wait-timeout 120
           if ($LASTEXITCODE -eq 0) {
               Write-Host "RabbitMQ services successfully started"
           }
@@ -41,7 +41,7 @@ jobs:
           }
 
       - name: Setup .NET SDKs
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
@@ -64,23 +64,23 @@ jobs:
       - name: Build solution [Debug]
         run: dotnet build --no-restore -c Debug
 
-      # net48 is skipped on Linux because Mono cannot load the IL produced by
-      # coverlet.msbuild 10's instrumentation tracker. Windows still tests net48.
+      # net48 is skipped on Linux because Microsoft.Testing.Platform runs the
+      # net48 test executable through Mono. Windows still tests net48 natively.
       - name: Test solution [Debug]
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
-          dotnet test --framework net8.0 --no-restore --no-build -p:TestTfmsInParallel=false -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
-          dotnet test --framework net10.0 --no-restore --no-build -p:TestTfmsInParallel=false -p:CollectCoverage=true -p:CoverletOutputFormat=opencover -p:CoverletOutput=out/.coverage/
+          dotnet test --framework net8.0 --no-restore --no-build --max-parallel-test-modules 1 --coverage --coverage-output-format cobertura --results-directory out/.coverage
+          dotnet test --framework net10.0 --no-restore --no-build --max-parallel-test-modules 1 --coverage --coverage-output-format cobertura --results-directory out/.coverage
 
       - name: Test solution [Debug/Windows]
         if: ${{ startsWith(matrix.os, 'windows') }}
-        run: dotnet test --no-restore --no-build -p:TestTfmsInParallel=false --filter FullyQualifiedName\!~Serilog.Sinks.RabbitMQ.Tests.Integration
+        run: dotnet test tests/Serilog.Sinks.RabbitMQ.Tests/Serilog.Sinks.RabbitMQ.Tests.csproj --no-restore --no-build --max-parallel-test-modules 1
 
       - name: Upload coverage reports to Codecov
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         uses: codecov/codecov-action@v7
         with:
-          files: out/.coverage/*.opencover.xml
+          files: out/.coverage/*.cobertura.xml
           token: ${{ secrets.CODECOV_TOKEN }} # required
 
   buildcheck:
