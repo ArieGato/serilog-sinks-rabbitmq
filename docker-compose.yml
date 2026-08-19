@@ -1,7 +1,7 @@
 services:
   rabbitmq-cert:
     container_name: serilog.sinks.rabbitmq.ssl-cert
-    image: rabbitmq:4.3.4-management
+    image: rabbitmq:4.3.5-management
     healthcheck:
       test: rabbitmq-diagnostics -q check_running
       interval: 5s
@@ -22,7 +22,7 @@ services:
 
   rabbitmq-plain:
     container_name: serilog.sinks.rabbitmq.ssl-plain
-    image: rabbitmq:4.3.4-management
+    image: rabbitmq:4.3.5-management
     healthcheck:
       test: rabbitmq-diagnostics -q check_running
       interval: 5s
