@@ -25,6 +25,16 @@
 
   <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests'))">
     <NoWarn>$(NoWarn);CS1591;SA1600</NoWarn>
+    <!--
+      Keep absolute source paths in test assemblies. ContinuousIntegrationBuild rewrites them
+      to /_/... and Shouldly's ShouldMatchApproved locates the .approved.txt file from the
+      stack frame's source path. Shouldly reverses the mapping through the
+      SHOULDLY_SOURCE_PATH_MAP environment variable, but the targets that set it only hook
+      the VSTest target, which Microsoft.Testing.Platform never runs — so the approval test
+      would fail on CI with "Unable to resolve source file from deterministic build source
+      path". Test assemblies are not shipped, so deterministic paths buy us nothing here.
+    -->
+    <DeterministicSourcePaths>false</DeterministicSourcePaths>
   </PropertyGroup>
 
   <ItemGroup>

@@ -263,6 +263,26 @@ public class LoggerConfigurationRabbitMQExtensionsTests
     }
 
     [Fact]
+    public void WriteTo_RabbitMQ_FlatOverload_ForwardsExplicitRetryTimeLimit()
+    {
+        // The sibling test above omits retryTimeLimit, so it only exercises the null side
+        // of `retryTimeLimit ?? DEFAULT_RETRY_TIME_LIMIT`. This one passes a value, covering
+        // the other side. The mapping itself is asserted in
+        // BuildWriteToConfigurations_MapsEveryOption_WhenAllSet; here the point is that the
+        // public overload accepts an explicit limit and still registers a sink.
+        using var logger = new LoggerConfiguration()
+            .WriteTo.RabbitMQ(
+                hostnames: ["localhost"],
+                username: "guest",
+                password: "guest",
+                retryTimeLimit: TimeSpan.FromMinutes(2),
+                channelCount: 1)
+            .CreateLogger();
+
+        logger.ShouldNotBeNull();
+    }
+
+    [Fact]
     public void AuditTo_RabbitMQ_FlatOverload_DelegatesToBuilderAndRegisterAuditSink()
     {
         // Smoke test for the audit-side delegation; see WriteTo counterpart above.
