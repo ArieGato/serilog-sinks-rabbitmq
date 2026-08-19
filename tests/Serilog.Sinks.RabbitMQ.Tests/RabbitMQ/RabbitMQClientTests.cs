@@ -70,6 +70,71 @@ public class RabbitMQClientTests
     }
 
     [Fact]
+    public async Task PublishAsync_WhenBasicPublishThrows_ReturnsChannelAndRethrows()
+    {
+        // Counterpart to PublishAsync_WhenGetAsyncThrows_DoesNotReturnChannel: here the
+        // channel is already acquired when the publish fails, so the `finally` has to run
+        // its await while an exception is in flight — return the channel to the pool and
+        // let the original exception propagate. Without this the pool would leak a channel
+        // on every publish failure.
+        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        {
+            Exchange = "some-exchange",
+            ExchangeType = "some-exchange-type",
+            RoutingKey = "some-route-key",
+        };
+        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
+
+        var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
+        rabbitMQChannel.BasicPublishAsync(Arg.Any<PublicationAddress>(), Arg.Any<BasicProperties>(), Arg.Any<ReadOnlyMemory<byte>>())
+            .Returns(new ValueTask(Task.FromException(new InvalidOperationException("publish-fail"))));
+        channelPool.GetAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<IRabbitMQChannel>(rabbitMQChannel));
+
+        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
+
+        // Act + Assert
+        (await Should.ThrowAsync<InvalidOperationException>(() =>
+            sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"), new BasicProperties())))
+            .Message.ShouldBe("publish-fail");
+        await channelPool.Received(1).ReturnAsync(Arg.Is(rabbitMQChannel));
+    }
+
+    [Fact]
+    public async Task PublishAsync_WhenReturnAsyncSuspends_StillCompletes()
+    {
+        // The real ReturnAsync awaits the pool's semaphore, so it can genuinely suspend —
+        // which forces PublishAsync's state machine to yield from inside the `finally`.
+        // Every other test here hands back already-completed tasks, so that resumption
+        // path is never taken.
+        var rabbitMQClientConfiguration = new RabbitMQClientConfiguration()
+        {
+            Exchange = "some-exchange",
+            ExchangeType = "some-exchange-type",
+            RoutingKey = "some-route-key",
+        };
+        var rabbitMQConnectionFactory = Substitute.For<IRabbitMQConnectionFactory>();
+        var channelPool = Substitute.For<IRabbitMQChannelPool>();
+
+        var rabbitMQChannel = Substitute.For<IRabbitMQChannel>();
+        channelPool.GetAsync(Arg.Any<CancellationToken>()).Returns(new ValueTask<IRabbitMQChannel>(rabbitMQChannel));
+
+        var gate = new TaskCompletionSource<bool>();
+        channelPool.ReturnAsync(Arg.Any<IRabbitMQChannel>()).Returns(new ValueTask(gate.Task));
+
+        var sut = new RabbitMQClient(rabbitMQClientConfiguration, rabbitMQConnectionFactory, channelPool);
+
+        // Act
+        var publish = sut.PublishAsync(Encoding.UTF8.GetBytes("some-message"), new BasicProperties());
+        publish.IsCompleted.ShouldBeFalse();
+        gate.SetResult(true);
+        await publish;
+
+        // Assert
+        await channelPool.Received(1).ReturnAsync(Arg.Is(rabbitMQChannel));
+    }
+
+    [Fact]
     public async Task CloseAsync_ShouldCloseConnection()
     {
         // Arrange
