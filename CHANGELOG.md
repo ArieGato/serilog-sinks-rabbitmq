@@ -511,6 +511,14 @@ or runtime behaviour change.
   language) or `--filter-class` / `--filter-method`.
 - `-p:TestTfmsInParallel=false` is a VSTest-era property that MTP ignores; CI now passes
   `--max-parallel-test-modules 1` to keep test modules running one at a time.
+- Test projects now build with `DeterministicSourcePaths=false`.
+  `ContinuousIntegrationBuild` (set on CI) rewrites source paths to `/_/...`, and
+  Shouldly's `ShouldMatchApproved` locates the `.approved.txt` file from the stack frame's
+  source path. Shouldly reverses that mapping through the `SHOULDLY_SOURCE_PATH_MAP`
+  environment variable, but the targets that set it only hook the `VSTest` target, which
+  MTP never runs — so `ApiApprovalTests` failed on CI with "Unable to resolve source file
+  from deterministic build source path". Test assemblies are not shipped, so deterministic
+  paths buy nothing there; `src/` is unaffected.
 
 ### Fixed a race in the integration test fixture
 

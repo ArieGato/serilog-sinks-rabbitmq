@@ -78,6 +78,19 @@ Skipping step 4 has repeatedly meant shipping a commit, watching Codecov flag it
 
 Don't hand-edit `.approved.txt`.
 
+Shouldly finds the approved file from the stack frame's source path, so test projects build
+with `<DeterministicSourcePaths>false</DeterministicSourcePaths>` (see
+[Directory.Build.props](Directory.Build.props)). Without it, `ContinuousIntegrationBuild`
+(on by default under GitHub Actions) rewrites those paths to `/_/...` and the test fails with
+`Unable to resolve source file from deterministic build source path` — Shouldly's own
+un-mapping targets only hook the VSTest target, which MTP never runs. Reproduce a CI-shaped
+run locally with `GITHUB_ACTIONS=true dotnet test ...`.
+
+Also note `$(SolutionDir)` is empty when you build a single project instead of the solution,
+which drops the [stylecop.json](stylecop.json) `AdditionalFiles` entry and lights up
+SA1600/SA1611/SA1615 in `src/`. Build the solution, or pass
+`-p:SolutionDir=<repo-root>/`.
+
 ## Architecture
 
 Two extension methods are the public entry points: `WriteTo.RabbitMQ(...)` (batched, `IBatchedLogEventSink`) and `AuditTo.RabbitMQ(...)` (synchronous, throws on failure). Both live in [LoggerConfigurationRabbitMQExtensions.cs](src/Serilog.Sinks.RabbitMQ/LoggerConfigurationRabbitMQExtensions.cs).
