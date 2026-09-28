@@ -86,7 +86,7 @@ jobs:
   buildcheck:
     needs:
       - test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: always()
     steps:
       - name: Pass build check
