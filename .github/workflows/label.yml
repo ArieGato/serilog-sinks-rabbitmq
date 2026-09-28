@@ -13,7 +13,7 @@ on:
 
 jobs:
   label:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/labeler@v7
       with:
